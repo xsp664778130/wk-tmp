@@ -221,8 +221,8 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
         </nav>
         <div className="sidebar-bottom">
           <div className="bridge-card">
-            <div className="bridge-top"><span className="status-dot"/><span>本机 Bridge</span><b>在线</b></div>
-            <p>3 个 AI 工具已连接</p>
+            <div className="bridge-top"><span className="status-dot"/><span>跨平台安装器</span><b>就绪</b></div>
+            <p>支持 3 个 AI 工具</p>
             <div className="mini-tools"><span>CX</span><span>Q</span><span>AI</span></div>
           </div>
           <button className="settings-row"><span>⚙</span> 设置与帮助 <span>›</span></button>
@@ -301,10 +301,10 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
         </section>
 
         <section className="rail-section tools-section">
-          <div className="rail-title"><div><h2>本机工具</h2><p>SkillPort Bridge 已连接</p></div><span className="live-pill"><i/>在线</span></div>
+          <div className="rail-title"><div><h2>本机工具</h2><p>macOS 与 Windows 安装器</p></div><span className="live-pill"><i/>就绪</span></div>
           <div className="tool-list">
             {Object.entries(toolMeta).map(([id, tool]) => (
-              <div className="tool-row" key={id}><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><p><b>{tool.name}</b><small>{id === "codex" ? "v1.8.2 · macOS" : id === "qoder" ? "v0.9.6 · macOS" : "CLI · macOS"}</small></p><span className="connected">已连接</span></div>
+              <div className="tool-row" key={id}><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><p><b>{tool.name}</b><small>macOS · Windows</small></p><span className="connected">可加载</span></div>
             ))}
           </div>
           <button className="manage-tools">管理连接 <span>→</span></button>
@@ -357,12 +357,39 @@ function InstallModal({ skill, signedIn, signInHref, onClose, onDone }: { skill:
     setTargets((current) => current.includes(target) ? current.filter((item) => item !== target) : [...current, target]);
   }
 
-  function install() {
+  async function install() {
     if (!targets.length) return;
+    let payload: Uint8Array;
+    let extension = "md";
+
+    if (skill.uploaded) {
+      const response = await fetch(`/api/skills/${encodeURIComponent(skill.id)}/file`);
+      if (!response.ok) return;
+      payload = new Uint8Array(await response.arrayBuffer());
+      extension = response.headers.get("x-skill-extension") || "zip";
+    } else {
+      payload = new TextEncoder().encode(`# ${skill.name}\n\n${skill.description}\n\n## 使用说明\n\n请根据当前任务调用本 Skill，并在输出前检查结果是否满足用户要求。\n`);
+    }
+
+    let binary = "";
+    for (let index = 0; index < payload.length; index += 8192) {
+      binary += String.fromCharCode(...payload.subarray(index, index + 8192));
+    }
+    const base64 = window.btoa(binary);
+    const slug = skill.name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "") || "skillport-skill";
+    const targetPaths = targets.map((id) => `.${id}/skills/${slug}`);
+    const script = os === "macos"
+      ? createMacInstaller(skill.name, base64, extension, targetPaths)
+      : createWindowsInstaller(skill.name, base64, extension, targetPaths);
+    const blob = new Blob([script], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `install-${slug}.${os === "macos" ? "command" : "ps1"}`;
+    anchor.click();
+    URL.revokeObjectURL(url);
     fetch("/api/installs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ skillId: skill.id, targets, operatingSystem: os }) }).catch(() => undefined);
-    const params = new URLSearchParams({ skill: skill.id, targets: targets.join(","), os });
-    window.location.href = `skillport://install?${params.toString()}`;
-    onDone(`已发送到 ${targets.map((id) => toolMeta[id as keyof typeof toolMeta].name).join("、")}`);
+    onDone(`${os === "macos" ? "macOS" : "Windows"} 安装器已下载`);
   }
 
   return (
@@ -378,11 +405,21 @@ function InstallModal({ skill, signedIn, signInHref, onClose, onDone }: { skill:
             return <button key={id} className={checked ? "target-row checked" : "target-row"} onClick={() => toggleTarget(id)}><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><p><b>{tool.name}</b><small>{os === "macos" ? `~/.${id}/skills` : `%USERPROFILE%\\.${id}\\skills`}</small></p><span className="checkbox">{checked ? "✓" : ""}</span></button>;
           })}
         </div>
-        <div className="bridge-notice"><span className="status-dot"/><p><b>SkillPort Bridge 已就绪</b><small>安装完成后会自动检查 Skill 是否可用</small></p></div>
-        {signedIn ? <button className="full-primary" disabled={!targets.length} onClick={install}>加载到 {targets.length || 0} 个工具 <span>→</span></button> : <a className="full-primary link-button" href={signInHref}>登录后继续 <span>→</span></a>}
+        <div className="bridge-notice"><span className="status-dot"/><p><b>安全安装器已准备</b><small>下载后运行一次，即可写入所选工具的 Skills 目录</small></p></div>
+        {signedIn ? <button className="full-primary" disabled={!targets.length} onClick={install}>下载 {os === "macos" ? "macOS" : "Windows"} 安装器 <span>→</span></button> : <a className="full-primary link-button" href={signInHref}>登录后继续 <span>→</span></a>}
       </div>
     </div>
   );
+}
+
+function createMacInstaller(name: string, base64: string, extension: string, paths: string[]) {
+  const destinations = paths.map((path) => `"$HOME/${path}"`).join(" ");
+  return `#!/bin/zsh\nset -e\nTEMP_DIR="$(mktemp -d)"\ntrap 'rm -rf "$TEMP_DIR"' EXIT\nprintf '%s' '${base64}' | base64 --decode > "$TEMP_DIR/skill.${extension}"\nfor DEST in ${destinations}; do\n  mkdir -p "$DEST"\n  if [ '${extension}' = 'zip' ]; then unzip -oq "$TEMP_DIR/skill.zip" -d "$DEST"; else cp "$TEMP_DIR/skill.${extension}" "$DEST/SKILL.md"; fi\ndone\necho '✓ ${name} 已安装到 ${paths.length} 个 AI 工具'\n`;
+}
+
+function createWindowsInstaller(name: string, base64: string, extension: string, paths: string[]) {
+  const destinations = paths.map((path) => `$env:USERPROFILE + "\\${path.replaceAll("/", "\\")}"`).join(", ");
+  return `$ErrorActionPreference = "Stop"\n$tempDir = Join-Path $env:TEMP "skillport-${Date.now()}"\nNew-Item -ItemType Directory -Force -Path $tempDir | Out-Null\n$file = Join-Path $tempDir "skill.${extension}"\n[IO.File]::WriteAllBytes($file, [Convert]::FromBase64String("${base64}"))\n$destinations = @(${destinations})\nforeach ($dest in $destinations) {\n  New-Item -ItemType Directory -Force -Path $dest | Out-Null\n  if ("${extension}" -eq "zip") { Expand-Archive -Path $file -DestinationPath $dest -Force } else { Copy-Item $file (Join-Path $dest "SKILL.md") -Force }\n}\nRemove-Item $tempDir -Recurse -Force\nWrite-Host "✓ ${name} 已安装到 ${paths.length} 个 AI 工具"\n`;
 }
 
 function UploadModal({ onClose, onFile }: { onClose: () => void; onFile: (file?: File) => void }) {
