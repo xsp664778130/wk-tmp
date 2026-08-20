@@ -17,7 +17,8 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Web 端只在服务端读取 ChatGPT 登录身份，并用私有网关密钥调用 Java 服务。浏览器不会接触网关密钥。
+用户使用 SkillPort 自有邮箱账户注册和登录。密码在 Java 服务端使用 BCrypt 哈希后保存到 MySQL，
+登录会话通过 HttpOnly Cookie 传递；Web 端仅在服务端使用私有网关密钥调用 Java 服务，浏览器不会接触网关密钥或会话原始令牌。
 
 ## Java 平台
 

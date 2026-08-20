@@ -1,8 +1,8 @@
-import { getChatGPTUser } from "../chatgpt-auth";
+import { sessionTokenFromRequest } from "../session-auth";
 
 export async function backendRequest(request: Request, path: string, init?: RequestInit) {
-  const user = await getChatGPTUser();
-  if (!user) return Response.json({ error: "请先登录。" }, { status: 401 });
+  const sessionToken = sessionTokenFromRequest(request);
+  if (!sessionToken) return Response.json({ error: "请先登录。" }, { status: 401 });
 
   const baseUrl = process.env.SKILLPORT_BACKEND_URL?.replace(/\/$/, "");
   const gatewayKey = process.env.SKILLPORT_GATEWAY_KEY;
@@ -12,8 +12,7 @@ export async function backendRequest(request: Request, path: string, init?: Requ
 
   const headers = new Headers(init?.headers);
   headers.set("X-SkillPort-Gateway-Key", gatewayKey);
-  headers.set("X-SkillPort-User-Id", user.userId);
-  headers.set("X-SkillPort-User-Email", user.email);
+  headers.set("Authorization", `Bearer ${sessionToken}`);
 
   try {
     const upstream = await fetch(`${baseUrl}${path}`, { ...init, headers });

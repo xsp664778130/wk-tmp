@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { chatGPTSignInPath, getChatGPTUser } from "./chatgpt-auth";
+import { getSkillPortUser } from "./session-auth";
 import { SkillWorkspace } from "./skill-workspace";
 
 export const dynamic = "force-dynamic";
@@ -10,12 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const user = await getChatGPTUser();
+  const user = await getSkillPortUser();
 
   return (
-    <SkillWorkspace
-      user={user ? { name: user.displayName, email: user.email } : null}
-      signInHref={chatGPTSignInPath("/")}
-    />
+    <SkillWorkspace initialUser={user ? { id: user.id, name: user.displayName, email: user.email } : null} />
   );
 }

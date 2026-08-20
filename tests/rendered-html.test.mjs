@@ -10,17 +10,19 @@ test("defines the SkillPort workspace and product metadata", async () => {
   ]);
 
   assert.match(layout, /SkillPort — AI Skill 管理工作台/);
-  assert.match(page, /getChatGPTUser/);
+  assert.match(page, /getSkillPortUser/);
   assert.match(client, /把好用的 Skill，装进每个 AI/);
+  assert.match(client, /注册新账户/);
   assert.match(client, /快速导入/);
   assert.match(client, /本机工具/);
   assert.doesNotMatch(`${page}${layout}${client}`, /codex-preview|Your site is taking shape/);
 });
 
-test("ships MySQL, Netty and cross-platform Bridge capabilities", async () => {
-  const [hosting, schema, client, nettyServer, bridge] = await Promise.all([
+test("ships MySQL accounts, Netty and cross-platform Bridge capabilities", async () => {
+  const [hosting, schema, userSchema, client, nettyServer, bridge] = await Promise.all([
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V1__init_skillport.sql", import.meta.url), "utf8"),
+    readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V2__add_local_users.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/skill-workspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-server/src/main/java/com/skillport/server/netty/BridgeNettyServer.java", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-bridge/src/main/java/com/skillport/bridge/SkillInstaller.java", import.meta.url), "utf8"),
@@ -29,6 +31,8 @@ test("ships MySQL, Netty and cross-platform Bridge capabilities", async () => {
   assert.match(hosting, /"d1": null/);
   assert.match(hosting, /"r2": null/);
   assert.match(schema, /owner_id/);
+  assert.match(userSchema, /CREATE TABLE users/);
+  assert.match(userSchema, /CREATE TABLE user_sessions/);
   assert.match(nettyServer, /NioServerSocketChannel/);
   assert.match(bridge, /verifySha256/);
   assert.match(client, /macos/);

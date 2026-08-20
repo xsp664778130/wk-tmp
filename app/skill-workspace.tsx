@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DragEvent } from "react";
+import type { DragEvent, FormEvent } from "react";
 
 type Skill = {
   id: string;
@@ -17,7 +17,7 @@ type Skill = {
   compatible: string[];
 };
 
-type User = { name: string; email: string } | null;
+type User = { id: string; name: string; email: string } | null;
 type Device = { id: string; name: string; os: string; arch: string; status: string; lastSeenAt?: string };
 
 const sampleSkills: Skill[] = [
@@ -105,7 +105,8 @@ const toolMeta = {
   openai: { name: "OpenAI", mark: "AI", color: "green" },
 } as const;
 
-export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: string }) {
+export function SkillWorkspace({ initialUser }: { initialUser: User }) {
+  const [user, setUser] = useState<User>(initialUser);
   const [activeCategory, setActiveCategory] = useState("全部技能");
   const [query, setQuery] = useState("");
   const [skills, setSkills] = useState<Skill[]>(sampleSkills);
@@ -114,17 +115,21 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
   const [installer, setInstaller] = useState<Skill | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [pairOpen, setPairOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
     if (!user) return;
-    fetch("/api/skills")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (!data?.skills?.length) return;
-        const uploaded = data.skills.map((skill: Record<string, unknown>, index: number): Skill => ({
+    Promise.all([
+      fetch("/api/skills").then((response) => (response.ok ? response.json() : null)),
+      fetch("/api/devices").then((response) => (response.ok ? response.json() : null)),
+    ])
+      .then(([skillData, deviceData]) => {
+        if (cancelled) return;
+        const uploaded = (Array.isArray(skillData?.skills) ? skillData.skills : []).map((skill: Record<string, unknown>, index: number): Skill => ({
           id: String(skill.id),
           name: String(skill.name),
           description: String(skill.description),
@@ -137,13 +142,11 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
           uploaded: true,
           compatible: String(skill.toolCompatibility || "codex,qoder,openai").split(","),
         }));
-        setSkills((current) => [...uploaded, ...current]);
+        setSkills([...uploaded, ...sampleSkills]);
+        setDevices(Array.isArray(deviceData?.devices) ? deviceData.devices : []);
       })
       .catch(() => undefined);
-    fetch("/api/devices")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => setDevices(Array.isArray(data?.devices) ? data.devices : []))
-      .catch(() => undefined);
+    return () => { cancelled = true; };
   }, [user]);
 
   useEffect(() => {
@@ -163,7 +166,18 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
 
   function guardAccount(action: () => void) {
     if (user) return action();
-    setToast("登录后即可保存个人 Skill、备注和安装记录");
+    setAuthOpen(true);
+    setToast("请先登录 SkillPort 账户");
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    setUser(null);
+    setSkills(sampleSkills);
+    setDevices([]);
+    setSelected(null);
+    setInstaller(null);
+    setToast("已安全退出 SkillPort");
   }
 
   function onFile(file?: File) {
@@ -247,9 +261,9 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
           </div>
           <button className="round-button" aria-label="通知">○<span className="notification-dot"/></button>
           {user ? (
-            <div className="account"><span className="avatar">{displayName.slice(0, 1).toUpperCase()}</span><span className="account-copy"><b>{displayName}</b><small>个人空间</small></span><span>⌄</span></div>
+            <div className="account"><span className="avatar">{displayName.slice(0, 1).toUpperCase()}</span><span className="account-copy"><b>{displayName}</b><small>数据库账户</small></span><button className="logout-button" onClick={logout} aria-label="退出登录">退出</button></div>
           ) : (
-            <a className="login-button" href={signInHref}>登录账户 <span>→</span></a>
+            <button className="login-button" onClick={() => setAuthOpen(true)}>登录 / 注册 <span>→</span></button>
           )}
         </header>
 
@@ -336,10 +350,11 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
         setToast("备注已保存，仅你自己可见");
       }}/>} 
       {installer && (
-        <InstallModal skill={installer} signedIn={Boolean(user)} signInHref={signInHref} onlineDevice={onlineDevice ?? null} onClose={() => setInstaller(null)} onDone={(message) => { setInstaller(null); setToast(message); }}/>
+        <InstallModal skill={installer} signedIn={Boolean(user)} onRequireSignIn={() => { setInstaller(null); setAuthOpen(true); }} onlineDevice={onlineDevice ?? null} onClose={() => setInstaller(null)} onDone={(message) => { setInstaller(null); setToast(message); }}/>
       )}
-      {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)} onFile={onFile}/>} 
+      {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)} onFile={onFile}/>}
       {pairOpen && <PairDeviceModal onClose={() => setPairOpen(false)}/>}
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onAuthenticated={(authenticatedUser) => { setUser(authenticatedUser); setAuthOpen(false); setToast("欢迎进入你的 SkillPort 私人空间"); }}/>}
       {toast && <div className="toast"><span>✓</span>{toast}</div>}
     </div>
   );
@@ -361,7 +376,7 @@ function DetailModal({ skill, onClose, onInstall, onSaveNote }: { skill: Skill; 
   );
 }
 
-function InstallModal({ skill, signedIn, signInHref, onlineDevice, onClose, onDone }: { skill: Skill; signedIn: boolean; signInHref: string; onlineDevice: Device | null; onClose: () => void; onDone: (message: string) => void }) {
+function InstallModal({ skill, signedIn, onRequireSignIn, onlineDevice, onClose, onDone }: { skill: Skill; signedIn: boolean; onRequireSignIn: () => void; onlineDevice: Device | null; onClose: () => void; onDone: (message: string) => void }) {
   const [os, setOs] = useState<"macos" | "windows">("macos");
   const [targets, setTargets] = useState<string[]>(["codex"]);
 
@@ -429,7 +444,7 @@ function InstallModal({ skill, signedIn, signInHref, onlineDevice, onClose, onDo
           })}
         </div>
         <div className="bridge-notice"><span className={onlineDevice ? "status-dot" : "status-dot offline"}/><p><b>{onlineDevice ? `Bridge 已连接：${onlineDevice.name}` : "安全安装器已准备"}</b><small>{onlineDevice ? "点击后由 Netty 实时推送并回传安装进度" : "下载后运行一次，即可写入所选工具的 Skills 目录"}</small></p></div>
-        {signedIn ? <button className="full-primary" disabled={!targets.length} onClick={install}>{onlineDevice && skill.uploaded ? "发送到 Bridge" : `下载 ${os === "macos" ? "macOS" : "Windows"} 安装器`} <span>→</span></button> : <a className="full-primary link-button" href={signInHref}>登录后继续 <span>→</span></a>}
+        {signedIn ? <button className="full-primary" disabled={!targets.length} onClick={install}>{onlineDevice && skill.uploaded ? "发送到 Bridge" : `下载 ${os === "macos" ? "macOS" : "Windows"} 安装器`} <span>→</span></button> : <button className="full-primary" onClick={onRequireSignIn}>登录后继续 <span>→</span></button>}
       </div>
     </div>
   );
@@ -443,6 +458,72 @@ function createMacInstaller(name: string, base64: string, extension: string, pat
 function createWindowsInstaller(name: string, base64: string, extension: string, paths: string[]) {
   const destinations = paths.map((path) => `$env:USERPROFILE + "\\${path.replaceAll("/", "\\")}"`).join(", ");
   return `$ErrorActionPreference = "Stop"\n$tempDir = Join-Path $env:TEMP "skillport-${Date.now()}"\nNew-Item -ItemType Directory -Force -Path $tempDir | Out-Null\n$file = Join-Path $tempDir "skill.${extension}"\n[IO.File]::WriteAllBytes($file, [Convert]::FromBase64String("${base64}"))\n$destinations = @(${destinations})\nforeach ($dest in $destinations) {\n  New-Item -ItemType Directory -Force -Path $dest | Out-Null\n  if ("${extension}" -eq "zip") { Expand-Archive -Path $file -DestinationPath $dest -Force } else { Copy-Item $file (Join-Path $dest "SKILL.md") -Force }\n}\nRemove-Item $tempDir -Recurse -Force\nWrite-Host "✓ ${name} 已安装到 ${paths.length} 个 AI 工具"\n`;
+}
+
+function AuthModal({ onClose, onAuthenticated }: { onClose: () => void; onAuthenticated: (user: Exclude<User, null>) => void }) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    if (mode === "register" && password !== confirmPassword) {
+      setError("两次输入的密码不一致。");
+      return;
+    }
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/auth/${mode}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, password, displayName }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.user) {
+        setError(data?.error || "登录没有完成，请稍后再试。");
+        return;
+      }
+      onAuthenticated({ id: data.user.id, email: data.user.email, name: data.user.displayName });
+    } catch {
+      setError("暂时无法连接登录服务，请稍后再试。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function switchMode(nextMode: "login" | "register") {
+    setMode(nextMode);
+    setError("");
+    setPassword("");
+    setConfirmPassword("");
+  }
+
+  return (
+    <div className="modal-backdrop auth-backdrop" onMouseDown={onClose}>
+      <div className="modal auth-modal" role="dialog" aria-modal="true" aria-label="SkillPort 账户登录" onMouseDown={(event) => event.stopPropagation()}>
+        <button className="close-button" onClick={onClose}>×</button>
+        <div className="auth-brand"><span className="brand-mark">S</span><div><b>欢迎来到 SkillPort</b><small>使用你自己的数据库账户</small></div></div>
+        <div className="auth-tabs" role="tablist">
+          <button className={mode === "login" ? "active" : ""} onClick={() => switchMode("login")}>登录</button>
+          <button className={mode === "register" ? "active" : ""} onClick={() => switchMode("register")}>注册新账户</button>
+        </div>
+        <form className="auth-form" onSubmit={submit}>
+          {mode === "register" && <label><span>显示名称</span><input required maxLength={120} autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="例如：Asher"/></label>}
+          <label><span>邮箱</span><input required type="email" maxLength={254} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com"/></label>
+          <label><span>密码</span><input required type="password" minLength={8} maxLength={72} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="至少 8 位字符"/></label>
+          {mode === "register" && <label><span>确认密码</span><input required type="password" minLength={8} maxLength={72} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="再次输入密码"/></label>}
+          {error && <div className="auth-error" role="alert">{error}</div>}
+          <button className="full-primary auth-submit" disabled={busy}>{busy ? "正在安全验证…" : mode === "login" ? "登录 SkillPort" : "创建私人账户"} <span>→</span></button>
+        </form>
+        <div className="auth-security"><span>✓</span><p><b>密码不会明文保存</b><small>服务端使用 BCrypt 哈希，会话保存在 HttpOnly 安全 Cookie 中。</small></p></div>
+      </div>
+    </div>
+  );
 }
 
 function UploadModal({ onClose, onFile }: { onClose: () => void; onFile: (file?: File) => void }) {
