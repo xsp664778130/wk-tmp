@@ -65,10 +65,10 @@ public class SkillController {
                 .body(resource);
     }
 
-    private static String fileExtension(String fileName) {
+    static String fileExtension(String fileName) {
         int dot = fileName.lastIndexOf('.');
         String extension = dot < 0 ? "zip" : fileName.substring(dot + 1).toLowerCase();
-        return extension.equals("zip") ? "zip" : "md";
+        return extension.equals("zip") || extension.equals("skill") ? extension : "md";
     }
 
     public record NoteRequest(@Size(max = 2000) String note) {

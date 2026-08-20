@@ -2,6 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent, FormEvent } from "react";
+import {
+  createMacInstaller,
+  createMacInstallerArchive,
+  createWindowsInstaller,
+  installPaths,
+  resolveSkillName,
+  slugifySkillName,
+} from "./installer-utils";
 
 type Skill = {
   id: string;
@@ -14,6 +22,7 @@ type Skill = {
   uses: string;
   note?: string;
   uploaded?: boolean;
+  fileName?: string;
   compatible: string[];
 };
 
@@ -140,6 +149,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
           uses: "私有",
           note: String(skill.note || ""),
           uploaded: true,
+          fileName: String(skill.fileName || "skill.zip"),
           compatible: String(skill.toolCompatibility || "codex,qoder,openai").split(","),
         }));
         setSkills([...uploaded, ...sampleSkills]);
@@ -182,11 +192,18 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
 
   function onFile(file?: File) {
     if (!file) return;
-    guardAccount(() => {
+    guardAccount(() => { void uploadFile(file); });
+  }
+
+  async function uploadFile(file: File) {
+    try {
+      const extension = file.name.split(".").pop()?.toLowerCase() || "md";
+      const payload = new Uint8Array(await file.arrayBuffer());
+      const detectedName = resolveSkillName(payload, extension, file.name.replace(/\.(zip|skill|md)$/i, ""));
       setUploadOpen(false);
       const preview: Skill = {
         id: `pending-${Date.now()}`,
-        name: file.name.replace(/\.(zip|skill|md)$/i, ""),
+        name: detectedName,
         description: "刚刚上传，等待补充更详细的 Skill 描述。",
         category: "效率工具",
         accent: "lime",
@@ -194,6 +211,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         author: "我的上传",
         uses: "私有",
         uploaded: true,
+        fileName: file.name,
         compatible: ["codex", "qoder", "openai"],
       };
       setSkills((current) => [preview, ...current]);
@@ -206,14 +224,16 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
           if (!response.ok) throw new Error();
           const data = await response.json();
           const created = data.skill ?? data;
-          setSkills((current) => current.map((skill) => skill.id === preview.id ? { ...preview, id: created.id } : skill));
+          setSkills((current) => current.map((skill) => skill.id === preview.id ? { ...preview, id: created.id, fileName: created.fileName || file.name } : skill));
           setToast("Skill 已安全保存到你的私人空间");
         })
         .catch(() => {
           setSkills((current) => current.filter((skill) => skill.id !== preview.id));
           setToast("上传没有完成，请稍后再试");
         });
-    });
+    } catch {
+      setToast("无法读取 Skill 文件，请检查文件是否完整");
+    }
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
@@ -378,7 +398,7 @@ function DetailModal({ skill, onClose, onInstall, onSaveNote }: { skill: Skill; 
 
 function InstallModal({ skill, signedIn, onRequireSignIn, onlineDevice, onClose, onDone }: { skill: Skill; signedIn: boolean; onRequireSignIn: () => void; onlineDevice: Device | null; onClose: () => void; onDone: (message: string) => void }) {
   const [os, setOs] = useState<"macos" | "windows">("macos");
-  const [targets, setTargets] = useState<string[]>(["codex"]);
+  const [targets, setTargets] = useState<string[]>(() => skill.compatible.includes("codex") ? ["codex"] : skill.compatible.slice(0, 1));
 
   function toggleTarget(target: string) {
     setTargets((current) => current.includes(target) ? current.filter((item) => item !== target) : [...current, target]);
@@ -414,20 +434,34 @@ function InstallModal({ skill, signedIn, onRequireSignIn, onlineDevice, onClose,
       binary += String.fromCharCode(...payload.subarray(index, index + 8192));
     }
     const base64 = window.btoa(binary);
-    const slug = skill.name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "") || "skillport-skill";
-    const targetPaths = targets.map((id) => `.${id}/skills/${slug}`);
-    const script = os === "macos"
-      ? createMacInstaller(skill.name, base64, extension, targetPaths)
-      : createWindowsInstaller(skill.name, base64, extension, targetPaths);
-    const blob = new Blob([script], { type: "text/plain;charset=utf-8" });
+    const resolvedName = resolveSkillName(payload, extension, skill.name);
+    const slug = slugifySkillName(resolvedName);
+    const selectedTargets = targets.filter((target) => skill.compatible.includes(target));
+    const targetPaths = installPaths(selectedTargets, slug);
+    if (!targetPaths.length) return;
+    const targetLabel = selectedTargets.join("-");
+    const uniqueSuffix = Date.now();
+    let blob: Blob;
+    let downloadName: string;
+    if (os === "macos") {
+      const scriptFileName = `install-${slug}.command`;
+      const script = createMacInstaller(base64, extension, targetPaths);
+      blob = new Blob([createMacInstallerArchive(script, scriptFileName)], { type: "application/zip" });
+      downloadName = `skillport-${slug}-${targetLabel}-${uniqueSuffix}.zip`;
+    } else {
+      const script = createWindowsInstaller(base64, extension, targetPaths);
+      blob = new Blob([script], { type: "text/plain;charset=utf-8" });
+      downloadName = `install-${slug}-${targetLabel}-${uniqueSuffix}.ps1`;
+    }
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `install-${slug}.${os === "macos" ? "command" : "ps1"}`;
+    anchor.download = downloadName;
     anchor.click();
-    URL.revokeObjectURL(url);
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     fetch("/api/installs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ skillId: skill.id, targets, operatingSystem: os }) }).catch(() => undefined);
-    onDone(`${os === "macos" ? "macOS" : "Windows"} 安装器已下载`);
+    onDone(`${os === "macos" ? "macOS ZIP" : "Windows"} 安装器已下载（${selectedTargets.length} 个工具）`);
   }
 
   return (
@@ -443,21 +477,12 @@ function InstallModal({ skill, signedIn, onRequireSignIn, onlineDevice, onClose,
             return <button key={id} className={checked ? "target-row checked" : "target-row"} onClick={() => toggleTarget(id)}><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><p><b>{tool.name}</b><small>{os === "macos" ? `~/.${id}/skills` : `%USERPROFILE%\\.${id}\\skills`}</small></p><span className="checkbox">{checked ? "✓" : ""}</span></button>;
           })}
         </div>
-        <div className="bridge-notice"><span className={onlineDevice ? "status-dot" : "status-dot offline"}/><p><b>{onlineDevice ? `Bridge 已连接：${onlineDevice.name}` : "安全安装器已准备"}</b><small>{onlineDevice ? "点击后由 Netty 实时推送并回传安装进度" : "下载后运行一次，即可写入所选工具的 Skills 目录"}</small></p></div>
+        <div className="bridge-notice"><span className={onlineDevice ? "status-dot" : "status-dot offline"}/><p><b>{onlineDevice ? `Bridge 已连接：${onlineDevice.name}` : "安全安装器已准备"}</b><small>{onlineDevice ? "点击后由 Netty 实时推送并回传安装进度" : os === "macos" ? "下载 ZIP、解压后运行一次；安装前会自动备份同名 Skill" : "下载后运行一次；安装前会自动备份同名 Skill"}</small></p></div>
+        {skill.fileName?.toLowerCase().endsWith(".md") && <div className="pair-error">当前是单文件 SKILL.md；如 Skill 还包含 scripts、references 或 assets，请重新上传 ZIP。</div>}
         {signedIn ? <button className="full-primary" disabled={!targets.length} onClick={install}>{onlineDevice && skill.uploaded ? "发送到 Bridge" : `下载 ${os === "macos" ? "macOS" : "Windows"} 安装器`} <span>→</span></button> : <button className="full-primary" onClick={onRequireSignIn}>登录后继续 <span>→</span></button>}
       </div>
     </div>
   );
-}
-
-function createMacInstaller(name: string, base64: string, extension: string, paths: string[]) {
-  const destinations = paths.map((path) => `"$HOME/${path}"`).join(" ");
-  return `#!/bin/zsh\nset -e\nTEMP_DIR="$(mktemp -d)"\ntrap 'rm -rf "$TEMP_DIR"' EXIT\nprintf '%s' '${base64}' | base64 --decode > "$TEMP_DIR/skill.${extension}"\nfor DEST in ${destinations}; do\n  mkdir -p "$DEST"\n  if [ '${extension}' = 'zip' ]; then unzip -oq "$TEMP_DIR/skill.zip" -d "$DEST"; else cp "$TEMP_DIR/skill.${extension}" "$DEST/SKILL.md"; fi\ndone\necho '✓ ${name} 已安装到 ${paths.length} 个 AI 工具'\n`;
-}
-
-function createWindowsInstaller(name: string, base64: string, extension: string, paths: string[]) {
-  const destinations = paths.map((path) => `$env:USERPROFILE + "\\${path.replaceAll("/", "\\")}"`).join(", ");
-  return `$ErrorActionPreference = "Stop"\n$tempDir = Join-Path $env:TEMP "skillport-${Date.now()}"\nNew-Item -ItemType Directory -Force -Path $tempDir | Out-Null\n$file = Join-Path $tempDir "skill.${extension}"\n[IO.File]::WriteAllBytes($file, [Convert]::FromBase64String("${base64}"))\n$destinations = @(${destinations})\nforeach ($dest in $destinations) {\n  New-Item -ItemType Directory -Force -Path $dest | Out-Null\n  if ("${extension}" -eq "zip") { Expand-Archive -Path $file -DestinationPath $dest -Force } else { Copy-Item $file (Join-Path $dest "SKILL.md") -Force }\n}\nRemove-Item $tempDir -Recurse -Force\nWrite-Host "✓ ${name} 已安装到 ${paths.length} 个 AI 工具"\n`;
 }
 
 function AuthModal({ onClose, onAuthenticated }: { onClose: () => void; onAuthenticated: (user: Exclude<User, null>) => void }) {
