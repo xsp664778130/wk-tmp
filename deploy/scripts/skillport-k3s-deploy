@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ $# -ne 3 ]]; then
+  echo "Usage: skillport-k3s-deploy <server-image-or-tar> <bridge.jar> <release-id>" >&2
+  exit 64
+fi
+
+image_source=$1
+bridge_jar=$2
+release_id=$3
+image_name="docker.io/skillport/server:${release_id}"
+
+[[ -f "$bridge_jar" ]] || { echo "Missing Bridge JAR: $bridge_jar" >&2; exit 66; }
+[[ "$release_id" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Invalid release id" >&2; exit 64; }
+
+if [[ -f "$image_source" ]]; then
+  k3s ctr images import "$image_source"
+  k3s ctr images tag docker.io/skillport/server:local "$image_name"
+else
+  [[ "$image_source" =~ ^[A-Za-z0-9._:/-]+$ ]] || { echo "Invalid image name" >&2; exit 64; }
+  image_name=$image_source
+fi
+
+service_account_dir=/var/run/secrets/kubernetes.io/serviceaccount
+kube() {
+  if [[ -r "$service_account_dir/token" ]]; then
+    k3s kubectl \
+      --server=https://10.43.0.1:443 \
+      --certificate-authority="$service_account_dir/ca.crt" \
+      --token="$(<"$service_account_dir/token")" "$@"
+  else
+    k3s kubectl "$@"
+  fi
+}
+
+install -D -m 0644 "$bridge_jar" /srv/skillport/bridge/skillport-bridge.jar
+
+previous_image=$(kube -n skillport get deployment skillport-server \
+  -o jsonpath='{.spec.template.spec.containers[?(@.name=="server")].image}')
+
+kube -n skillport set image deployment/skillport-server "server=${image_name}"
+if ! kube -n skillport rollout status deployment/skillport-server --timeout=180s; then
+  echo "Deployment failed; restoring ${previous_image}" >&2
+  kube -n skillport set image deployment/skillport-server "server=${previous_image}"
+  kube -n skillport rollout status deployment/skillport-server --timeout=180s
+  exit 1
+fi
+
+kube -n skillport annotate deployment skillport-server \
+  "skillport.io/release-id=${release_id}" --overwrite

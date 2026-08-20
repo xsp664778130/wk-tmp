@@ -1,0 +1,25 @@
+[Unit]
+Description=SkillPort API and Netty server
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=skillport
+Group=skillport
+WorkingDirectory=/var/lib/skillport
+EnvironmentFile=/etc/skillport/skillport.env
+ExecStart=/usr/bin/java -XX:MaxRAMPercentage=65 -Djava.io.tmpdir=/var/lib/skillport/tmp -jar /opt/skillport/current/skillport-server.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/skillport
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

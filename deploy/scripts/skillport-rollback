@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly APP_ROOT=/opt/skillport
+readonly RELEASES_ROOT="$APP_ROOT/releases"
+readonly CURRENT_LINK="$APP_ROOT/current"
+readonly HEALTH_URL=http://127.0.0.1:8080/actuator/health
+
+if [[ $EUID -ne 0 ]]; then
+    echo "skillport-rollback must run as root" >&2
+    exit 1
+fi
+if [[ $# -ne 1 || ! $1 =~ ^[A-Za-z0-9._-]+$ ]]; then
+    echo "usage: skillport-rollback <release-id>" >&2
+    exit 2
+fi
+
+target="$RELEASES_ROOT/$1"
+if [[ ! -f $target/skillport-server.jar ]]; then
+    echo "release does not exist: $1" >&2
+    exit 3
+fi
+
+exec 9>"$APP_ROOT/deploy.lock"
+flock -n 9 || { echo "another deployment is running" >&2; exit 4; }
+
+ln -sfn "$target" "$CURRENT_LINK"
+systemctl restart skillport.service
+
+for attempt in {1..30}; do
+    if curl --silent --show-error --fail --max-time 2 "$HEALTH_URL" | grep -q '"status":"UP"'; then
+        echo "rolled back to release=$1"
+        exit 0
+    fi
+    sleep 2
+done
+
+echo "rollback target failed its health check: $1" >&2
+exit 5

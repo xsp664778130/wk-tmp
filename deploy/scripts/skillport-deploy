@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly APP_ROOT=/opt/skillport
+readonly RELEASES_ROOT="$APP_ROOT/releases"
+readonly CURRENT_LINK="$APP_ROOT/current"
+readonly HEALTH_URL=http://127.0.0.1:8080/actuator/health
+
+if [[ $EUID -ne 0 ]]; then
+    echo "skillport-deploy must run as root" >&2
+    exit 1
+fi
+if [[ $# -ne 3 ]]; then
+    echo "usage: skillport-deploy <server-jar> <bridge-jar> <release-id>" >&2
+    exit 2
+fi
+
+server_jar=$(realpath -e -- "$1")
+bridge_jar=$(realpath -e -- "$2")
+release_id=$3
+
+if [[ ! -f $server_jar || ! -s $server_jar || ! -f $bridge_jar || ! -s $bridge_jar ]]; then
+    echo "both artifacts must be non-empty regular files" >&2
+    exit 2
+fi
+if [[ ! $release_id =~ ^[A-Za-z0-9._-]+$ ]]; then
+    echo "release id contains unsupported characters" >&2
+    exit 2
+fi
+
+mkdir -p "$RELEASES_ROOT"
+exec 9>"$APP_ROOT/deploy.lock"
+flock -n 9 || { echo "another deployment is running" >&2; exit 3; }
+
+release_dir="$RELEASES_ROOT/$release_id"
+if [[ -e $release_dir ]]; then
+    echo "release already exists: $release_id" >&2
+    exit 4
+fi
+
+previous_release=""
+if [[ -L $CURRENT_LINK ]]; then
+    previous_release=$(readlink -f -- "$CURRENT_LINK")
+fi
+
+mkdir -p "$release_dir"
+install -m 0644 "$server_jar" "$release_dir/skillport-server.jar"
+install -m 0644 "$bridge_jar" "$release_dir/skillport-bridge.jar"
+chown -R root:skillport "$release_dir"
+ln -sfn "$release_dir" "$CURRENT_LINK"
+
+systemctl restart skillport.service
+
+healthy=false
+for attempt in {1..30}; do
+    if curl --silent --show-error --fail --max-time 2 "$HEALTH_URL" | grep -q '"status":"UP"'; then
+        healthy=true
+        break
+    fi
+    sleep 2
+done
+
+if [[ $healthy == true ]]; then
+    echo "deployed release=$release_id"
+    exit 0
+fi
+
+echo "health check failed for release=$release_id; rolling back" >&2
+if [[ -n $previous_release && -d $previous_release ]]; then
+    ln -sfn "$previous_release" "$CURRENT_LINK"
+    systemctl restart skillport.service
+    echo "rolled back to $(basename "$previous_release")" >&2
+else
+    systemctl stop skillport.service
+    echo "no previous release exists; service stopped" >&2
+fi
+exit 5

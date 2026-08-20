@@ -1,100 +1,36 @@
-# vinext-starter
+# SkillPort
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+SkillPort 是一个按用户隔离的 AI Skill 管理与分发平台。网页负责搜索、上传、备注和发起安装；Java 云端负责 MySQL 数据、设备配对和权限；Netty 负责 Bridge 长连接、断点下载和安装进度；Bridge 在 macOS/Windows 本机完成校验与安装。
 
-## Prerequisites
+## 工程结构
 
-- Node.js `>=22.13.0`
+- `app/`：SkillPort Web 管理端和 Java API 网关
+- `java/skillport-server/`：Spring Boot + MySQL + Netty 云端服务
+- `java/skillport-bridge/`：macOS/Windows 本机 Bridge
+- `java/skillport-protocol/`：服务端和客户端共享的通信协议
 
-## Quick Start
+## Web 管理端
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
-npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
+Web 端只在服务端读取 ChatGPT 登录身份，并用私有网关密钥调用 Java 服务。浏览器不会接触网关密钥。
 
-## Included Shape
+## Java 平台
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+完整的 MySQL、服务端和 Bridge 启动说明见 [`java/README.md`](java/README.md)。
 
-## Workspace Auth Headers
+阿里云轻量应用服务器上的 Jenkins 自动构建、健康检查、失败回滚和 HTTPS 配置见
+[`deploy/README.md`](deploy/README.md)。
 
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
+当前 K3s 生产清单位于 [`deploy/k3s/`](deploy/k3s/)，包含 MySQL、SkillPort 和 Jenkins。
 
-The user ID is stable for the same user on the same Site and different across Sites. Email and name are intended for display or contact purposes.
+## 验证
 
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```bash
+npm test
+cd java && mvn test
 ```
-
-## Optional Dispatch-Owned ChatGPT Sign-In
-
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
-
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
-
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
-
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
-
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
-
-## Useful Commands
-
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
-
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)

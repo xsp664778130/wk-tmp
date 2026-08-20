@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
-const root = new URL("../", import.meta.url);
-
 test("defines the SkillPort workspace and product metadata", async () => {
   const [page, layout, client] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
@@ -19,16 +17,20 @@ test("defines the SkillPort workspace and product metadata", async () => {
   assert.doesNotMatch(`${page}${layout}${client}`, /codex-preview|Your site is taking shape/);
 });
 
-test("ships persistent personal-data capabilities", async () => {
-  const [hosting, schema, client] = await Promise.all([
+test("ships MySQL, Netty and cross-platform Bridge capabilities", async () => {
+  const [hosting, schema, client, nettyServer, bridge] = await Promise.all([
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
-    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V1__init_skillport.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/skill-workspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../java/skillport-server/src/main/java/com/skillport/server/netty/BridgeNettyServer.java", import.meta.url), "utf8"),
+    readFile(new URL("../java/skillport-bridge/src/main/java/com/skillport/bridge/SkillInstaller.java", import.meta.url), "utf8"),
   ]);
 
-  assert.match(hosting, /"d1": "DB"/);
-  assert.match(hosting, /"r2": "SKILL_FILES"/);
-  assert.match(schema, /ownerId/);
+  assert.match(hosting, /"d1": null/);
+  assert.match(hosting, /"r2": null/);
+  assert.match(schema, /owner_id/);
+  assert.match(nettyServer, /NioServerSocketChannel/);
+  assert.match(bridge, /verifySha256/);
   assert.match(client, /macos/);
   assert.match(client, /windows/);
   await access(new URL("../public/og.png", import.meta.url));

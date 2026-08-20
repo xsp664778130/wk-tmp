@@ -1,0 +1,51 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: skillport-server
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/skillport?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${MYSQL_USER:skillport}
+    password: ${MYSQL_PASSWORD:skillport}
+    hikari:
+      maximum-pool-size: ${MYSQL_POOL_SIZE:20}
+      minimum-idle: 2
+      connection-timeout: 5000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 100
+        order_inserts: true
+        order_updates: true
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 26MB
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+skillport:
+  gateway-key: ${SKILLPORT_GATEWAY_KEY:change-me-before-production}
+  storage-root: ${SKILLPORT_STORAGE_ROOT:./data/skills}
+  public-api-base-url: ${SKILLPORT_API_PUBLIC_URL:http://localhost:8080}
+  public-netty-base-url: ${SKILLPORT_NETTY_PUBLIC_URL:http://localhost:9091}
+  netty:
+    port: ${SKILLPORT_NETTY_PORT:9091}
+    worker-threads: ${SKILLPORT_NETTY_WORKERS:4}
+
+logging:
+  level:
+    root: INFO
+    com.skillport: INFO

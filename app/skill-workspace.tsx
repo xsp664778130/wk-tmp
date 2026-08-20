@@ -18,6 +18,7 @@ type Skill = {
 };
 
 type User = { name: string; email: string } | null;
+type Device = { id: string; name: string; os: string; arch: string; status: string; lastSeenAt?: string };
 
 const sampleSkills: Skill[] = [
   {
@@ -108,9 +109,11 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
   const [activeCategory, setActiveCategory] = useState("全部技能");
   const [query, setQuery] = useState("");
   const [skills, setSkills] = useState<Skill[]>(sampleSkills);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [selected, setSelected] = useState<Skill | null>(null);
   const [installer, setInstaller] = useState<Skill | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [pairOpen, setPairOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -136,6 +139,10 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
         }));
         setSkills((current) => [...uploaded, ...current]);
       })
+      .catch(() => undefined);
+    fetch("/api/devices")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => setDevices(Array.isArray(data?.devices) ? data.devices : []))
       .catch(() => undefined);
   }, [user]);
 
@@ -184,7 +191,8 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
         .then(async (response) => {
           if (!response.ok) throw new Error();
           const data = await response.json();
-          setSkills((current) => current.map((skill) => skill.id === preview.id ? { ...preview, id: data.skill.id } : skill));
+          const created = data.skill ?? data;
+          setSkills((current) => current.map((skill) => skill.id === preview.id ? { ...preview, id: created.id } : skill));
           setToast("Skill 已安全保存到你的私人空间");
         })
         .catch(() => {
@@ -201,6 +209,7 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
   }
 
   const displayName = user?.name?.includes("@") ? user.name.split("@")[0] : user?.name || "访客";
+  const onlineDevice = devices.find((device) => device.status === "ONLINE");
 
   return (
     <div className="app-shell">
@@ -221,8 +230,8 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
         </nav>
         <div className="sidebar-bottom">
           <div className="bridge-card">
-            <div className="bridge-top"><span className="status-dot"/><span>跨平台安装器</span><b>就绪</b></div>
-            <p>支持 3 个 AI 工具</p>
+            <div className="bridge-top"><span className={onlineDevice ? "status-dot" : "status-dot offline"}/><span>SkillPort Bridge</span><b>{onlineDevice ? "在线" : "离线"}</b></div>
+            <p>{onlineDevice ? onlineDevice.name : "可使用安装脚本兜底"}</p>
             <div className="mini-tools"><span>CX</span><span>Q</span><span>AI</span></div>
           </div>
           <button className="settings-row"><span>⚙</span> 设置与帮助 <span>›</span></button>
@@ -301,13 +310,13 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
         </section>
 
         <section className="rail-section tools-section">
-          <div className="rail-title"><div><h2>本机工具</h2><p>macOS 与 Windows 安装器</p></div><span className="live-pill"><i/>就绪</span></div>
+          <div className="rail-title"><div><h2>本机工具</h2><p>{onlineDevice ? `${onlineDevice.name} · ${onlineDevice.os}` : "等待 Bridge 客户端连接"}</p></div><span className={onlineDevice ? "live-pill" : "live-pill offline"}><i/>{onlineDevice ? "在线" : "离线"}</span></div>
           <div className="tool-list">
             {Object.entries(toolMeta).map(([id, tool]) => (
               <div className="tool-row" key={id}><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><p><b>{tool.name}</b><small>macOS · Windows</small></p><span className="connected">可加载</span></div>
             ))}
           </div>
-          <button className="manage-tools">管理连接 <span>→</span></button>
+          <button className="manage-tools" onClick={() => guardAccount(() => setPairOpen(true))}>{onlineDevice ? "管理连接" : "配对新设备"} <span>→</span></button>
         </section>
 
         <section className="rail-section activity-section">
@@ -326,8 +335,11 @@ export function SkillWorkspace({ user, signInHref }: { user: User; signInHref: s
         if (selected.uploaded && user) fetch("/api/skills", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: selected.id, note }) }).catch(() => undefined);
         setToast("备注已保存，仅你自己可见");
       }}/>} 
-      {installer && <InstallModal skill={installer} signedIn={Boolean(user)} signInHref={signInHref} onClose={() => setInstaller(null)} onDone={(message) => { setInstaller(null); setToast(message); }}/>} 
+      {installer && (
+        <InstallModal skill={installer} signedIn={Boolean(user)} signInHref={signInHref} onlineDevice={onlineDevice ?? null} onClose={() => setInstaller(null)} onDone={(message) => { setInstaller(null); setToast(message); }}/>
+      )}
       {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)} onFile={onFile}/>} 
+      {pairOpen && <PairDeviceModal onClose={() => setPairOpen(false)}/>}
       {toast && <div className="toast"><span>✓</span>{toast}</div>}
     </div>
   );
@@ -349,7 +361,7 @@ function DetailModal({ skill, onClose, onInstall, onSaveNote }: { skill: Skill; 
   );
 }
 
-function InstallModal({ skill, signedIn, signInHref, onClose, onDone }: { skill: Skill; signedIn: boolean; signInHref: string; onClose: () => void; onDone: (message: string) => void }) {
+function InstallModal({ skill, signedIn, signInHref, onlineDevice, onClose, onDone }: { skill: Skill; signedIn: boolean; signInHref: string; onlineDevice: Device | null; onClose: () => void; onDone: (message: string) => void }) {
   const [os, setOs] = useState<"macos" | "windows">("macos");
   const [targets, setTargets] = useState<string[]>(["codex"]);
 
@@ -359,6 +371,17 @@ function InstallModal({ skill, signedIn, signInHref, onClose, onDone }: { skill:
 
   async function install() {
     if (!targets.length) return;
+    if (onlineDevice && skill.uploaded) {
+      const taskResponse = await fetch("/api/installs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ skillId: skill.id, deviceId: onlineDevice.id, targets }),
+      });
+      if (taskResponse.ok) {
+        onDone(`安装任务已发送到 ${onlineDevice.name}`);
+        return;
+      }
+    }
     let payload: Uint8Array;
     let extension = "md";
 
@@ -405,8 +428,8 @@ function InstallModal({ skill, signedIn, signInHref, onClose, onDone }: { skill:
             return <button key={id} className={checked ? "target-row checked" : "target-row"} onClick={() => toggleTarget(id)}><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><p><b>{tool.name}</b><small>{os === "macos" ? `~/.${id}/skills` : `%USERPROFILE%\\.${id}\\skills`}</small></p><span className="checkbox">{checked ? "✓" : ""}</span></button>;
           })}
         </div>
-        <div className="bridge-notice"><span className="status-dot"/><p><b>安全安装器已准备</b><small>下载后运行一次，即可写入所选工具的 Skills 目录</small></p></div>
-        {signedIn ? <button className="full-primary" disabled={!targets.length} onClick={install}>下载 {os === "macos" ? "macOS" : "Windows"} 安装器 <span>→</span></button> : <a className="full-primary link-button" href={signInHref}>登录后继续 <span>→</span></a>}
+        <div className="bridge-notice"><span className={onlineDevice ? "status-dot" : "status-dot offline"}/><p><b>{onlineDevice ? `Bridge 已连接：${onlineDevice.name}` : "安全安装器已准备"}</b><small>{onlineDevice ? "点击后由 Netty 实时推送并回传安装进度" : "下载后运行一次，即可写入所选工具的 Skills 目录"}</small></p></div>
+        {signedIn ? <button className="full-primary" disabled={!targets.length} onClick={install}>{onlineDevice && skill.uploaded ? "发送到 Bridge" : `下载 ${os === "macos" ? "macOS" : "Windows"} 安装器`} <span>→</span></button> : <a className="full-primary link-button" href={signInHref}>登录后继续 <span>→</span></a>}
       </div>
     </div>
   );
@@ -428,6 +451,38 @@ function UploadModal({ onClose, onFile }: { onClose: () => void; onFile: (file?:
       <div className="modal upload-modal" role="dialog" aria-modal="true" aria-label="上传 Skill" onMouseDown={(event) => event.stopPropagation()}>
         <button className="close-button" onClick={onClose}>×</button><span className="step-label">PRIVATE UPLOAD</span><h2>上传你的 Skill</h2><p className="install-lead">文件与备注都存放在你的私人空间，其他用户无法看到。</p>
         <label className="large-upload"><input type="file" accept=".zip,.skill,.md" onChange={(event) => onFile(event.target.files?.[0])}/><span>↑</span><b>选择 Skill 文件</b><small>.zip、.skill 或 SKILL.md，最大 25MB</small></label>
+      </div>
+    </div>
+  );
+}
+
+function PairDeviceModal({ onClose }: { onClose: () => void }) {
+  const [pairing, setPairing] = useState<{ code: string; expiresAt: string; apiBaseUrl: string; nettyUrl: string } | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/devices", { method: "POST" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        setPairing(await response.json());
+      })
+      .catch(() => setError("暂时无法生成配对码，请检查 Java 服务配置。"));
+  }, []);
+
+  const command = pairing
+    ? `java -jar skillport-bridge.jar pair ${pairing.apiBaseUrl} ${pairing.nettyUrl} ${pairing.code} "My Computer"`
+    : "";
+
+  return (
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <div className="modal pair-modal" role="dialog" aria-modal="true" aria-label="配对 Bridge" onMouseDown={(event) => event.stopPropagation()}>
+        <button className="close-button" onClick={onClose}>×</button><span className="step-label">PAIR A DEVICE</span><h2>连接 SkillPort Bridge</h2>
+        <p className="install-lead">在 macOS 或 Windows 客户端运行下面的命令。配对码十分钟内有效，使用一次后立即失效。</p>
+        {error ? <div className="pair-error">{error}</div> : pairing ? <>
+          <div className="pair-code"><small>设备配对码</small><b>{pairing.code}</b><span>有效期至 {new Date(pairing.expiresAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</span></div>
+          <div className="pair-command"><code>{command}</code><button onClick={() => navigator.clipboard.writeText(command)}>复制</button></div>
+          <div className="bridge-notice"><span className="status-dot"/><p><b>配对后会自动保持连接</b><small>设备令牌仅保存在本机，服务端只保存哈希</small></p></div>
+        </> : <div className="pair-loading">正在生成安全配对码…</div>}
       </div>
     </div>
   );

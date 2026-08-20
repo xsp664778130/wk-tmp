@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:skillport;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+skillport:
+  gateway-key: test-gateway-key
+  storage-root: ${java.io.tmpdir}/skillport-test-storage
+  public-api-base-url: http://localhost:0
+  public-netty-base-url: http://localhost:0
+  netty:
+    port: 0
+    worker-threads: 1

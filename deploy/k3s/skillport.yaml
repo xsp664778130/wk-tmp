@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: skill-files
+  namespace: skillport
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skillport-server
+  namespace: skillport
+spec:
+  clusterIP: 10.43.50.20
+  selector:
+    app.kubernetes.io/name: skillport-server
+  ports:
+    - name: api
+      port: 8080
+      targetPort: api
+    - name: netty
+      port: 9091
+      targetPort: netty
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skillport-server
+  namespace: skillport
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: skillport-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: skillport-server
+        app.kubernetes.io/part-of: skillport
+    spec:
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: server
+          image: skillport/server:local
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+          ports:
+            - name: api
+              containerPort: 8080
+            - name: netty
+              containerPort: 9091
+          env:
+            - name: MYSQL_URL
+              value: jdbc:mysql://mysql.skillport.svc.cluster.local:3306/skillport?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: skillport-secrets
+                  key: mysql-user
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: skillport-secrets
+                  key: mysql-password
+            - name: SKILLPORT_GATEWAY_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: skillport-secrets
+                  key: gateway-key
+            - name: SKILLPORT_STORAGE_ROOT
+              value: /app/data/skills
+            - name: SKILLPORT_API_PUBLIC_URL
+              value: http://47.116.50.220
+            - name: SKILLPORT_NETTY_PUBLIC_URL
+              value: http://47.116.50.220
+            - name: MYSQL_POOL_SIZE
+              value: "10"
+            - name: SKILLPORT_NETTY_WORKERS
+              value: "4"
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: api
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: api
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: api
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: skill-files
+              mountPath: /app/data/skills
+      volumes:
+        - name: skill-files
+          persistentVolumeClaim:
+            claimName: skill-files
