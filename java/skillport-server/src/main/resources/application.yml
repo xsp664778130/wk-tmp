@@ -40,6 +40,7 @@ skillport:
   gateway-key: ${SKILLPORT_GATEWAY_KEY:change-me-before-production}
   session-ttl: ${SKILLPORT_SESSION_TTL:30d}
   storage-root: ${SKILLPORT_STORAGE_ROOT:./data/skills}
+  bridge-artifact-root: ${SKILLPORT_BRIDGE_ARTIFACT_ROOT:./data/bridge}
   public-api-base-url: ${SKILLPORT_API_PUBLIC_URL:http://localhost:8080}
   public-netty-base-url: ${SKILLPORT_NETTY_PUBLIC_URL:http://localhost:9091}
   netty:

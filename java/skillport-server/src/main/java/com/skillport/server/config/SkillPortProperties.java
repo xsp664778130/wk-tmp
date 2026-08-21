@@ -10,6 +10,7 @@ public record SkillPortProperties(
         String gatewayKey,
         Duration sessionTtl,
         Path storageRoot,
+        Path bridgeArtifactRoot,
         String publicApiBaseUrl,
         String publicNettyBaseUrl,
         Netty netty

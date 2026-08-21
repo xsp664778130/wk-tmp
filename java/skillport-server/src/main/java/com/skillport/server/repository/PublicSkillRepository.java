@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PublicSkillRepository extends JpaRepository<PublicSkillEntity, Long> {
+    long countByPublisherOwnerId(String publisherOwnerId);
     Optional<PublicSkillEntity> findByPublicId(String publicId);
     Optional<PublicSkillEntity> findBySourceSkillPublicId(String sourceSkillPublicId);
     List<PublicSkillEntity> findAllByOrderByPublishedAtDesc(Pageable pageable);

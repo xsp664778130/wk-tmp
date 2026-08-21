@@ -86,8 +86,10 @@ spec:
                   key: gateway-key
             - name: SKILLPORT_STORAGE_ROOT
               value: /app/data/skills
+            - name: SKILLPORT_BRIDGE_ARTIFACT_ROOT
+              value: /app/bridge
             - name: SKILLPORT_API_PUBLIC_URL
-              value: https://api.jmuyuer.com
+              value: https://www.jmuyuer.com
             - name: SKILLPORT_NETTY_PUBLIC_URL
               value: https://bridge.jmuyuer.com
             - name: MYSQL_POOL_SIZE
@@ -122,7 +124,14 @@ spec:
           volumeMounts:
             - name: skill-files
               mountPath: /app/data/skills
+            - name: bridge-artifacts
+              mountPath: /app/bridge
+              readOnly: true
       volumes:
         - name: skill-files
           persistentVolumeClaim:
             claimName: skill-files
+        - name: bridge-artifacts
+          hostPath:
+            path: /srv/skillport/bridge
+            type: DirectoryOrCreate
