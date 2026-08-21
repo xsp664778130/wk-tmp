@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface SkillRepository extends JpaRepository<SkillEntity, Long> {
+    long countByOwnerId(String ownerId);
     List<SkillEntity> findAllByOwnerIdOrderByCreatedAtDesc(String ownerId);
     Optional<SkillEntity> findByPublicIdAndOwnerId(String publicId, String ownerId);
     Optional<SkillEntity> findByPublicId(String publicId);

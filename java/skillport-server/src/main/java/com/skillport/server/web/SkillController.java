@@ -43,7 +43,7 @@ public class SkillController {
     public SkillResponse upload(@RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
                                 @RequestParam String name,
                                 @RequestParam(defaultValue = "") String description,
-                                @RequestParam(defaultValue = "编程开发") String category,
+                                @RequestParam(defaultValue = "编程技能") String category,
                                 @RequestPart MultipartFile file) {
         return SkillResponse.from(skillService.upload(user.userId(), name, description, category, file));
     }

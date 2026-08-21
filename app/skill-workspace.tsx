@@ -11,7 +11,7 @@ import {
   slugifySkillName,
 } from "./installer-utils";
 
-const skillCategories = ["编程开发", "测试工具", "排查工具", "日志报告"] as const;
+const skillCategories = ["编程技能", "测试技能", "排查技能", "日志技能"] as const;
 
 type SkillCategory = (typeof skillCategories)[number];
 
@@ -28,96 +28,81 @@ type Skill = {
   uploaded?: boolean;
   fileName?: string;
   compatible: string[];
-  scope?: "private" | "public" | "sample";
+  scope?: "private" | "public";
   shared?: boolean;
   pulled?: boolean;
 };
 
 type User = { id: string; name: string; email: string } | null;
 type Device = { id: string; name: string; os: string; arch: string; status: string; lastSeenAt?: string };
-
-const sampleSkills: Skill[] = [
-  {
-    id: "api-architect",
-    name: "API Architect",
-    description: "从需求快速生成结构清晰的 API 设计、接口约定与错误码规范。",
-    category: "编程开发",
-    accent: "coral",
-    icon: "</>",
-    author: "SkillPort Labs",
-    uses: "8.4k",
-    compatible: ["codex", "qoder", "openai"],
-  },
-  {
-    id: "data-storyteller",
-    name: "Data Storyteller",
-    description: "把复杂数据变成有说服力的洞察、图表建议和汇报大纲。",
-    category: "日志报告",
-    accent: "lime",
-    icon: "↗",
-    author: "Mia Chen",
-    uses: "6.1k",
-    compatible: ["codex", "openai"],
-  },
-  {
-    id: "ux-writing",
-    name: "UX Writing Kit",
-    description: "统一产品文案语气，覆盖空状态、表单、通知与错误提示。",
-    category: "测试工具",
-    accent: "violet",
-    icon: "Aa",
-    author: "Paper Studio",
-    uses: "4.8k",
-    compatible: ["qoder", "openai"],
-  },
-  {
-    id: "meeting-synth",
-    name: "Meeting Synth",
-    description: "提炼会议记录，自动整理决策、行动项、负责人和截止时间。",
-    category: "日志报告",
-    accent: "blue",
-    icon: "≡",
-    author: "Noon AI",
-    uses: "12.7k",
-    compatible: ["codex", "qoder", "openai"],
-  },
-  {
-    id: "market-radar",
-    name: "Market Radar",
-    description: "搭建行业研究框架，追踪竞品动态并输出机会判断。",
-    category: "排查工具",
-    accent: "yellow",
-    icon: "◎",
-    author: "Northstar",
-    uses: "3.9k",
-    compatible: ["codex", "openai"],
-  },
-  {
-    id: "workflow-pilot",
-    name: "Workflow Pilot",
-    description: "拆解重复工作并生成可靠的自动化流程与异常处理策略。",
-    category: "排查工具",
-    accent: "pink",
-    icon: "⌁",
-    author: "Kite Works",
-    uses: "5.3k",
-    compatible: ["codex", "qoder"],
-  },
-];
-
-sampleSkills.forEach((skill) => { skill.scope = "sample"; });
+type DashboardStatistics = {
+  mySkills: number;
+  sharedSkills: number;
+  totalInstalls: number;
+  connectedDevices: number;
+  onlineDevices: number;
+};
+type InstallTask = {
+  id: string;
+  skillId: string;
+  targets: string[];
+  status: string;
+  createdAt: string;
+};
 
 const categories = [
   ["全部技能", "▦"],
-  ["编程开发", "</>"],
-  ["测试工具", "✓"],
-  ["排查工具", "⌕"],
-  ["日志报告", "≡"],
+  ["编程技能", "</>"],
+  ["测试技能", "✓"],
+  ["排查技能", "⌕"],
+  ["日志技能", "≡"],
 ] as const;
 
 function normalizeSkillCategory(value: unknown): SkillCategory {
-  const category = String(value || "").trim() as SkillCategory;
-  return skillCategories.includes(category) ? category : "编程开发";
+  const category = String(value || "").trim();
+  const legacyCategories: Record<string, SkillCategory> = {
+    编程开发: "编程技能",
+    测试工具: "测试技能",
+    排查工具: "排查技能",
+    日志报告: "日志技能",
+  };
+  const normalized = legacyCategories[category] || category;
+  return skillCategories.includes(normalized as SkillCategory)
+    ? (normalized as SkillCategory)
+    : "编程技能";
+}
+
+function dashboardStatisticsFromApi(value: unknown): DashboardStatistics | null {
+  if (!value || typeof value !== "object") return null;
+  const input = value as Record<string, unknown>;
+  const keys = ["mySkills", "sharedSkills", "totalInstalls", "connectedDevices", "onlineDevices"] as const;
+  const counts = keys.map((key) => Number(input[key]));
+  if (counts.some((count) => !Number.isSafeInteger(count) || count < 0)) return null;
+  return Object.fromEntries(keys.map((key, index) => [key, counts[index]])) as DashboardStatistics;
+}
+
+function installTaskFromApi(value: unknown): InstallTask | null {
+  if (!value || typeof value !== "object") return null;
+  const task = value as Record<string, unknown>;
+  if (!task.id || !task.skillId || !task.createdAt) return null;
+  return {
+    id: String(task.id),
+    skillId: String(task.skillId),
+    targets: Array.isArray(task.targets) ? task.targets.map(String) : [],
+    status: String(task.status || "PENDING"),
+    createdAt: String(task.createdAt),
+  };
+}
+
+function activityTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "时间未知";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 const accents = ["coral", "lime", "violet", "blue", "yellow", "pink"];
@@ -190,8 +175,10 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const [query, setQuery] = useState("");
   const [libraryMode, setLibraryMode] = useState<"public" | "private">("public");
   const [privateSkills, setPrivateSkills] = useState<Skill[]>([]);
-  const [publicSkills, setPublicSkills] = useState<Skill[]>(sampleSkills);
+  const [publicSkills, setPublicSkills] = useState<Skill[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
+  const [statistics, setStatistics] = useState<DashboardStatistics | null>(null);
+  const [installTasks, setInstallTasks] = useState<InstallTask[]>([]);
   const [selected, setSelected] = useState<Skill | null>(null);
   const [installer, setInstaller] = useState<Skill | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -225,8 +212,10 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
       fetch("/api/skills").then((response) => (response.ok ? response.json() : null)),
       fetch("/api/devices").then((response) => (response.ok ? response.json() : null)),
       fetch("/api/public-skills").then((response) => (response.ok ? response.json() : null)),
+      fetch("/api/stats", { cache: "no-store" }).then((response) => (response.ok ? response.json() : null)),
+      fetch("/api/installs", { cache: "no-store" }).then((response) => (response.ok ? response.json() : null)),
     ])
-      .then(([skillData, deviceData, publicSkillData]) => {
+      .then(([skillData, deviceData, publicSkillData, statisticsData, installData]) => {
         if (cancelled) return;
         const uploaded = (Array.isArray(skillData?.skills) ? skillData.skills : [])
           .map(privateSkillFromApi);
@@ -235,8 +224,12 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         setPrivateSkills(uploaded);
         setPublicSkills(published);
         setDevices(Array.isArray(deviceData?.devices) ? deviceData.devices : []);
+        setStatistics(dashboardStatisticsFromApi(statisticsData));
+        setInstallTasks((Array.isArray(installData?.tasks) ? installData.tasks : [])
+          .map(installTaskFromApi)
+          .filter((task: InstallTask | null): task is InstallTask => task !== null));
       })
-      .catch(() => undefined);
+      .catch(() => setStatistics(null));
     return () => { cancelled = true; };
   }, [user]);
 
@@ -262,13 +255,44 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     setToast("请先登录 SkillPort 账户");
   }
 
+  async function refreshStatistics() {
+    if (!user) {
+      setStatistics(null);
+      return;
+    }
+    try {
+      const response = await fetch("/api/stats", { cache: "no-store" });
+      setStatistics(response.ok ? dashboardStatisticsFromApi(await response.json()) : null);
+    } catch {
+      setStatistics(null);
+    }
+  }
+
+  async function refreshInstallTasks() {
+    if (!user) {
+      setInstallTasks([]);
+      return;
+    }
+    try {
+      const response = await fetch("/api/installs", { cache: "no-store" });
+      const data = response.ok ? await response.json() : null;
+      setInstallTasks((Array.isArray(data?.tasks) ? data.tasks : [])
+        .map(installTaskFromApi)
+        .filter((task: InstallTask | null): task is InstallTask => task !== null));
+    } catch {
+      setInstallTasks([]);
+    }
+  }
+
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     setUser(null);
     setPrivateSkills([]);
-    setPublicSkills(sampleSkills);
+    setPublicSkills([]);
     setLibraryMode("public");
     setDevices([]);
+    setStatistics(null);
+    setInstallTasks([]);
     setSelected(null);
     setInstaller(null);
     setToast("已安全退出 SkillPort");
@@ -289,7 +313,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         id: `pending-${Date.now()}`,
         name: detectedName,
         description: "刚刚上传，等待补充更详细的 Skill 描述。",
-        category: "编程开发",
+        category: "编程技能",
         accent: "lime",
         icon: "↑",
         author: "我的上传",
@@ -314,6 +338,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             ? { ...preview, id: created.id, fileName: created.fileName || file.name }
             : skill));
           setToast("Skill 已安全保存到你的私人空间");
+          void refreshStatistics();
         })
         .catch(() => {
           setPrivateSkills((current) => current.filter((skill) => skill.id !== preview.id));
@@ -351,6 +376,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
       setSelected((current) => current?.id === shareCandidate.id ? { ...current, shared: true } : current);
       setShareCandidate(null);
       setToast("Skill 已分享到公有池，个人备注没有公开");
+      void refreshStatistics();
     } catch {
       setToast("分享没有完成，请稍后再试");
     } finally {
@@ -379,6 +405,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         : item));
       setSelected((current) => current?.id === skill.id ? { ...current, pulled: true } : current);
       setToast(data.created ? "已拉取到你的私人空间" : "这个 Skill 已在你的私人空间");
+      void refreshStatistics();
     } catch {
       setToast("拉取没有完成，请稍后再试");
     } finally {
@@ -445,9 +472,9 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
           </section>
 
           <section className="stats-strip" aria-label="技能统计">
-            <div><span className="stat-icon purple">▦</span><p><b>{privateSkills.length}</b><small>我的 Skills</small></p><em>{privateSkills.filter((skill) => skill.shared).length} 个已分享</em></div>
-            <div><span className="stat-icon orange">◎</span><p><b>{publicSkills.length}</b><small>公有池 Skills</small></p><em>社区共享</em></div>
-            <div><span className="stat-icon green">⌁</span><p><b>{devices.filter((device) => device.status === "ONLINE").length}</b><small>在线设备</small></p><em className="neutral">macOS · Windows</em></div>
+            <div><span className="stat-icon purple">▦</span><p><b>{statistics?.mySkills ?? "—"}</b><small>我的 Skills</small></p><em>{statistics ? `${statistics.sharedSkills} 个已分享` : "登录后查看"}</em></div>
+            <div><span className="stat-icon orange">◎</span><p><b>{statistics?.totalInstalls ?? "—"}</b><small>累计加载任务</small></p><em>{statistics ? "MySQL 实时统计" : "登录后查看"}</em></div>
+            <div><span className="stat-icon green">⌁</span><p><b>{statistics?.connectedDevices ?? "—"}</b><small>已连接设备</small></p><em className="neutral">{statistics ? `${statistics.onlineDevices} 台在线` : "Bridge 实时状态"}</em></div>
           </section>
 
           {libraryMode === "public" && (
@@ -483,8 +510,6 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
                     <button className={skill.pulled ? "install-card-button pulled" : "install-card-button"} disabled={skill.pulled || pullingId === skill.id} onClick={(event) => { event.stopPropagation(); void pullSkill(skill); }}>
                       {pullingId === skill.id ? "正在拉取…" : skill.pulled ? "已在我的空间" : "拉取到我的空间"} <span>{skill.pulled ? "✓" : "→"}</span>
                     </button>
-                  ) : skill.scope === "sample" ? (
-                    <button className="install-card-button" onClick={(event) => { event.stopPropagation(); setAuthOpen(true); }}>登录后拉取 <span>→</span></button>
                   ) : (
                     <button className="install-card-button" onClick={(event) => { event.stopPropagation(); setInstaller(skill); }}>加载到本机 <span>→</span></button>
                   )}
@@ -519,9 +544,13 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         <section className="rail-section activity-section">
           <div className="rail-title"><div><h2>最近动态</h2><p>你的 Skill 使用记录</p></div><button>查看全部</button></div>
           <div className="timeline">
-            <div><span className="timeline-dot coral">↗</span><p><b>加载了 API Architect</b><small>发送到 Codex · 12 分钟前</small></p></div>
-            <div><span className="timeline-dot lime">↑</span><p><b>上传了 Brand Voice</b><small>个人空间 · 昨天 18:42</small></p></div>
-            <div><span className="timeline-dot violet">✎</span><p><b>更新了一条备注</b><small>UX Writing Kit · 8月17日</small></p></div>
+            {installTasks.slice(0, 3).map((task) => {
+              const skillName = privateSkills.find((skill) => skill.id === task.skillId)?.name || "已删除的 Skill";
+              const targetNames = task.targets.map((target) => toolMeta[target as keyof typeof toolMeta]?.name || target).join("、");
+              const status = task.status === "COMPLETED" ? "已完成" : task.status === "FAILED" ? "失败" : "处理中";
+              return <div key={task.id}><span className="timeline-dot coral">↗</span><p><b>加载了 {skillName}</b><small>{targetNames || "未记录目标"} · {status} · {activityTime(task.createdAt)}</small></p></div>;
+            })}
+            {!installTasks.length && <div><span className="timeline-dot violet">○</span><p><b>{user ? "暂无加载记录" : "登录后查看使用记录"}</b><small>{user ? "完成首次 Bridge 加载后会显示在这里" : "数据按账号隔离"}</small></p></div>}
           </div>
         </section>
       </aside>
@@ -534,7 +563,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
       }}/>}
       {shareCandidate && <ShareConfirmModal skill={shareCandidate} busy={shareBusy} onClose={() => !shareBusy && setShareCandidate(null)} onConfirm={() => void shareSkill()}/>}
       {installer && (
-        <InstallModal skill={installer} signedIn={Boolean(user)} onRequireSignIn={() => { setInstaller(null); setAuthOpen(true); }} onlineDevice={onlineDevice ?? null} onClose={() => setInstaller(null)} onDone={(message) => { setInstaller(null); setToast(message); }}/>
+        <InstallModal skill={installer} signedIn={Boolean(user)} onRequireSignIn={() => { setInstaller(null); setAuthOpen(true); }} onlineDevice={onlineDevice ?? null} onClose={() => setInstaller(null)} onDone={(message) => { setInstaller(null); setToast(message); void refreshStatistics(); void refreshInstallTasks(); }}/>
       )}
       {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)} onFile={onFile}/>}
       {pairOpen && <PairDeviceModal onClose={() => setPairOpen(false)}/>}
@@ -554,7 +583,7 @@ function DetailModal({ skill, pulling, onClose, onInstall, onPull, onShare, onSa
   onSaveNote: (note: string) => void;
 }) {
   const [note, setNote] = useState(skill.note || "");
-  const isPublic = skill.scope === "public" || skill.scope === "sample";
+  const isPublic = skill.scope === "public";
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div className="modal detail-modal" role="dialog" aria-modal="true" aria-label={`${skill.name} 详情`} onMouseDown={(event) => event.stopPropagation()}>
@@ -565,7 +594,7 @@ function DetailModal({ skill, pulling, onClose, onInstall, onPull, onShare, onSa
         {isPublic ? (
           <>
             <div className="public-privacy-note"><span>✓</span><p><b>拉取后数据隔离</b><small>会复制一份到你的私人空间；发布者看不到你的文件修改和个人备注。</small></p></div>
-            <div className="modal-actions"><button className="secondary-button" onClick={onClose}>暂不拉取</button><button className="primary-button" disabled={skill.pulled || pulling} onClick={skill.scope === "sample" ? onPull : onPull}>{pulling ? "正在拉取…" : skill.pulled ? "已在我的空间" : "拉取到我的空间"} <span>{skill.pulled ? "✓" : "→"}</span></button></div>
+            <div className="modal-actions"><button className="secondary-button" onClick={onClose}>暂不拉取</button><button className="primary-button" disabled={skill.pulled || pulling} onClick={onPull}>{pulling ? "正在拉取…" : skill.pulled ? "已在我的空间" : "拉取到我的空间"} <span>{skill.pulled ? "✓" : "→"}</span></button></div>
           </>
         ) : (
           <>
@@ -618,14 +647,11 @@ function InstallModal({ skill, signedIn, onRequireSignIn, onlineDevice, onClose,
     let payload: Uint8Array;
     let extension = "md";
 
-    if (skill.uploaded) {
-      const response = await fetch(`/api/skills/${encodeURIComponent(skill.id)}/file`);
-      if (!response.ok) return;
-      payload = new Uint8Array(await response.arrayBuffer());
-      extension = response.headers.get("x-skill-extension") || "zip";
-    } else {
-      payload = new TextEncoder().encode(`# ${skill.name}\n\n${skill.description}\n\n## 使用说明\n\n请根据当前任务调用本 Skill，并在输出前检查结果是否满足用户要求。\n`);
-    }
+    if (!skill.uploaded) return;
+    const response = await fetch(`/api/skills/${encodeURIComponent(skill.id)}/file`);
+    if (!response.ok) return;
+    payload = new Uint8Array(await response.arrayBuffer());
+    extension = response.headers.get("x-skill-extension") || "zip";
 
     let binary = "";
     for (let index = 0; index < payload.length; index += 8192) {
@@ -644,7 +670,12 @@ function InstallModal({ skill, signedIn, onRequireSignIn, onlineDevice, onClose,
     if (os === "macos") {
       const scriptFileName = `install-${slug}.command`;
       const script = createMacInstaller(base64, extension, targetPaths);
-      blob = new Blob([createMacInstallerArchive(script, scriptFileName)], { type: "application/zip" });
+      const archive = createMacInstallerArchive(script, scriptFileName);
+      const archiveBuffer = archive.buffer.slice(
+        archive.byteOffset,
+        archive.byteOffset + archive.byteLength,
+      ) as ArrayBuffer;
+      blob = new Blob([archiveBuffer], { type: "application/zip" });
       downloadName = `skillport-${slug}-${targetLabel}-${uniqueSuffix}.zip`;
     } else {
       const script = createWindowsInstaller(base64, extension, targetPaths);

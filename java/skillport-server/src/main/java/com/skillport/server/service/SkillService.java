@@ -20,9 +20,9 @@ import java.util.UUID;
 @Service
 public class SkillService {
     private static final long MAX_FILE_SIZE = 25L * 1024 * 1024;
-    private static final String DEFAULT_CATEGORY = "编程开发";
+    private static final String DEFAULT_CATEGORY = "编程技能";
     private static final Set<String> SUPPORTED_CATEGORIES = Set.of(
-            "编程开发", "测试工具", "排查工具", "日志报告");
+            "编程技能", "测试技能", "排查技能", "日志技能");
     private final SkillRepository skillRepository;
     private final FileStorageService fileStorageService;
 
@@ -90,6 +90,13 @@ public class SkillService {
 
     private static String normalizeCategory(String value) {
         String category = safeText(value, 64, DEFAULT_CATEGORY);
-        return SUPPORTED_CATEGORIES.contains(category) ? category : DEFAULT_CATEGORY;
+        String normalized = switch (category) {
+            case "编程开发" -> "编程技能";
+            case "测试工具" -> "测试技能";
+            case "排查工具" -> "排查技能";
+            case "日志报告" -> "日志技能";
+            default -> category;
+        };
+        return SUPPORTED_CATEGORIES.contains(normalized) ? normalized : DEFAULT_CATEGORY;
     }
 }

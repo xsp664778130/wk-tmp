@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface InstallTaskRepository extends JpaRepository<InstallTaskEntity, Long> {
+    long countByOwnerId(String ownerId);
     Optional<InstallTaskEntity> findByPublicId(String publicId);
     Optional<InstallTaskEntity> findByPublicIdAndDevicePublicId(String publicId, String devicePublicId);
     Optional<InstallTaskEntity> findByPublicIdAndOwnerId(String publicId, String ownerId);

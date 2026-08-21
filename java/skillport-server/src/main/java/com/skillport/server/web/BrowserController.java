@@ -8,6 +8,7 @@ import com.skillport.server.security.RequestUser;
 import com.skillport.server.security.RequestUserFilter;
 import com.skillport.server.service.AuthService;
 import com.skillport.server.service.DeviceService;
+import com.skillport.server.service.DashboardStatisticsService;
 import com.skillport.server.service.InstallTaskService;
 import com.skillport.server.service.PairingService;
 import com.skillport.server.service.PublicSkillService;
@@ -56,6 +57,7 @@ public class BrowserController {
     private final SkillService skillService;
     private final PublicSkillService publicSkillService;
     private final DeviceService deviceService;
+    private final DashboardStatisticsService statisticsService;
     private final PairingService pairingService;
     private final InstallTaskService installTaskService;
     private final BridgeSessionRegistry sessionRegistry;
@@ -63,12 +65,14 @@ public class BrowserController {
 
     public BrowserController(AuthService authService, SkillService skillService,
                              PublicSkillService publicSkillService, DeviceService deviceService,
+                             DashboardStatisticsService statisticsService,
                              PairingService pairingService, InstallTaskService installTaskService,
                              BridgeSessionRegistry sessionRegistry, SkillPortProperties properties) {
         this.authService = authService;
         this.skillService = skillService;
         this.publicSkillService = publicSkillService;
         this.deviceService = deviceService;
+        this.statisticsService = statisticsService;
         this.pairingService = pairingService;
         this.installTaskService = installTaskService;
         this.sessionRegistry = sessionRegistry;
@@ -123,7 +127,7 @@ public class BrowserController {
             @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
             @RequestParam String name,
             @RequestParam(defaultValue = "") String description,
-            @RequestParam(defaultValue = "编程开发") String category,
+            @RequestParam(defaultValue = "编程技能") String category,
             @RequestPart MultipartFile file) {
         return SkillController.SkillResponse.from(
                 skillService.upload(user.userId(), name, description, category, file));
@@ -186,6 +190,14 @@ public class BrowserController {
                 .map(device -> deviceResponse(device, sessionRegistry.isOnline(device.getPublicId())))
                 .toList();
         return new DeviceController.DeviceListResponse(devices);
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<DashboardStatisticsService.DashboardStatistics> statistics(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(statisticsService.statistics(user.userId()));
     }
 
     @PostMapping("/devices")

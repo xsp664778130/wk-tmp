@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: headlamp-public-tunnel
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: headlamp-public-tunnel
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: headlamp-public-tunnel
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: headlamp-public-tunnel
+    spec:
+      containers:
+        - name: cloudflared
+          image: docker.io/cloudflare/cloudflared:2026.7.3
+          imagePullPolicy: IfNotPresent
+          args:
+            - tunnel
+            - --no-autoupdate
+            - --protocol
+            - http2
+            - --url
+            - http://headlamp.kube-system.svc.cluster.local:80
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
