@@ -89,7 +89,7 @@ spec:
             - name: SKILLPORT_BRIDGE_ARTIFACT_ROOT
               value: /app/bridge
             - name: SKILLPORT_API_PUBLIC_URL
-              value: https://www.jmuyuer.com
+              value: https://skillport-ai-workspace.mcbbss.chatgpt.site
             - name: SKILLPORT_NETTY_PUBLIC_URL
               value: https://bridge.jmuyuer.com
             - name: MYSQL_POOL_SIZE
