@@ -46,6 +46,7 @@ fi
 mkdir -p "$release_dir"
 install -m 0644 "$server_jar" "$release_dir/skillport-server.jar"
 install -m 0644 "$bridge_jar" "$release_dir/skillport-bridge.jar"
+sha256sum "$release_dir/skillport-bridge.jar" | awk '{print $1}' > "$release_dir/skillport-bridge.jar.sha256"
 chown -R root:skillport "$release_dir"
 ln -sfn "$release_dir" "$CURRENT_LINK"
 

@@ -48,6 +48,15 @@ public class FileStorageService {
         return path;
     }
 
+    public StoredSkillFile copy(String ownerId, String skillId, String originalFilename, String sourceStoragePath) {
+        Path source = resolve(sourceStoragePath);
+        try (InputStream input = Files.newInputStream(source)) {
+            return store(ownerId, skillId, originalFilename, input);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Unable to copy shared skill file", exception);
+        }
+    }
+
     private static String safeSegment(String value) {
         return value.replaceAll("[^a-zA-Z0-9._-]", "_");
     }

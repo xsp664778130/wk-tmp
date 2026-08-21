@@ -87,9 +87,9 @@ spec:
             - name: SKILLPORT_STORAGE_ROOT
               value: /app/data/skills
             - name: SKILLPORT_API_PUBLIC_URL
-              value: http://47.116.50.220
+              value: https://api.jmuyuer.com
             - name: SKILLPORT_NETTY_PUBLIC_URL
-              value: http://47.116.50.220
+              value: https://bridge.jmuyuer.com
             - name: MYSQL_POOL_SIZE
               value: "10"
             - name: SKILLPORT_NETTY_WORKERS

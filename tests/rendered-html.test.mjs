@@ -15,17 +15,25 @@ test("defines the SkillPort workspace and product metadata", async () => {
   assert.match(client, /注册新账户/);
   assert.match(client, /快速导入/);
   assert.match(client, /本机工具/);
+  for (const category of ["编程开发", "测试工具", "排查工具", "日志报告"]) {
+    assert.match(client, new RegExp(category));
+  }
+  for (const legacyCategory of ["数据分析", "创意设计", "效率工具", "商业研究", "自动化"]) {
+    assert.doesNotMatch(client, new RegExp(`\\[\\"${legacyCategory}\\",`));
+  }
   assert.doesNotMatch(`${page}${layout}${client}`, /codex-preview|Your site is taking shape/);
 });
 
 test("ships MySQL accounts, Netty and cross-platform Bridge capabilities", async () => {
-  const [hosting, schema, userSchema, client, nettyServer, bridge] = await Promise.all([
+  const [hosting, schema, userSchema, client, nettyServer, bridge, macInstaller, windowsInstaller] = await Promise.all([
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V1__init_skillport.sql", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V2__add_local_users.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/skill-workspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-server/src/main/java/com/skillport/server/netty/BridgeNettyServer.java", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-bridge/src/main/java/com/skillport/bridge/SkillInstaller.java", import.meta.url), "utf8"),
+    readFile(new URL("../public/bridge/install-macos.sh", import.meta.url), "utf8"),
+    readFile(new URL("../public/bridge/install-windows.ps1", import.meta.url), "utf8"),
   ]);
 
   assert.match(hosting, /"d1": null/);
@@ -37,6 +45,11 @@ test("ships MySQL accounts, Netty and cross-platform Bridge capabilities", async
   assert.match(bridge, /verifySha256/);
   assert.match(client, /macos/);
   assert.match(client, /windows/);
+  assert.match(client, /一键安装命令/);
+  assert.match(macInstaller, /api\.adoptium\.net\/v3\/binary\/latest\/21/);
+  assert.match(macInstaller, /launchctl load/);
+  assert.match(windowsInstaller, /Get-FileHash/);
+  assert.match(windowsInstaller, /GetFolderPath\("Startup"\)/);
   await access(new URL("../public/og.png", import.meta.url));
   await assert.rejects(access(new URL("../app\/_sites-preview", import.meta.url)));
 });

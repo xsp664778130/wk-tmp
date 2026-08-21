@@ -5,7 +5,10 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "skills", indexes = @Index(name = "idx_skills_owner_created", columnList = "owner_id,created_at"))
+@Table(name = "skills", indexes = {
+        @Index(name = "idx_skills_owner_created", columnList = "owner_id,created_at"),
+        @Index(name = "idx_skills_owner_source", columnList = "owner_id,source_public_skill_id", unique = true)
+})
 public class SkillEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,6 +35,8 @@ public class SkillEntity {
     private String sha256;
     @Column(nullable = false, length = 2000)
     private String note;
+    @Column(name = "source_public_skill_id", length = 36)
+    private String sourcePublicSkillId;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
@@ -43,6 +48,13 @@ public class SkillEntity {
     public SkillEntity(String publicId, String ownerId, String name, String description, String category,
                        String fileName, String storagePath, String contentType, long sizeBytes, String sha256,
                        Instant createdAt) {
+        this(publicId, ownerId, name, description, category, fileName, storagePath, contentType, sizeBytes,
+                sha256, null, createdAt);
+    }
+
+    public SkillEntity(String publicId, String ownerId, String name, String description, String category,
+                       String fileName, String storagePath, String contentType, long sizeBytes, String sha256,
+                       String sourcePublicSkillId, Instant createdAt) {
         this.publicId = publicId;
         this.ownerId = ownerId;
         this.name = name;
@@ -54,6 +66,7 @@ public class SkillEntity {
         this.sizeBytes = sizeBytes;
         this.sha256 = sha256;
         this.note = "";
+        this.sourcePublicSkillId = sourcePublicSkillId;
         this.createdAt = createdAt;
         this.updatedAt = createdAt;
     }
@@ -74,6 +87,7 @@ public class SkillEntity {
     public long getSizeBytes() { return sizeBytes; }
     public String getSha256() { return sha256; }
     public String getNote() { return note; }
+    public String getSourcePublicSkillId() { return sourcePublicSkillId; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

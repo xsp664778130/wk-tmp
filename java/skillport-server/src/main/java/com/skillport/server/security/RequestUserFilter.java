@@ -6,6 +6,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Cookie;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -21,6 +22,7 @@ public class RequestUserFilter extends OncePerRequestFilter {
     private static final String GATEWAY_KEY_HEADER = "X-SkillPort-Gateway-Key";
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String SESSION_COOKIE_NAME = "skillport_session";
 
     private final SkillPortProperties properties;
     private final AuthService authService;
@@ -33,27 +35,27 @@ public class RequestUserFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.equals("/actuator/health") || path.equals("/api/v1/bridge/pair");
+        return path.equals("/actuator/health")
+                || path.equals("/api/v1/bridge/pair")
+                || !path.startsWith("/api/");
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        String suppliedKey = request.getHeader(GATEWAY_KEY_HEADER);
-        if (!constantTimeEquals(properties.gatewayKey(), suppliedKey)) {
+        String path = request.getRequestURI();
+        boolean gatewayRequest = path.startsWith("/api/v1/");
+        if (gatewayRequest && !constantTimeEquals(properties.gatewayKey(), request.getHeader(GATEWAY_KEY_HEADER))) {
             response.sendError(HttpStatus.UNAUTHORIZED.value(), "Invalid gateway identity");
             return;
         }
 
-        if (isPublicAuthPath(request.getRequestURI())) {
+        if (isPublicAuthPath(path) || isPublicBrowserAuthPath(path)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String authorization = request.getHeader(AUTHORIZATION_HEADER);
-        String token = authorization != null && authorization.startsWith(BEARER_PREFIX)
-                ? authorization.substring(BEARER_PREFIX.length()).trim()
-                : "";
+        String token = gatewayRequest ? bearerToken(request.getHeader(AUTHORIZATION_HEADER)) : sessionCookie(request);
         RequestUser user;
         try {
             user = authService.authenticate(token);
@@ -72,5 +74,26 @@ public class RequestUserFilter extends OncePerRequestFilter {
 
     private static boolean isPublicAuthPath(String path) {
         return path.equals("/api/v1/auth/register") || path.equals("/api/v1/auth/login");
+    }
+
+    private static boolean isPublicBrowserAuthPath(String path) {
+        return path.equals("/api/auth/register")
+                || path.equals("/api/auth/login")
+                || path.equals("/api/auth/logout");
+    }
+
+    private static String bearerToken(String authorization) {
+        return authorization != null && authorization.startsWith(BEARER_PREFIX)
+                ? authorization.substring(BEARER_PREFIX.length()).trim()
+                : "";
+    }
+
+    private static String sessionCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return "";
+        for (Cookie cookie : cookies) {
+            if (SESSION_COOKIE_NAME.equals(cookie.getName())) return cookie.getValue();
+        }
+        return "";
     }
 }

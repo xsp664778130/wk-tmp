@@ -14,11 +14,15 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class SkillService {
     private static final long MAX_FILE_SIZE = 25L * 1024 * 1024;
+    private static final String DEFAULT_CATEGORY = "编程开发";
+    private static final Set<String> SUPPORTED_CATEGORIES = Set.of(
+            "编程开发", "测试工具", "排查工具", "日志报告");
     private final SkillRepository skillRepository;
     private final FileStorageService fileStorageService;
 
@@ -44,7 +48,7 @@ public class SkillService {
             String originalFilename = file.getOriginalFilename() == null ? "skill.zip" : file.getOriginalFilename();
             SkillEntity skill = new SkillEntity(
                     publicId, ownerId, requiredText(name, "Skill 名称不能为空"), safeText(description, 2000),
-                    safeText(category, 64, "效率工具"), originalFilename, stored.path().toString(),
+                    normalizeCategory(category), originalFilename, stored.path().toString(),
                     safeText(file.getContentType(), 120, "application/octet-stream"), stored.sizeBytes(), stored.sha256(), now);
             return skillRepository.save(skill);
         } catch (IOException exception) {
@@ -82,5 +86,10 @@ public class SkillService {
     private static String safeText(String value, int maxLength, String fallback) {
         String normalized = value == null || value.isBlank() ? fallback : value.trim();
         return normalized.substring(0, Math.min(maxLength, normalized.length()));
+    }
+
+    private static String normalizeCategory(String value) {
+        String category = safeText(value, 64, DEFAULT_CATEGORY);
+        return SUPPORTED_CATEGORIES.contains(category) ? category : DEFAULT_CATEGORY;
     }
 }

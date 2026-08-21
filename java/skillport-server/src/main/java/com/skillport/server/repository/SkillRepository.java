@@ -6,8 +6,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 public interface SkillRepository extends JpaRepository<SkillEntity, Long> {
     List<SkillEntity> findAllByOwnerIdOrderByCreatedAtDesc(String ownerId);
     Optional<SkillEntity> findByPublicIdAndOwnerId(String publicId, String ownerId);
     Optional<SkillEntity> findByPublicId(String publicId);
+    Optional<SkillEntity> findByOwnerIdAndSourcePublicSkillId(String ownerId, String sourcePublicSkillId);
+
+    @Query("select skill.sourcePublicSkillId from SkillEntity skill " +
+            "where skill.ownerId = :ownerId and skill.sourcePublicSkillId is not null")
+    List<String> findImportedPublicSkillIds(@Param("ownerId") String ownerId);
 }

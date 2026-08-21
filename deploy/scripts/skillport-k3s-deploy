@@ -35,6 +35,10 @@ kube() {
 }
 
 install -D -m 0644 "$bridge_jar" /srv/skillport/bridge/skillport-bridge.jar
+sha256sum /srv/skillport/bridge/skillport-bridge.jar \
+  | awk '{print $1}' \
+  > /srv/skillport/bridge/skillport-bridge.jar.sha256
+chmod 0644 /srv/skillport/bridge/skillport-bridge.jar.sha256
 
 previous_image=$(kube -n skillport get deployment skillport-server \
   -o jsonpath='{.spec.template.spec.containers[?(@.name=="server")].image}')

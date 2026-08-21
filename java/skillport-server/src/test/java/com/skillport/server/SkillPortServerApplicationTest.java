@@ -80,6 +80,51 @@ class SkillPortServerApplicationTest {
         assertEquals(401, afterLogout.statusCode());
     }
 
+    @Test
+    void servesStaticWorkspaceAndKeepsBrowserSessionInHttpOnlyCookie() throws Exception {
+        String email = "browser-" + UUID.randomUUID() + "@example.com";
+        HttpClient client = HttpClient.newHttpClient();
+
+        HttpResponse<String> home = client.send(HttpRequest.newBuilder(api("/"))
+                        .GET().build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, home.statusCode());
+        assertTrue(home.body().contains("SkillPort — AI Skill 管理工作台"));
+
+        HttpResponse<String> register = client.send(HttpRequest.newBuilder(api("/api/auth/register"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(new Registration(
+                                email, "Browser Owner", "StrongPass-2026"))))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(201, register.statusCode());
+        assertTrue(register.headers().firstValue("set-cookie").orElseThrow().contains("HttpOnly"));
+        assertEquals("", objectMapper.readTree(register.body()).path("token").asText());
+
+        HttpResponse<String> duplicate = client.send(HttpRequest.newBuilder(api("/api/auth/register"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(new Registration(
+                                email, "Browser Owner", "StrongPass-2026"))))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(409, duplicate.statusCode());
+        assertEquals("该邮箱已经注册", objectMapper.readTree(duplicate.body()).path("error").asText());
+
+        String cookie = register.headers().firstValue("set-cookie").orElseThrow().split(";", 2)[0];
+        HttpResponse<String> me = client.send(HttpRequest.newBuilder(api("/api/auth/me"))
+                        .header("Cookie", cookie)
+                        .GET().build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, me.statusCode());
+        assertEquals(email, objectMapper.readTree(me.body()).path("user").path("email").asText());
+
+        HttpResponse<String> logout = client.send(HttpRequest.newBuilder(api("/api/auth/logout"))
+                        .header("Cookie", cookie)
+                        .POST(HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(204, logout.statusCode());
+
+        HttpResponse<String> afterLogout = client.send(HttpRequest.newBuilder(api("/api/auth/me"))
+                        .header("Cookie", cookie)
+                        .GET().build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(401, afterLogout.statusCode());
+    }
+
     private URI api(String path) {
         return URI.create("http://127.0.0.1:" + port + path);
     }

@@ -3,6 +3,7 @@ package com.skillport.server.web;
 import com.skillport.server.domain.SkillEntity;
 import com.skillport.server.security.RequestUser;
 import com.skillport.server.security.RequestUserFilter;
+import com.skillport.server.service.PublicSkillService;
 import com.skillport.server.service.SkillService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
@@ -16,19 +17,25 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/skills")
 public class SkillController {
     private final SkillService skillService;
+    private final PublicSkillService publicSkillService;
 
-    public SkillController(SkillService skillService) {
+    public SkillController(SkillService skillService, PublicSkillService publicSkillService) {
         this.skillService = skillService;
+        this.publicSkillService = publicSkillService;
     }
 
     @GetMapping
     public SkillListResponse list(@RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user) {
-        return new SkillListResponse(skillService.list(user.userId()).stream().map(SkillResponse::from).toList());
+        Set<String> sharedSkillIds = publicSkillService.sharedSourceSkillIds(user.userId());
+        return new SkillListResponse(skillService.list(user.userId()).stream()
+                .map(skill -> SkillResponse.from(skill, sharedSkillIds.contains(skill.getPublicId())))
+                .toList());
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -36,7 +43,7 @@ public class SkillController {
     public SkillResponse upload(@RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
                                 @RequestParam String name,
                                 @RequestParam(defaultValue = "") String description,
-                                @RequestParam(defaultValue = "效率工具") String category,
+                                @RequestParam(defaultValue = "编程开发") String category,
                                 @RequestPart MultipartFile file) {
         return SkillResponse.from(skillService.upload(user.userId(), name, description, category, file));
     }
@@ -77,11 +84,17 @@ public class SkillController {
     }
     public record SkillResponse(String id, String name, String description, String category, String fileName,
                                 long sizeBytes, String sha256, String note, String toolCompatibility,
+                                boolean shared, String sourcePublicSkillId,
                                 Instant createdAt, Instant updatedAt) {
         static SkillResponse from(SkillEntity skill) {
+            return from(skill, false);
+        }
+
+        static SkillResponse from(SkillEntity skill, boolean shared) {
             return new SkillResponse(skill.getPublicId(), skill.getName(), skill.getDescription(), skill.getCategory(),
                     skill.getFileName(), skill.getSizeBytes(), skill.getSha256(), skill.getNote(),
-                    "codex,qoder,openai", skill.getCreatedAt(), skill.getUpdatedAt());
+                    "codex,qoder,openai", shared, skill.getSourcePublicSkillId(),
+                    skill.getCreatedAt(), skill.getUpdatedAt());
         }
     }
 }

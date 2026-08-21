@@ -23,19 +23,20 @@ pipeline {
             }
         }
 
+        stage('Web validation and static build') {
+            steps {
+                sh 'npm ci --no-audit --no-fund'
+                sh 'npm run test'
+                sh 'npm run build:static'
+            }
+        }
+
         stage('Java test and package') {
             steps {
                 dir('java') {
                     sh 'mvn --batch-mode --no-transfer-progress clean verify'
                     sh 'mvn --batch-mode --no-transfer-progress -DskipTests install'
                 }
-            }
-        }
-
-        stage('Web validation') {
-            steps {
-                sh 'npm ci --no-audit --no-fund'
-                sh 'npm run test'
             }
         }
 
