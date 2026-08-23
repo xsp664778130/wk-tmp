@@ -1,0 +1,133 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:archive/archive.dart';
+import 'package:crypto/crypto.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
+import 'package:skillport_client/src/local_installer.dart';
+import 'package:skillport_client/src/models.dart';
+
+void main() {
+  group('LocalInstaller', () {
+    late Directory home;
+    late LocalInstaller installer;
+
+    setUp(() async {
+      home = await Directory.systemTemp.createTemp('skillport-flutter-test-');
+      installer = LocalInstaller(homeDirectory: home.path);
+      await Directory(path.join(home.path, '.codex')).create();
+    });
+
+    tearDown(() async {
+      if (home.existsSync()) await home.delete(recursive: true);
+    });
+
+    test(
+      'installs a rooted ZIP, verifies SHA-256, and uninstalls without backup',
+      () async {
+        final archive = Archive()
+          ..addFile(
+            ArchiveFile.string(
+              'sample-skill/SKILL.md',
+              '---\nname: sample-skill\ndescription: test\n---\n',
+            ),
+          )
+          ..addFile(
+            ArchiveFile.string(
+              'sample-skill/scripts/check.sh',
+              '#!/bin/sh\necho ok\n',
+            )..mode = 0x1ed,
+          );
+        final content = Uint8List.fromList(ZipEncoder().encode(archive));
+        final skill = _skill(sha256.convert(content).toString());
+
+        await installer.install(
+          skill: skill,
+          content: content,
+          targets: const <String>['codex'],
+        );
+
+        final installed = Directory(
+          path.join(home.path, '.codex', 'skills', 'sample-skill'),
+        );
+        expect(
+          File(path.join(installed.path, 'SKILL.md')).existsSync(),
+          isTrue,
+        );
+        expect(
+          File(path.join(installed.path, 'scripts', 'check.sh')).existsSync(),
+          isTrue,
+        );
+        expect(installer.isInstalled(skill, 'codex'), isTrue);
+
+        final removed = await installer.uninstall(
+          skill: skill,
+          targets: const <String>['codex'],
+        );
+        expect(removed, 1);
+        expect(installed.existsSync(), isFalse);
+        expect(
+          Directory(path.join(home.path, '.codex', 'skills'))
+              .listSync()
+              .whereType<Directory>(),
+          isEmpty,
+        );
+      },
+    );
+
+    test(
+      'rejects an archive traversal path before writing outside destination',
+      () async {
+        final archive = Archive()
+          ..addFile(ArchiveFile.string('../escape.txt', 'blocked'))
+          ..addFile(
+            ArchiveFile.string(
+              'SKILL.md',
+              '---\nname: bad\ndescription: bad\n---\n',
+            ),
+          );
+        final content = Uint8List.fromList(ZipEncoder().encode(archive));
+
+        await expectLater(
+          installer.install(
+            skill: _skill(sha256.convert(content).toString()),
+            content: content,
+            targets: const <String>['codex'],
+          ),
+          throwsA(isA<LocalInstallException>()),
+        );
+        expect(File(path.join(home.path, 'escape.txt')).existsSync(), isFalse);
+      },
+    );
+
+    test('rejects content whose SHA-256 does not match', () async {
+      final content = Uint8List.fromList(utf8.encode('not the expected file'));
+      await expectLater(
+        installer.install(
+          skill: _skill(List<String>.filled(64, '0').join()),
+          content: content,
+          targets: const <String>['codex'],
+        ),
+        throwsA(isA<LocalInstallException>()),
+      );
+    });
+  });
+
+  test('skillSlug keeps Unicode letters and normalizes separators', () {
+    expect(skillSlug('  Infrastructure Audit 技能  '), 'infrastructure-audit-技能');
+    expect(skillSlug('***'), 'skillport-skill');
+  });
+}
+
+SkillItem _skill(String digest) => SkillItem(
+  id: 'skill-1',
+  name: 'Sample Skill',
+  description: 'test',
+  category: '测试技能',
+  fileName: 'sample.zip',
+  sizeBytes: 0,
+  sha256: digest,
+  compatible: const <String>['codex'],
+);

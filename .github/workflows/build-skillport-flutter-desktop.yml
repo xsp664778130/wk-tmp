@@ -1,0 +1,60 @@
+name: Build SkillPort Flutter Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "flutter-client-v*"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: native/skillport_flutter_client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build windows --release
+      - run: choco install innosetup --no-progress -y
+      - shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build/release | Out-Null
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" packaging/windows/SkillPort.iss
+          Get-FileHash build/release/SkillPort-Setup.exe -Algorithm SHA256 | Format-List
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SkillPort-Windows
+          path: native/skillport_flutter_client/build/release/SkillPort-Setup.exe
+
+  macos:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: native/skillport_flutter_client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build macos --release
+      - run: |
+          mkdir -p build/release
+          pkgbuild --component build/macos/Build/Products/Release/SkillPort.app --install-location /Applications --identifier com.skillport.desktop --version 1.0.0 build/release/SkillPort-Bridge.pkg
+          shasum -a 256 build/release/SkillPort-Bridge.pkg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SkillPort-macOS
+          path: native/skillport_flutter_client/build/release/SkillPort-Bridge.pkg
