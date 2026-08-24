@@ -21,6 +21,8 @@ flutter build windows --release
 
 Flutter 官方桌面构建不能跨操作系统：Windows 产物必须在 Windows 构建机生成，macOS 产物必须在安装完整 Xcode 的 Mac 上生成。仓库中的 GitHub Actions 工作流会分别使用对应系统构建并上传产物。
 
+安装完成后，Windows 与 macOS 都会自动在当前用户桌面创建 `SkillPort` 快捷方式。客户端、安装程序和桌面快捷方式统一使用 SKILL 品牌图标。
+
 ## 本机安装安全
 
 - 所有下载内容必须通过服务端 SHA-256 校验。
