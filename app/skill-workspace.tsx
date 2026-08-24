@@ -13,6 +13,23 @@ import {
 
 const skillCategories = ["编程技能", "测试技能", "排查技能", "日志技能"] as const;
 
+const releaseNotes = [
+  {
+    version: "1.0.6",
+    date: "2026-08-24",
+    title: "Skill 元数据同步升级",
+    changes: [
+      "上传 Skill 时可以自定义名称、描述和分类。",
+      "分享至公有池时，名称、描述和分类保持一致。",
+      "网页拖拽上传会先进入信息确认，不再直接使用文件名保存。",
+      "macOS 与 Windows 客户端同步支持新的上传信息。",
+    ],
+  },
+] as const;
+
+const currentRelease = releaseNotes[0];
+const releaseSeenStorageKey = "skillport.release-seen";
+
 type SkillCategory = (typeof skillCategories)[number];
 
 type SkillUploadMetadata = {
@@ -273,6 +290,8 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const [uninstaller, setUninstaller] = useState<Skill | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
+  const [releaseOpen, setReleaseOpen] = useState(false);
+  const [releaseSeen, setReleaseSeen] = useState(true);
   const [pairOpen, setPairOpen] = useState(false);
   const [clientPlatform, setClientPlatform] = useState<ClientPlatform | null>(null);
   const [clientDownloadOpen, setClientDownloadOpen] = useState(false);
@@ -288,6 +307,23 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const automaticToolScanAt = useRef(new Map<string, number>());
+
+  useEffect(() => {
+    try {
+      setReleaseSeen(window.localStorage.getItem(releaseSeenStorageKey) === currentRelease.version);
+    } catch {
+      setReleaseSeen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!releaseOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setReleaseOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [releaseOpen]);
 
   useEffect(() => {
     let active = true;
@@ -457,6 +493,18 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     }
     startClientDownload(clientPlatform);
     setToast(`${clientDownloads[clientPlatform].label}已开始下载`);
+  }
+
+  function toggleReleaseNotes() {
+    const nextOpen = !releaseOpen;
+    setReleaseOpen(nextOpen);
+    if (!nextOpen) return;
+    setReleaseSeen(true);
+    try {
+      window.localStorage.setItem(releaseSeenStorageKey, currentRelease.version);
+    } catch {
+      // 浏览器禁止本地存储时仍可正常查看更新内容。
+    }
   }
 
   async function refreshStatistics() {
@@ -729,7 +777,25 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索技能、分类或用途..." aria-label="搜索技能" />
             <kbd>⌘ K</kbd>
           </div>
-          <button className="round-button" aria-label="通知">○<span className="notification-dot"/></button>
+          <div className="release-update">
+            <button className="version-update-button" aria-label={`查看 ${currentRelease.version} 版本更新`} aria-expanded={releaseOpen} onClick={toggleReleaseNotes}>
+              <span className="version-update-icon">✦</span><span>版本更新</span><b>v{currentRelease.version}</b>
+              {!releaseSeen && <i className="notification-dot" aria-label="有新版本内容"/>}
+            </button>
+            {releaseOpen && (
+              <section className="release-panel" aria-label="版本更新内容">
+                <div className="release-panel-head"><div><span>LATEST UPDATE</span><h2>版本更新</h2></div><button onClick={() => setReleaseOpen(false)} aria-label="关闭版本更新">×</button></div>
+                {releaseNotes.map((release, index) => (
+                  <article className="release-note" key={release.version}>
+                    <div className="release-version"><b>v{release.version}</b>{index === 0 && <em>当前版本</em>}<time dateTime={release.date}>{release.date}</time></div>
+                    <h3>{release.title}</h3>
+                    <ul>{release.changes.map((change) => <li key={change}>{change}</li>)}</ul>
+                  </article>
+                ))}
+                <p className="release-tip">以后每次发布都会在这里记录本次新增、优化和修复内容。</p>
+              </section>
+            )}
+          </div>
           {user ? (
             <div className="account"><span className="avatar">{displayName.slice(0, 1).toUpperCase()}</span><span className="account-copy"><b>{displayName}</b><small>数据库账户</small></span><button className="logout-button" onClick={logout} aria-label="退出登录">退出</button></div>
           ) : (

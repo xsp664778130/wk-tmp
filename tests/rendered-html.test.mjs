@@ -39,6 +39,10 @@ test("defines the SkillPort workspace and product metadata", async () => {
   assert.match(client, /从本机卸载/);
   assert.match(client, /下载 macOS 客户端/);
   assert.match(client, /下载 Windows 客户端/);
+  assert.match(client, /版本更新/);
+  assert.match(client, /skillport\.release-seen/);
+  assert.match(client, /Skill 元数据同步升级/);
+  assert.match(client, /以后每次发布都会在这里记录/);
   assert.match(client, /SkillPort-Bridge\.pkg/);
   assert.match(client, /SkillPort-Setup\.exe/);
   assert.match(client, /detectClientPlatform\(navigator\.userAgent\)/);
