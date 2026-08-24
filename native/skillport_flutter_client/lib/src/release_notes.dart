@@ -9,6 +9,7 @@ const currentReleaseChanges = <String>[
   '兼容压缩包内不同大小写的 SKILL.md，并增强失败路径提示。',
   '上传弹窗只能通过关闭按钮退出，避免误点遮罩丢失内容。',
   '自动恢复上次未提交的上传内容，并重新设计删除按钮。',
+  '移除 OpenAI，新增 OpenCode 与 Claude Code 的检测和本机安装支持。',
 ];
 
 Future<void> showReleaseNotes(BuildContext context) => showDialog<void>(

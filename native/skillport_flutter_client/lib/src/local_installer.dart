@@ -10,20 +10,39 @@ import 'models.dart';
 const toolDirectories = <String, String>{
   'codex': '.codex/skills',
   'qoder': '.qoder/skills',
-  'openai': '.openai/skills',
+  'opencode': '.config/opencode/skills',
+  'claude': '.claude/skills',
 };
 
 const toolLabels = <String, String>{
   'codex': 'Codex',
   'qoder': 'Qoder',
-  'openai': 'OpenAI',
+  'opencode': 'OpenCode',
+  'claude': 'Claude Code',
+};
+
+const toolMarks = <String, String>{
+  'codex': 'CX',
+  'qoder': 'Q',
+  'opencode': 'OC',
+  'claude': 'CC',
 };
 
 class LocalInstaller {
-  LocalInstaller({String? homeDirectory})
-    : _home = homeDirectory ?? resolveHomeDirectory();
+  LocalInstaller({
+    String? homeDirectory,
+    Map<String, String>? environment,
+    bool? isMacOS,
+    bool? isWindows,
+  }) : _home = homeDirectory ?? resolveHomeDirectory(),
+       _environment = environment ?? Platform.environment,
+       _isMacOS = isMacOS ?? Platform.isMacOS,
+       _isWindows = isWindows ?? Platform.isWindows;
 
   final String _home;
+  final Map<String, String> _environment;
+  final bool _isMacOS;
+  final bool _isWindows;
 
   static String resolveHomeDirectory() {
     final value = Platform.isWindows
@@ -37,14 +56,85 @@ class LocalInstaller {
 
   List<ToolTarget> detectTools() => toolDirectories.entries.map((entry) {
     final directory = path.joinAll(<String>[_home, ...entry.value.split('/')]);
-    final applicationDirectory = Directory(path.dirname(directory));
     return ToolTarget(
       id: entry.key,
       name: toolLabels[entry.key]!,
       directory: directory,
-      detected: applicationDirectory.existsSync(),
+      detected: _isToolInstalled(entry.key),
     );
   }).toList();
+
+  bool _isToolInstalled(String toolId) {
+    if (_executableExists(toolId)) return true;
+    switch (toolId) {
+      case 'codex':
+        return _exists('.codex/config.toml') ||
+            _exists('.codex/auth.json') ||
+            _macAppExists('Codex');
+      case 'qoder':
+        return _macAppExists('Qoder') ||
+            _macAppExists('Qoder IDE') ||
+            _macAppExists('Qoder CN') ||
+            _windowsQoderExists();
+      case 'opencode':
+        return _exists('.opencode/bin/opencode') ||
+            _exists('.config/opencode/opencode.json') ||
+            _exists('.config/opencode/opencode.jsonc') ||
+            _macAppExists('OpenCode');
+      case 'claude':
+        return _exists('.claude/local/claude') ||
+            _exists('.claude.json') ||
+            _exists('.claude/settings.json');
+      default:
+        return false;
+    }
+  }
+
+  bool _exists(String relative) =>
+      File(path.joinAll(<String>[_home, ...relative.split('/')])).existsSync();
+
+  bool _macAppExists(String name) =>
+      _isMacOS &&
+      <String>[
+        path.join('/Applications', '$name.app'),
+        path.join(_home, 'Applications', '$name.app'),
+      ].any((candidate) => Directory(candidate).existsSync());
+
+  bool _windowsQoderExists() {
+    if (!_isWindows) return false;
+    final roots = <String?>[
+      _environment['LOCALAPPDATA'],
+      _environment['PROGRAMFILES'],
+      _environment['PROGRAMFILES(X86)'],
+    ].whereType<String>();
+    const names = <String>['Qoder', 'Qoder IDE', 'Qoder CN'];
+    return roots.any(
+      (root) => names.any(
+        (name) => <String>[
+          path.join(root, name, '$name.exe'),
+          path.join(root, 'Programs', name, '$name.exe'),
+          path.join(root, 'Programs', name, 'Qoder.exe'),
+        ].any((candidate) => File(candidate).existsSync()),
+      ),
+    );
+  }
+
+  bool _executableExists(String command) {
+    final pathValue = _environment['PATH'] ?? _environment['Path'] ?? '';
+    final names = _isWindows
+        ? <String>['$command.exe', '$command.cmd', '$command.bat', command]
+        : <String>[command];
+    return pathValue
+        .split(_isWindows ? ';' : ':')
+        .where((value) => value.trim().isNotEmpty)
+        .any(
+          (directory) => names.any(
+            (name) =>
+                File(path.join(directory.replaceAll('"', ''), name))
+                    .existsSync(),
+          ),
+        );
+  }
 
   Future<void> install({
     required SkillItem skill,

@@ -3,6 +3,12 @@ enum LibraryMode { publicPool, privateSpace }
 enum LocalAction { install, uninstall }
 
 const skillCategories = <String>['全部技能', '编程技能', '测试技能', '排查技能', '日志技能'];
+const defaultToolCompatibility = <String>[
+  'codex',
+  'qoder',
+  'opencode',
+  'claude',
+];
 
 class SkillPortUser {
   const SkillPortUser({
@@ -83,9 +89,7 @@ class SkillItem {
     fileName: json['fileName']?.toString() ?? 'skill.zip',
     sizeBytes: _asInt(json['sizeBytes']),
     sha256: json['sha256']?.toString() ?? '',
-    compatible: json['compatible'] is List
-        ? (json['compatible'] as List).map((item) => item.toString()).toList()
-        : const ['codex', 'qoder', 'openai'],
+    compatible: _compatibility(json['compatible']),
     author: json['author']?.toString() ?? 'SkillPort 用户',
     pullCount: _asInt(json['pullCount']),
     pulled: json['pulled'] == true,
@@ -171,13 +175,18 @@ String? _nullableString(dynamic value) {
 }
 
 List<String> _compatibility(dynamic value) {
-  final result = value
-      ?.toString()
-      .split(',')
+  final values = value is List
+      ? value.map((item) => item.toString())
+      : value?.toString().split(',') ?? const <String>[];
+  final requested = values
       .map((item) => item.trim())
       .where((item) => item.isNotEmpty)
-      .toList();
-  return result == null || result.isEmpty
-      ? const ['codex', 'qoder', 'openai']
-      : result;
+      .toSet();
+  if (requested.remove('openai')) {
+    requested.addAll(const <String>['opencode', 'claude']);
+  }
+  final result = defaultToolCompatibility
+      .where(requested.contains)
+      .toList(growable: false);
+  return result.isEmpty ? defaultToolCompatibility : result;
 }

@@ -706,11 +706,7 @@ class LocalRail extends StatelessWidget {
                       ? const Color(0xFF4F7E2B)
                       : muted,
                   child: Text(
-                    tool.id == 'openai'
-                        ? 'AI'
-                        : tool.id == 'codex'
-                        ? 'CX'
-                        : 'Q',
+                    toolMarks[tool.id] ?? '?',
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w900,

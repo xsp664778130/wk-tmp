@@ -16,12 +16,62 @@ void main() {
 
     setUp(() async {
       home = await Directory.systemTemp.createTemp('skillport-flutter-test-');
-      installer = LocalInstaller(homeDirectory: home.path);
+      installer = LocalInstaller(
+        homeDirectory: home.path,
+        environment: const <String, String>{},
+        isMacOS: false,
+        isWindows: false,
+      );
       await Directory(path.join(home.path, '.codex')).create();
     });
 
     tearDown(() async {
       if (home.existsSync()) await home.delete(recursive: true);
+    });
+
+    test('exposes every supported tool and its official Skill directory', () {
+      final tools = installer.detectTools();
+
+      expect(tools.map((tool) => tool.id), <String>[
+        'codex',
+        'qoder',
+        'opencode',
+        'claude',
+      ]);
+      expect(
+        tools.map((tool) => path.relative(tool.directory, from: home.path)),
+        <String>[
+          path.join('.codex', 'skills'),
+          path.join('.qoder', 'skills'),
+          path.join('.config', 'opencode', 'skills'),
+          path.join('.claude', 'skills'),
+        ],
+      );
+      expect(
+        tools.where((tool) => tool.detected).map((tool) => tool.id),
+        isEmpty,
+      );
+    });
+
+    test('detects all supported command-line tools from PATH', () async {
+      final binaries = await Directory(path.join(home.path, 'bin')).create();
+      for (final command in <String>['codex', 'qoder', 'opencode', 'claude']) {
+        await File(path.join(binaries.path, command)).writeAsString('');
+      }
+      final pathInstaller = LocalInstaller(
+        homeDirectory: home.path,
+        environment: <String, String>{'PATH': binaries.path},
+        isMacOS: false,
+        isWindows: false,
+      );
+
+      expect(
+        pathInstaller
+            .detectTools()
+            .where((tool) => tool.detected)
+            .map((tool) => tool.id),
+        <String>['codex', 'qoder', 'opencode', 'claude'],
+      );
     });
 
     test(

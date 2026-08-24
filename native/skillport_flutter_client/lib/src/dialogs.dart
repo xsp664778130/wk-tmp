@@ -679,11 +679,7 @@ class _InstallDialogState extends State<InstallDialog> {
                       ),
                       secondary: CircleAvatar(
                         child: Text(
-                          tool.id == 'openai'
-                              ? 'AI'
-                              : tool.id == 'codex'
-                              ? 'CX'
-                              : 'Q',
+                          toolMarks[tool.id] ?? '?',
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w900,
