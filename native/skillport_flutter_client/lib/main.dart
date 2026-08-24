@@ -10,7 +10,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final controller = AppController(
     api: SkillPortApi(),
-    sessionStore: const SecureSessionStore(),
+    sessionStore: createSessionStore(),
     installer: LocalInstaller(),
   );
   runApp(SkillPortApp(controller: controller));

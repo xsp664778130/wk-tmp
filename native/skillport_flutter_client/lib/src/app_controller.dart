@@ -107,8 +107,8 @@ class AppController extends ChangeNotifier {
     return _perform('正在安全登录…', () async {
       final result = await request();
       if (result.token.isEmpty) throw const ApiException('云端没有返回登录令牌');
-      _api.token = result.token;
       await _sessionStore.writeToken(result.token);
+      _api.token = result.token;
       user = result.user;
       await refresh(showBusy: false);
       _show('欢迎进入你的 SkillPort 客户端');

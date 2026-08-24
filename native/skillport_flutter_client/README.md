@@ -31,4 +31,4 @@ macOS Release 构建在打包前会移除临时签名中错误携带的受限调
 - ZIP 拒绝绝对路径、`..`、符号链接和超过 100MB 的解压内容。
 - 安装使用同目录临时目录完成校验后原子替换。
 - 卸载只删除所选 AI 工具中的 Skill 目录，不生成备份，也不删除云端内容。
-- 登录令牌保存在 macOS Keychain 或 Windows 安全存储中。
+- Windows 登录令牌保存在系统安全存储中。当前公网 macOS 客户端尚未使用 Apple Developer ID 正式签名，为避免 Keychain 返回 `-34018`，令牌保存在当前用户的 `~/Library/Application Support/SkillPort/session.token`，目录权限为 `700`、文件权限为 `600`；配置正式签名后再迁回 Keychain。
