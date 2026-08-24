@@ -47,14 +47,13 @@ class SecureSessionStore implements SessionStore {
 /// private per-user directory instead; a future Developer ID build can migrate
 /// this back to [SecureSessionStore].
 class MacFileSessionStore implements SessionStore {
-  MacFileSessionStore({Directory? supportDirectory})
-    : _supportDirectory = supportDirectory;
+  MacFileSessionStore({this.supportDirectory});
 
   static const _fileName = 'session.token';
-  final Directory? _supportDirectory;
+  final Directory? supportDirectory;
 
   Directory get _directory {
-    if (_supportDirectory case final directory?) return directory;
+    if (supportDirectory case final directory?) return directory;
     final home = Platform.environment['HOME'];
     if (home == null || home.isEmpty) {
       throw const SessionStoreException('无法确定当前 macOS 用户目录，请重新登录系统后再试。');
