@@ -173,11 +173,6 @@ class _AuthScreenState extends State<AuthScreen> {
                       letterSpacing: -1.8,
                     ),
                   ),
-                  SizedBox(height: 20),
-                  Text(
-                    '独立 Flutter 桌面客户端 · 不打开网页 · 不依赖常驻 JAR',
-                    style: TextStyle(fontSize: 17, color: muted),
-                  ),
                   SizedBox(height: 35),
                   Wrap(
                     spacing: 10,
@@ -198,7 +193,10 @@ class _AuthScreenState extends State<AuthScreen> {
                     ],
                   ),
                   Spacer(),
-                  Text('SkillPort Desktop 1.0', style: TextStyle(color: muted)),
+                  Text(
+                    'SkillPort Desktop 1.0.5',
+                    style: TextStyle(color: muted),
+                  ),
                 ],
               ),
             ),
