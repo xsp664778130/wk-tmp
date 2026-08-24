@@ -15,6 +15,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.7",
+    date: "2026-08-24",
+    title: "版本通知全端同步",
+    changes: [
+      "K3s 托管网页同步显示右上角版本更新入口。",
+      "macOS 与 Windows 客户端在登录页和主界面显示版本更新入口。",
+      "点击版本更新可直接查看当前版本的新增、优化与修复内容。",
+    ],
+  },
+  {
     version: "1.0.6",
     date: "2026-08-24",
     title: "Skill 元数据同步升级",
@@ -210,11 +220,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.6",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.7",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.6",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.7",
   },
 };
 
