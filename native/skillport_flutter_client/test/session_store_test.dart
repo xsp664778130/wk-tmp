@@ -19,13 +19,8 @@ void main() {
 
       final token = File('${root.path}/session.token');
       expect(await token.exists(), isTrue);
-      final permission = await Process.run('/bin/stat', <String>[
-        '-f',
-        '%Lp',
-        token.path,
-      ]);
-      expect(permission.exitCode, 0);
-      expect((permission.stdout as String).trim(), '600');
+      final permissionBits = (await token.stat()).mode & 0x1ff;
+      expect(permissionBits, 0x180);
 
       await store.clearToken();
       expect(await store.readToken(), isNull);
