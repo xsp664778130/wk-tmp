@@ -23,6 +23,8 @@ Flutter 官方桌面构建不能跨操作系统：Windows 产物必须在 Window
 
 安装完成后，Windows 与 macOS 都会自动在当前用户桌面创建 `SkillPort` 快捷方式。Windows 固定安装到 `%LOCALAPPDATA%\Programs\SkillPort`，macOS 固定安装到 `/Applications/SkillPort.app`；macOS 安装完成后还会自动启动一次客户端。客户端、安装程序和桌面快捷方式统一使用 SKILL 品牌图标。
 
+macOS Release 构建在打包前会移除临时签名中错误携带的受限调试权限并重新签名；工作流会拒绝发布仍包含 `get-task-allow` 的 App。当前最低支持 macOS 12。
+
 ## 本机安装安全
 
 - 所有下载内容必须通过服务端 SHA-256 校验。
