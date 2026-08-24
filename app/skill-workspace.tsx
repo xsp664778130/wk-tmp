@@ -15,6 +15,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.8",
+    date: "2026-08-24",
+    title: "我的 Skill 快捷管理升级",
+    changes: [
+      "我的 Skill 卡片新增删除按钮，无需先打开详情页。",
+      "删除成功后网页与客户端列表立即同步刷新。",
+      "macOS 与 Windows 客户端重新设计卡片和详情页按钮排布。",
+    ],
+  },
+  {
     version: "1.0.7",
     date: "2026-08-24",
     title: "版本通知全端同步",
@@ -220,11 +230,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.7",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.8",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.7",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.8",
   },
 };
 
@@ -867,6 +877,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
                     </button>
                   ) : (
                     <div className="local-card-actions">
+                      <button className="delete-card-button" aria-label={`删除 ${skill.name}`} onClick={(event) => { event.stopPropagation(); setActionCandidate({ skill, action: "delete" }); }}>删除</button>
                       <button className="uninstall-card-button" onClick={(event) => { event.stopPropagation(); setUninstaller(skill); }}>卸载</button>
                       <button className="install-card-button" onClick={(event) => { event.stopPropagation(); setInstaller(skill); }}>加载到本机 <span>→</span></button>
                     </div>

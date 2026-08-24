@@ -35,6 +35,8 @@ test("defines the SkillPort workspace and product metadata", async () => {
   assert.match(client, /拉取到我的空间/);
   assert.match(client, /个人备注没有公开/);
   assert.match(client, /删除 Skill/);
+  assert.match(client, /delete-card-button/);
+  assert.match(client, /setActionCandidate\(\{ skill, action: "delete" \}\)/);
   assert.match(client, /从公有池下架/);
   assert.match(client, /从本机卸载/);
   assert.match(client, /下载 macOS 客户端/);
