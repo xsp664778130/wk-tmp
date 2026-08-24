@@ -55,14 +55,16 @@ void main() {
 
     test('detects all supported command-line tools from PATH', () async {
       final binaries = await Directory(path.join(home.path, 'bin')).create();
+      final suffix = Platform.isWindows ? '.cmd' : '';
       for (final command in <String>['codex', 'qoder', 'opencode', 'claude']) {
-        await File(path.join(binaries.path, command)).writeAsString('');
+        await File(path.join(binaries.path, '$command$suffix'))
+            .writeAsString('');
       }
       final pathInstaller = LocalInstaller(
         homeDirectory: home.path,
         environment: <String, String>{'PATH': binaries.path},
         isMacOS: false,
-        isWindows: false,
+        isWindows: Platform.isWindows,
       );
 
       expect(
