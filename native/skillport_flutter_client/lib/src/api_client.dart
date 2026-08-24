@@ -34,7 +34,7 @@ class SkillPortApi {
     'accept': 'application/json',
     'content-type': 'application/json; charset=utf-8',
     if (token != null) 'cookie': 'skillport_session=$token',
-    'user-agent': 'SkillPort-Flutter/1.0.5',
+    'user-agent': 'SkillPort-Flutter/1.0.6',
   };
 
   Map<String, String> get sessionHeaders => <String, String>{
@@ -115,11 +115,15 @@ class SkillPortApi {
 
   Future<SkillItem> uploadSkill({
     required String filePath,
+    required String name,
+    required String description,
     required String category,
     String? avatarPath,
   }) async {
     final request = http.MultipartRequest('POST', uri('/api/skills'))
       ..headers.addAll(sessionHeaders)
+      ..fields['name'] = name.trim()
+      ..fields['description'] = description.trim()
       ..fields['category'] = category
       ..files.add(await http.MultipartFile.fromPath('file', filePath));
     if (avatarPath != null && avatarPath.isNotEmpty) {
@@ -184,7 +188,7 @@ class SkillPortApi {
       headers: <String, String>{
         ...sessionHeaders,
         'accept': 'application/octet-stream',
-        'user-agent': 'SkillPort-Flutter/1.0.5',
+        'user-agent': 'SkillPort-Flutter/1.0.6',
       },
     );
     _ensureSuccess(response);

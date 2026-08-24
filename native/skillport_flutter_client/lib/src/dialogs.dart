@@ -244,6 +244,8 @@ class _UploadDialogState extends State<UploadDialog> {
   XFile? _file;
   XFile? _avatar;
   String _category = '编程技能';
+  final _name = TextEditingController();
+  final _description = TextEditingController();
   final _note = TextEditingController();
   bool _dragging = false;
   String? _error;
@@ -252,10 +254,13 @@ class _UploadDialogState extends State<UploadDialog> {
   void initState() {
     super.initState();
     _file = widget.initialFile;
+    _name.text = _nameFromFile(_file);
   }
 
   @override
   void dispose() {
+    _name.dispose();
+    _description.dispose();
     _note.dispose();
     super.dispose();
   }
@@ -269,6 +274,7 @@ class _UploadDialogState extends State<UploadDialog> {
     if (file != null) {
       setState(() {
         _file = file;
+        if (_name.text.trim().isEmpty) _name.text = _nameFromFile(file);
         _error = null;
       });
     }
@@ -295,8 +301,14 @@ class _UploadDialogState extends State<UploadDialog> {
       setState(() => _error = '仅支持 .zip、.skill 或 SKILL.md。');
       return;
     }
+    if (_name.text.trim().isEmpty || _description.text.trim().isEmpty) {
+      setState(() => _error = '请填写 Skill 名称和描述后再上传。');
+      return;
+    }
     final success = await widget.controller.upload(
       filePath: _file!.path,
+      name: _name.text.trim(),
+      description: _description.text.trim(),
       category: _category,
       note: _note.text,
       avatarPath: _avatar?.path,
@@ -322,7 +334,7 @@ class _UploadDialogState extends State<UploadDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             const Text(
-              '压缩包文件名就是 Skill 名称；服务器会检查目录和 SKILL.md。',
+              '名称、描述和分类由你设置；服务器仍会检查目录和 SKILL.md。',
               style: TextStyle(color: muted),
             ),
             const SizedBox(height: 15),
@@ -331,7 +343,12 @@ class _UploadDialogState extends State<UploadDialog> {
               onDragExited: (_) => setState(() => _dragging = false),
               onDragDone: (detail) => setState(() {
                 _dragging = false;
-                if (detail.files.isNotEmpty) _file = detail.files.first;
+                if (detail.files.isNotEmpty) {
+                  _file = detail.files.first;
+                  if (_name.text.trim().isEmpty) {
+                    _name.text = _nameFromFile(_file);
+                  }
+                }
               }),
               child: InkWell(
                 onTap: _pickSkill,
@@ -373,6 +390,29 @@ class _UploadDialogState extends State<UploadDialog> {
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _name,
+              maxLength: 160,
+              decoration: const InputDecoration(
+                labelText: 'Skill 名称（必填）',
+                helperText: '分享到公有池时同步使用此名称',
+              ),
+              onChanged: (_) => setState(() => _error = null),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _description,
+              minLines: 2,
+              maxLines: 4,
+              maxLength: 2000,
+              decoration: const InputDecoration(
+                labelText: 'Skill 描述（必填）',
+                helperText: '分享到公有池时同步使用此描述',
+                alignLabelWithHint: true,
+              ),
+              onChanged: (_) => setState(() => _error = null),
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
@@ -439,6 +479,13 @@ class _UploadDialogState extends State<UploadDialog> {
       ),
     ],
   );
+}
+
+String _nameFromFile(XFile? file) {
+  if (file == null) return '';
+  return file.name
+      .replaceFirst(RegExp(r'\.(zip|skill|md)$', caseSensitive: false), '')
+      .trim();
 }
 
 class InstallDialog extends StatefulWidget {

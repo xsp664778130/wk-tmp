@@ -194,7 +194,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   Spacer(),
                   Text(
-                    'SkillPort Desktop 1.0.5',
+                    'SkillPort Desktop 1.0.6',
                     style: TextStyle(color: muted),
                   ),
                 ],

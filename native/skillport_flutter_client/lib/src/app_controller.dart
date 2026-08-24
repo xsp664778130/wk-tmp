@@ -170,6 +170,8 @@ class AppController extends ChangeNotifier {
 
   Future<bool> upload({
     required String filePath,
+    required String name,
+    required String description,
     required String category,
     required String note,
     String? avatarPath,
@@ -177,6 +179,8 @@ class AppController extends ChangeNotifier {
     return _perform('正在检查并上传 Skill…', () async {
       var created = await _api.uploadSkill(
         filePath: filePath,
+        name: name,
+        description: description,
         category: category,
         avatarPath: avatarPath,
       );
