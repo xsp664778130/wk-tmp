@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'app_controller.dart';
+import 'release_notes.dart';
 import 'workspace.dart';
 
 const purple = Color(0xFF7457E8);
@@ -130,188 +131,197 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Row(
+      body: Stack(
         children: <Widget>[
-          Expanded(
-            flex: 11,
-            child: Container(
-              padding: const EdgeInsets.all(64),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: <Color>[
-                    Color(0xFFEDE8FF),
-                    Color(0xFFF6F3FF),
-                    Color(0xFFF3F8D9),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      BrandMark(),
-                      SizedBox(width: 12),
-                      Text(
-                        'skillport.',
-                        style: TextStyle(
-                          fontSize: 25,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Spacer(),
-                  Text(
-                    '你的 AI Skill，\n真正装进这台电脑。',
-                    style: TextStyle(
-                      fontSize: 44,
-                      height: 1.14,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -1.8,
+          Row(
+            children: <Widget>[
+              Expanded(
+                flex: 11,
+                child: Container(
+                  padding: const EdgeInsets.all(64),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: <Color>[
+                        Color(0xFFEDE8FF),
+                        Color(0xFFF6F3FF),
+                        Color(0xFFF3F8D9),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
                   ),
-                  SizedBox(height: 35),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      FeaturePill(
-                        icon: Icons.verified_user_outlined,
-                        text: '账户数据隔离',
-                      ),
-                      FeaturePill(
-                        icon: Icons.download_done_rounded,
-                        text: 'SHA-256 校验',
-                      ),
-                      FeaturePill(
-                        icon: Icons.computer_rounded,
-                        text: 'macOS · Windows',
-                      ),
-                    ],
-                  ),
-                  Spacer(),
-                  Text(
-                    'SkillPort Desktop 1.0.6',
-                    style: TextStyle(color: muted),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 9,
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(42),
-                child: SizedBox(
-                  width: 420,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        _register ? '创建私人账户' : '登录 SkillPort',
-                        style: const TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -1,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _register
-                            ? '你的 Skill、备注和会话均按账户隔离。'
-                            : '登录后管理云端 Skill，并直接安装到本机。',
-                        style: const TextStyle(color: muted, fontSize: 14),
-                      ),
-                      const SizedBox(height: 30),
-                      if (_register) ...<Widget>[
-                        TextField(
-                          controller: _displayName,
-                          decoration: const InputDecoration(
-                            labelText: '显示名称',
-                            prefixIcon: Icon(Icons.badge_outlined),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-                      TextField(
-                        controller: _email,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: '邮箱',
-                          prefixIcon: Icon(Icons.mail_outline_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: _password,
-                        obscureText: _obscure,
-                        onSubmitted: (_) => _submit(),
-                        decoration: InputDecoration(
-                          labelText: '密码',
-                          prefixIcon: const Icon(Icons.lock_outline_rounded),
-                          suffixIcon: IconButton(
-                            onPressed: () =>
-                                setState(() => _obscure = !_obscure),
-                            icon: Icon(
-                              _obscure
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
+                      Row(
+                        children: <Widget>[
+                          BrandMark(),
+                          SizedBox(width: 12),
+                          Text(
+                            'skillport.',
+                            style: TextStyle(
+                              fontSize: 25,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
+                        ],
+                      ),
+                      Spacer(),
+                      Text(
+                        '你的 AI Skill，\n真正装进这台电脑。',
+                        style: TextStyle(
+                          fontSize: 44,
+                          height: 1.14,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1.8,
                         ),
                       ),
-                      if (_error != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 14),
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(color: Color(0xFFB34232)),
+                      SizedBox(height: 35),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: <Widget>[
+                          FeaturePill(
+                            icon: Icons.verified_user_outlined,
+                            text: '账户数据隔离',
                           ),
-                        ),
-                      const SizedBox(height: 20),
-                      FilledButton.icon(
-                        onPressed: widget.controller.busy ? null : _submit,
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(49),
-                          backgroundColor: purple,
-                        ),
-                        icon: widget.controller.busy
-                            ? const SizedBox.square(
-                                dimension: 17,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.arrow_forward_rounded),
-                        label: Text(
-                          widget.controller.busy
-                              ? widget.controller.busyLabel
-                              : _register
-                              ? '创建并登录'
-                              : '登录客户端',
-                        ),
+                          FeaturePill(
+                            icon: Icons.download_done_rounded,
+                            text: 'SHA-256 校验',
+                          ),
+                          FeaturePill(
+                            icon: Icons.computer_rounded,
+                            text: 'macOS · Windows',
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: widget.controller.busy
-                            ? null
-                            : () => setState(() {
-                                _register = !_register;
-                                _error = null;
-                              }),
-                        child: Text(_register ? '已有账户？返回登录' : '没有账户？注册新账户'),
+                      Spacer(),
+                      Text(
+                        'SkillPort Desktop 1.0.7',
+                        style: TextStyle(color: muted),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
+              Expanded(
+                flex: 9,
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(42),
+                    child: SizedBox(
+                      width: 420,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Text(
+                            _register ? '创建私人账户' : '登录 SkillPort',
+                            style: const TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -1,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _register
+                                ? '你的 Skill、备注和会话均按账户隔离。'
+                                : '登录后管理云端 Skill，并直接安装到本机。',
+                            style: const TextStyle(color: muted, fontSize: 14),
+                          ),
+                          const SizedBox(height: 30),
+                          if (_register) ...<Widget>[
+                            TextField(
+                              controller: _displayName,
+                              decoration: const InputDecoration(
+                                labelText: '显示名称',
+                                prefixIcon: Icon(Icons.badge_outlined),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                          ],
+                          TextField(
+                            controller: _email,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: '邮箱',
+                              prefixIcon: Icon(Icons.mail_outline_rounded),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          TextField(
+                            controller: _password,
+                            obscureText: _obscure,
+                            onSubmitted: (_) => _submit(),
+                            decoration: InputDecoration(
+                              labelText: '密码',
+                              prefixIcon: const Icon(
+                                Icons.lock_outline_rounded,
+                              ),
+                              suffixIcon: IconButton(
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
+                                icon: Icon(
+                                  _obscure
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (_error != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 14),
+                              child: Text(
+                                _error!,
+                                style: const TextStyle(
+                                  color: Color(0xFFB34232),
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 20),
+                          FilledButton.icon(
+                            onPressed: widget.controller.busy ? null : _submit,
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(49),
+                              backgroundColor: purple,
+                            ),
+                            icon: widget.controller.busy
+                                ? const SizedBox.square(
+                                    dimension: 17,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.arrow_forward_rounded),
+                            label: Text(
+                              widget.controller.busy
+                                  ? widget.controller.busyLabel
+                                  : _register
+                                  ? '创建并登录'
+                                  : '登录客户端',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: widget.controller.busy
+                                ? null
+                                : () => setState(() {
+                                    _register = !_register;
+                                    _error = null;
+                                  }),
+                            child: Text(_register ? '已有账户？返回登录' : '没有账户？注册新账户'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
+          const Positioned(top: 24, right: 24, child: VersionUpdateButton()),
         ],
       ),
     );

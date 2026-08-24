@@ -62,7 +62,7 @@ jobs:
           fi
       - run: |
           mkdir -p build/release
-          pkgbuild --component build/macos/Build/Products/Release/SkillPort.app --install-location /Applications --scripts packaging/macos --identifier com.skillport.desktop --version 1.0.6 build/release/SkillPort-Bridge.pkg
+          pkgbuild --component build/macos/Build/Products/Release/SkillPort.app --install-location /Applications --scripts packaging/macos --identifier com.skillport.desktop --version 1.0.7 build/release/SkillPort-Bridge.pkg
           shasum -a 256 build/release/SkillPort-Bridge.pkg
       - uses: actions/upload-artifact@v4
         with:

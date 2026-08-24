@@ -6,6 +6,7 @@ import 'app_controller.dart';
 import 'dialogs.dart';
 import 'local_installer.dart';
 import 'models.dart';
+import 'release_notes.dart';
 
 class Workspace extends StatefulWidget {
   const Workspace({super.key, required this.controller});
@@ -296,6 +297,8 @@ class Library extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
+              const VersionUpdateButton(),
+              const SizedBox(width: 8),
               IconButton(
                 onPressed: controller.busy ? null : controller.refresh,
                 tooltip: '同步云端',
