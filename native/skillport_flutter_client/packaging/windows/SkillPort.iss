@@ -1,5 +1,5 @@
 #define MyAppName "SkillPort"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "SkillPort"
 #define MyAppExeName "skillport_client.exe"
 
@@ -8,10 +8,11 @@ AppId={{4E828B0E-67F4-4F42-9A48-98D9B933F10A}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={autopf}\SkillPort
+DefaultDirName={localappdata}\Programs\SkillPort
 DefaultGroupName=SkillPort
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
+DisableDirPage=no
+DisableProgramGroupPage=yes
 OutputDir=..\..\build\release
 OutputBaseFilename=SkillPort-Setup
 Compression=lzma2
@@ -31,8 +32,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "..\..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\SkillPort"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\SkillPort"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
+Name: "{userprograms}\SkillPort\SkillPort"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\{#MyAppExeName}"
+Name: "{userdesktop}\SkillPort"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\{#MyAppExeName}"
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "启动 SkillPort"; Flags: nowait postinstall skipifsilent

@@ -34,7 +34,7 @@ class SkillPortApi {
     'accept': 'application/json',
     'content-type': 'application/json; charset=utf-8',
     if (token != null) 'cookie': 'skillport_session=$token',
-    'user-agent': 'SkillPort-Flutter/1.0.0',
+    'user-agent': 'SkillPort-Flutter/1.0.2',
   };
 
   Map<String, String> get sessionHeaders => <String, String>{
@@ -184,7 +184,7 @@ class SkillPortApi {
       headers: <String, String>{
         ...sessionHeaders,
         'accept': 'application/octet-stream',
-        'user-agent': 'SkillPort-Flutter/1.0.0',
+        'user-agent': 'SkillPort-Flutter/1.0.2',
       },
     );
     _ensureSuccess(response);
