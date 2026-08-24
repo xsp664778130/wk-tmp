@@ -45,6 +45,12 @@ test("defines the SkillPort workspace and product metadata", async () => {
   assert.match(client, /本机副本会被永久删除/);
   assert.match(client, /\/api\/uninstalls/);
   assert.match(client, /添加 Skill 头像/);
+  assert.match(client, /Skill 名称/);
+  assert.match(client, /Skill 描述/);
+  assert.match(client, /form\.append\("name", metadata\.name\.trim\(\)\)/);
+  assert.match(client, /form\.append\("description", metadata\.description\.trim\(\)\)/);
+  assert.match(client, /分享到公有池时同步使用此名称/);
+  assert.match(client, /分享时会同步到公有池/);
   assert.match(client, /image\/png,image\/jpeg,image\/webp,image\/gif/);
   assert.match(client, /\/api\/public-skills/);
   for (const category of ["全部技能", "编程技能", "测试技能", "排查技能", "日志技能"]) {

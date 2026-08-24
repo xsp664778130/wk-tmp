@@ -15,6 +15,12 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 type SkillCategory = (typeof skillCategories)[number];
 
+type SkillUploadMetadata = {
+  name: string;
+  description: string;
+  category: SkillCategory;
+};
+
 type Skill = {
   id: string;
   name: string;
@@ -187,11 +193,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.4",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.6",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.4",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.6",
   },
 };
 
@@ -266,6 +272,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const [installer, setInstaller] = useState<Skill | null>(null);
   const [uninstaller, setUninstaller] = useState<Skill | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   const [pairOpen, setPairOpen] = useState(false);
   const [clientPlatform, setClientPlatform] = useState<ClientPlatform | null>(null);
   const [clientDownloadOpen, setClientDownloadOpen] = useState(false);
@@ -544,23 +551,24 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     setToast("已安全退出 SkillPort");
   }
 
-  function onFile(file?: File, avatar?: File) {
+  function onFile(file?: File) {
     if (!file) return;
     guardAccount(() => {
-      void uploadFile(file, avatar).catch((error) => {
-        setToast(error instanceof Error ? error.message : "上传没有完成，请稍后再试");
-      });
+      setPendingUploadFile(file);
+      setUploadOpen(true);
     });
   }
 
-  async function uploadFile(file: File, avatar?: File) {
+  async function uploadFile(file: File, metadata: SkillUploadMetadata, avatar?: File) {
     if (avatar && (!(["image/png", "image/jpeg", "image/webp", "image/gif"].includes(avatar.type))
         || avatar.size > 2 * 1024 * 1024)) {
       throw new Error("头像仅支持 PNG、JPEG、WebP、GIF，且不能超过 2MB");
     }
     const form = new FormData();
     form.append("file", file);
-    form.append("category", "编程技能");
+    form.append("name", metadata.name.trim());
+    form.append("description", metadata.description.trim());
+    form.append("category", metadata.category);
     if (avatar) form.append("avatar", avatar);
     const response = await fetch("/api/skills", { method: "POST", body: form });
     const data = await response.json().catch(() => ({}));
@@ -572,6 +580,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     setPrivateSkills((current) => [uploaded, ...current]);
     setLibraryMode("private");
     setUploadOpen(false);
+    setPendingUploadFile(null);
     setToast(`“${uploaded.name}”已通过结构检查并保存`);
     void refreshStatistics();
   }
@@ -737,7 +746,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             </div>
             <div className="welcome-actions">
               <button className="client-download-button" onClick={downloadClient} title="下载 SkillPort 桌面客户端"><span>↓</span> {clientPlatform ? `下载 ${clientDownloads[clientPlatform].label}` : "下载客户端"}</button>
-              <button className="primary-button" onClick={() => guardAccount(() => setUploadOpen(true))}><span>＋</span> 上传 Skill</button>
+              <button className="primary-button" onClick={() => guardAccount(() => { setPendingUploadFile(null); setUploadOpen(true); })}><span>＋</span> 上传 Skill</button>
             </div>
           </section>
 
@@ -854,7 +863,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
       {uninstaller && (
         <UninstallModal skill={uninstaller} onlineDevice={onlineDevice ?? null} onConnectBridge={() => { setUninstaller(null); setPairOpen(true); }} onClose={() => setUninstaller(null)} onDone={(message) => { setUninstaller(null); setToast(message); void refreshInstallTasks(); }}/>
       )}
-      {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)} onUpload={uploadFile}/>}
+      {uploadOpen && <UploadModal initialFile={pendingUploadFile} onClose={() => { setUploadOpen(false); setPendingUploadFile(null); }} onUpload={uploadFile}/>}
       {pairOpen && <PairDeviceModal connectedDevice={onlineDevice ?? null} knownDevices={devices} onDevicePaired={(deviceId) => { bindBrowserDevice(deviceId); setPairOpen(false); setToast("新设备已绑定到这个浏览器，正在刷新本机工具"); }} onClose={() => setPairOpen(false)}/>}
       {clientDownloadOpen && <ClientDownloadModal
         onClose={() => setClientDownloadOpen(false)}
@@ -1196,16 +1205,24 @@ function AuthModal({ onClose, onAuthenticated }: { onClose: () => void; onAuthen
   );
 }
 
-function UploadModal({ onClose, onUpload }: { onClose: () => void; onUpload: (file: File, avatar?: File) => Promise<void> }) {
-  const [file, setFile] = useState<File | null>(null);
+function uploadNameFromFile(file: File | null) {
+  if (!file) return "";
+  return file.name.replace(/\.(zip|skill|md)$/i, "").trim();
+}
+
+function UploadModal({ initialFile, onClose, onUpload }: {
+  initialFile: File | null;
+  onClose: () => void;
+  onUpload: (file: File, metadata: SkillUploadMetadata, avatar?: File) => Promise<void>;
+}) {
+  const [file, setFile] = useState<File | null>(initialFile);
+  const [name, setName] = useState(() => uploadNameFromFile(initialFile));
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<SkillCategory>("编程技能");
   const [avatar, setAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const archiveName = file && /\.(zip|skill)$/i.test(file.name)
-    ? file.name.replace(/\.(zip|skill)$/i, "")
-    : "";
 
   useEffect(() => () => {
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
@@ -1225,10 +1242,14 @@ function UploadModal({ onClose, onUpload }: { onClose: () => void; onUpload: (fi
 
   async function submit() {
     if (!file || busy) return;
+    if (!name.trim() || !description.trim()) {
+      setError("请填写 Skill 名称和描述后再上传。");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      await onUpload(file, avatar || undefined);
+      await onUpload(file, { name: name.trim(), description: description.trim(), category }, avatar || undefined);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "上传没有完成，请稍后再试");
       setBusy(false);
@@ -1238,8 +1259,13 @@ function UploadModal({ onClose, onUpload }: { onClose: () => void; onUpload: (fi
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div className="modal upload-modal" role="dialog" aria-modal="true" aria-label="上传 Skill" onMouseDown={(event) => event.stopPropagation()}>
-        <button className="close-button" disabled={busy} onClick={onClose}>×</button><span className="step-label">PRIVATE UPLOAD</span><h2>上传你的 Skill</h2><p className="install-lead">压缩包文件名就是 Skill 名称。服务器会检查目录和 SKILL.md，不符合标准的文件不会保存。</p>
-        <label className={file ? "large-upload selected" : "large-upload"}><input type="file" disabled={busy} accept=".zip,.skill,.md" onChange={(event) => { setFile(event.target.files?.[0] || null); setError(""); }}/><span>{file ? "✓" : "↑"}</span><b>{file ? file.name : "选择 Skill 文件"}</b><small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · ${archiveName ? `保存名称：${archiveName}` : "名称读取自 frontmatter"}` : ".zip、.skill 或 SKILL.md，最大 25MB"}</small></label>
+        <button className="close-button" disabled={busy} onClick={onClose}>×</button><span className="step-label">PRIVATE UPLOAD</span><h2>上传你的 Skill</h2><p className="install-lead">名称、描述和分类由你设置；服务器仍会检查目录和 SKILL.md，不符合标准的文件不会保存。</p>
+        <label className={file ? "large-upload selected" : "large-upload"}><input type="file" disabled={busy} accept=".zip,.skill,.md" onChange={(event) => { const next = event.target.files?.[0] || null; setFile(next); if (!name.trim()) setName(uploadNameFromFile(next)); setError(""); }}/><span>{file ? "✓" : "↑"}</span><b>{file ? file.name : "选择 Skill 文件"}</b><small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · 上传后保留原文件` : ".zip、.skill 或 SKILL.md，最大 25MB"}</small></label>
+        <div className="upload-fields">
+          <label><span>Skill 名称</span><input value={name} disabled={busy} maxLength={160} placeholder="例如：发布前检查助手" onChange={(event) => { setName(event.target.value); setError(""); }}/><small>显示在个人空间；分享到公有池时同步使用此名称。</small></label>
+          <label><span>Skill 描述</span><textarea value={description} disabled={busy} maxLength={2000} rows={3} placeholder="说明这个 Skill 能解决什么问题" onChange={(event) => { setDescription(event.target.value); setError(""); }}/><small>{description.length}/2000 · 分享时会同步到公有池。</small></label>
+          <label><span>分类</span><select value={category} disabled={busy} onChange={(event) => setCategory(event.target.value as SkillCategory)}>{skillCategories.map((item) => <option key={item} value={item}>{item}</option>)}</select><small>个人空间与公有池使用同一分类。</small></label>
+        </div>
         <div className="skill-standard">
           <div><b>正确 Skill 结构</b><a href="/examples/skillport-standard-sample.zip" download>下载标准样例 ↓</a></div>
           <code>skill-name/<br/>├── SKILL.md&nbsp;&nbsp;必需<br/>├── scripts/&nbsp;&nbsp;可选<br/>├── references/&nbsp;可选<br/>└── assets/&nbsp;&nbsp;&nbsp;可选</code>
@@ -1247,7 +1273,7 @@ function UploadModal({ onClose, onUpload }: { onClose: () => void; onUpload: (fi
         </div>
         <label className="avatar-upload"><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => chooseAvatar(event.target.files?.[0])}/><span className="avatar-preview">{avatarPreview ? <img src={avatarPreview} alt="头像预览"/> : "＋"}</span><p><b>{avatar ? "更换 Skill 头像" : "添加 Skill 头像（可选）"}</b><small>{avatar ? avatar.name : "PNG、JPEG、WebP 或 GIF，最大 2MB"}</small></p><em>选择图片</em></label>
         {error && <div className="upload-error" role="alert"><b>无法上传</b><span>{error}</span><a href="/examples/skillport-standard-sample.zip" download>下载正确样例重新打包</a></div>}
-        <button className="full-primary" disabled={!file || busy} onClick={() => void submit()}>{busy ? "正在检查结构…" : "检查并保存到我的 Skill"} <span>→</span></button>
+        <button className="full-primary" disabled={!file || !name.trim() || !description.trim() || busy} onClick={() => void submit()}>{busy ? "正在检查结构…" : "检查并保存到我的 Skill"} <span>→</span></button>
       </div>
     </div>
   );
