@@ -7,6 +7,7 @@ import {
   createMacInstallerArchive,
   createWindowsInstaller,
   installPaths,
+  installerTargetRoots,
   resolveSkillName,
   slugifySkillName,
 } from "./installer-utils";
@@ -21,6 +22,7 @@ const releaseNotes = [
     changes: [
       "压缩包内的 SKILL.md 文件名支持大小写兼容，并显示实际检查到的文件路径。",
       "上传弹窗不再因点击遮罩意外关闭，未提交的名称、描述和分类会自动恢复。",
+      "移除 OpenAI 工具项，新增 OpenCode 与 Claude Code 的识别、安装和卸载支持。",
       "重新设计删除按钮，避免窄卡片中出现文字竖排。",
     ],
   },
@@ -179,6 +181,16 @@ function activityTime(value: string) {
 
 const accents = ["coral", "lime", "violet", "blue", "yellow", "pink"];
 
+function normalizeToolCompatibility(value: unknown) {
+  const requested = (Array.isArray(value) ? value.map(String) : String(value || "").split(","))
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const migrated = requested.flatMap((item) => item === "openai" ? ["opencode", "claude"] : [item]);
+  const supported = ["codex", "qoder", "opencode", "claude"];
+  const normalized = supported.filter((item) => migrated.includes(item));
+  return normalized.length ? normalized : supported;
+}
+
 function privateSkillFromApi(skill: Record<string, unknown>, index: number): Skill {
   return {
     id: String(skill.id),
@@ -192,7 +204,7 @@ function privateSkillFromApi(skill: Record<string, unknown>, index: number): Ski
     note: String(skill.note || ""),
     uploaded: true,
     fileName: String(skill.fileName || "skill.zip"),
-    compatible: String(skill.toolCompatibility || "codex,qoder,openai").split(","),
+    compatible: normalizeToolCompatibility(skill.toolCompatibility),
     scope: "private",
     shared: Boolean(skill.shared),
     avatarUrl: skill.avatarUrl ? String(skill.avatarUrl) : undefined,
@@ -200,9 +212,7 @@ function privateSkillFromApi(skill: Record<string, unknown>, index: number): Ski
 }
 
 function publicSkillFromApi(skill: Record<string, unknown>, index: number): Skill {
-  const compatible = Array.isArray(skill.compatible)
-    ? skill.compatible.map(String)
-    : String(skill.toolCompatibility || "codex,qoder,openai").split(",");
+  const compatible = normalizeToolCompatibility(skill.compatible || skill.toolCompatibility);
   return {
     id: String(skill.id),
     name: String(skill.name),
@@ -233,8 +243,14 @@ function SkillAvatar({ skill, large = false }: { skill: Skill; large?: boolean }
 const toolMeta = {
   codex: { name: "Codex", mark: "CX", color: "dark" },
   qoder: { name: "Qoder", mark: "Q", color: "blue" },
-  openai: { name: "OpenAI", mark: "AI", color: "green" },
+  opencode: { name: "OpenCode", mark: "OC", color: "green" },
+  claude: { name: "Claude Code", mark: "CC", color: "violet" },
 } as const;
+
+function displayToolPath(id: keyof typeof installerTargetRoots, windows: boolean, slug?: string) {
+  const relative = slug ? `${installerTargetRoots[id]}/${slug}` : installerTargetRoots[id];
+  return windows ? `%USERPROFILE%\\${relative.replaceAll("/", "\\")}` : `~/${relative}`;
+}
 
 type ClientPlatform = "macos" | "windows";
 
@@ -1146,7 +1162,8 @@ function InstallModal({ skill, signedIn, onRequireSignIn, onConnectBridge, onlin
           {skill.compatible.map((id) => {
             const tool = toolMeta[id as keyof typeof toolMeta];
             const checked = targets.includes(id);
-            return <button key={id} className={checked ? "target-row checked" : "target-row"} onClick={() => toggleTarget(id)}><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><p><b>{tool.name}</b><small>{os === "macos" ? `~/.${id}/skills` : `%USERPROFILE%\\.${id}\\skills`}</small></p><span className="checkbox">{checked ? "✓" : ""}</span></button>;
+            const targetPath = displayToolPath(id as keyof typeof installerTargetRoots, os === "windows");
+            return <button key={id} className={checked ? "target-row checked" : "target-row"} onClick={() => toggleTarget(id)}><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><p><b>{tool.name}</b><small>{targetPath}</small></p><span className="checkbox">{checked ? "✓" : ""}</span></button>;
           })}
         </div>
         <div className={onlineDevice ? "bridge-notice" : "bridge-notice offline"}><span className={onlineDevice ? "status-dot" : "status-dot offline"}/><p><b>{onlineDevice ? `Bridge 已连接：${onlineDevice.name}` : "尚未连接 SkillPort Bridge"}</b><small>{onlineDevice ? "点击后由 Netty 实时推送并回传安装进度" : "Bridge 每台电脑只需安装一次，之后加载任何 Skill 都不再下载单独安装器。"}</small></p></div>
@@ -1217,10 +1234,12 @@ function UninstallModal({ skill, onlineDevice, onConnectBridge, onClose, onDone 
           {skill.compatible.map((id) => {
             const tool = toolMeta[id as keyof typeof toolMeta];
             const checked = targets.includes(id);
-            const windows = onlineDevice?.os.toLowerCase().includes("win");
-            const path = windows
-              ? `%USERPROFILE%\\.${id}\\skills\\${slugifySkillName(skill.name)}`
-              : `~/.${id}/skills/${slugifySkillName(skill.name)}`;
+            const windows = onlineDevice?.os.toLowerCase().includes("win") ?? false;
+            const path = displayToolPath(
+              id as keyof typeof installerTargetRoots,
+              windows,
+              slugifySkillName(skill.name),
+            );
             return <button key={id} className={checked ? "target-row checked uninstall-target" : "target-row uninstall-target"} disabled={busy} onClick={() => toggleTarget(id)}><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><p><b>{tool.name}</b><small>{`从 ${path} 移除`}</small></p><span className="checkbox">{checked ? "✓" : ""}</span></button>;
           })}
         </div>
