@@ -187,11 +187,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.4",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.4",
   },
 };
 
@@ -878,8 +878,8 @@ function ClientDownloadModal({ onClose, onDownload }: { onClose: () => void; onD
         <h2>选择你的电脑系统</h2>
         <p className="install-lead">当前浏览器无法自动识别系统，请选择正确版本。客户端安装一次，以后可以直接接收网页下发的 Skill。</p>
         <div className="client-platform-list">
-          <button onClick={() => onDownload("macos")}><span className="platform-mark">⌘</span><p><b>下载 macOS 客户端</b><small>SkillPort-Bridge.pkg · Apple Silicon 与 Intel</small></p><em>↓</em></button>
-          <button onClick={() => onDownload("windows")}><span className="platform-mark windows">⊞</span><p><b>下载 Windows 客户端</b><small>SkillPort-Setup.exe · Windows 10 / 11</small></p><em>↓</em></button>
+          <button onClick={() => onDownload("macos")}><span className="platform-mark">⌘</span><p><b>下载 macOS 客户端</b><small>macOS 12+ · 安装到“应用程序”，自动创建桌面图标</small></p><em>↓</em></button>
+          <button onClick={() => onDownload("windows")}><span className="platform-mark windows">⊞</span><p><b>下载 Windows 客户端</b><small>安装到当前用户应用目录，自动创建桌面图标</small></p><em>↓</em></button>
         </div>
       </div>
     </div>
