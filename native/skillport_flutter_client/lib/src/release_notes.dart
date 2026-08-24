@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 
-const currentReleaseVersion = '1.0.8';
+const currentReleaseVersion = '1.0.9';
 const currentReleaseDate = '2026-08-24';
-const currentReleaseTitle = '我的 Skill 快捷管理升级';
+const currentReleaseTitle = '上传兼容与草稿保护';
 const currentReleaseChanges = <String>[
-  '我的 Skill 卡片新增删除按钮，无需先打开详情页。',
-  '删除成功后网页与客户端列表立即同步刷新。',
-  '重新设计卡片和详情页按钮排布，操作更简洁清晰。',
+  '兼容压缩包内不同大小写的 SKILL.md，并增强失败路径提示。',
+  '上传弹窗只能通过关闭按钮退出，避免误点遮罩丢失内容。',
+  '自动恢复上次未提交的上传内容，并重新设计删除按钮。',
 ];
 
 Future<void> showReleaseNotes(BuildContext context) => showDialog<void>(

@@ -607,8 +607,10 @@ class SkillCard extends StatelessWidget {
               else
                 Row(
                   children: <Widget>[
-                    Expanded(
-                      child: OutlinedButton.icon(
+                    SizedBox(
+                      width: 44,
+                      height: 40,
+                      child: IconButton(
                         onPressed: controller.busy
                             ? null
                             : () => confirmDeleteSkill(
@@ -616,16 +618,19 @@ class SkillCard extends StatelessWidget {
                                 controller,
                                 skill,
                               ),
-                        style: OutlinedButton.styleFrom(
+                        style: IconButton.styleFrom(
                           foregroundColor: const Color(0xFFA44839),
                           side: const BorderSide(color: Color(0xFFF0D1CB)),
                           backgroundColor: const Color(0xFFFFF9F7),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
+                        tooltip: '删除云端 Skill',
                         icon: const Icon(
                           Icons.delete_outline_rounded,
-                          size: 17,
+                          size: 19,
                         ),
-                        label: const Text('删除'),
                       ),
                     ),
                     const SizedBox(width: 8),

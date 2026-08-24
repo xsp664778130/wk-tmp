@@ -22,9 +22,30 @@ Future<void> showUploadDialog(
   XFile? initialFile,
 }) => showDialog<void>(
   context: context,
+  barrierDismissible: false,
   builder: (_) =>
       UploadDialog(controller: controller, initialFile: initialFile),
 );
+
+final _uploadDraft = _UploadDraft();
+
+class _UploadDraft {
+  XFile? file;
+  XFile? avatar;
+  String name = '';
+  String description = '';
+  String note = '';
+  String category = '编程技能';
+
+  void clear() {
+    file = null;
+    avatar = null;
+    name = '';
+    description = '';
+    note = '';
+    category = '编程技能';
+  }
+}
 
 Future<void> showInstallDialog(
   BuildContext context,
@@ -298,21 +319,40 @@ class _UploadDialogState extends State<UploadDialog> {
   final _description = TextEditingController();
   final _note = TextEditingController();
   bool _dragging = false;
+  bool _uploaded = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _file = widget.initialFile;
-    _name.text = _nameFromFile(_file);
+    _file = widget.initialFile ?? _uploadDraft.file;
+    _avatar = _uploadDraft.avatar;
+    _category = _uploadDraft.category;
+    _name.text = _uploadDraft.name.isNotEmpty
+        ? _uploadDraft.name
+        : _nameFromFile(_file);
+    _description.text = _uploadDraft.description;
+    _note.text = _uploadDraft.note;
+    _saveDraft();
   }
 
   @override
   void dispose() {
+    if (!_uploaded) _saveDraft();
     _name.dispose();
     _description.dispose();
     _note.dispose();
     super.dispose();
+  }
+
+  void _saveDraft() {
+    _uploadDraft
+      ..file = _file
+      ..avatar = _avatar
+      ..name = _name.text
+      ..description = _description.text
+      ..note = _note.text
+      ..category = _category;
   }
 
   Future<void> _pickSkill() async {
@@ -325,6 +365,7 @@ class _UploadDialogState extends State<UploadDialog> {
       setState(() {
         _file = file;
         if (_name.text.trim().isEmpty) _name.text = _nameFromFile(file);
+        _saveDraft();
         _error = null;
       });
     }
@@ -339,7 +380,12 @@ class _UploadDialogState extends State<UploadDialog> {
         ),
       ],
     );
-    if (file != null) setState(() => _avatar = file);
+    if (file != null) {
+      setState(() {
+        _avatar = file;
+        _saveDraft();
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -364,6 +410,8 @@ class _UploadDialogState extends State<UploadDialog> {
       avatarPath: _avatar?.path,
     );
     if (success && mounted) {
+      _uploaded = true;
+      _uploadDraft.clear();
       Navigator.pop(context);
     } else if (mounted) {
       setState(() => _error = widget.controller.feedback?.message ?? '上传失败');
@@ -398,6 +446,7 @@ class _UploadDialogState extends State<UploadDialog> {
                   if (_name.text.trim().isEmpty) {
                     _name.text = _nameFromFile(_file);
                   }
+                  _saveDraft();
                 }
               }),
               child: InkWell(
@@ -449,7 +498,10 @@ class _UploadDialogState extends State<UploadDialog> {
                 labelText: 'Skill 名称（必填）',
                 helperText: '分享到公有池时同步使用此名称',
               ),
-              onChanged: (_) => setState(() => _error = null),
+              onChanged: (_) => setState(() {
+                _saveDraft();
+                _error = null;
+              }),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -462,7 +514,10 @@ class _UploadDialogState extends State<UploadDialog> {
                 helperText: '分享到公有池时同步使用此描述',
                 alignLabelWithHint: true,
               ),
-              onChanged: (_) => setState(() => _error = null),
+              onChanged: (_) => setState(() {
+                _saveDraft();
+                _error = null;
+              }),
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
@@ -474,8 +529,10 @@ class _UploadDialogState extends State<UploadDialog> {
                     (item) => DropdownMenuItem(value: item, child: Text(item)),
                   )
                   .toList(),
-              onChanged: (value) =>
-                  setState(() => _category = value ?? _category),
+              onChanged: (value) => setState(() {
+                _category = value ?? _category;
+                _saveDraft();
+              }),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -486,6 +543,7 @@ class _UploadDialogState extends State<UploadDialog> {
                 labelText: '个人备注（可选）',
                 alignLabelWithHint: true,
               ),
+              onChanged: (_) => _saveDraft(),
             ),
             OutlinedButton.icon(
               onPressed: _pickAvatar,
@@ -519,7 +577,7 @@ class _UploadDialogState extends State<UploadDialog> {
     actions: <Widget>[
       TextButton(
         onPressed: widget.controller.busy ? null : () => Navigator.pop(context),
-        child: const Text('取消'),
+        child: const Text('关闭'),
       ),
       FilledButton(
         onPressed: _file == null || widget.controller.busy ? null : _submit,
