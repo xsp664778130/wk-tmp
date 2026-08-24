@@ -413,7 +413,7 @@ class Library extends StatelessWidget {
                     gridDelegate:
                         const SliverGridDelegateWithMaxCrossAxisExtent(
                           maxCrossAxisExtent: 340,
-                          mainAxisExtent: 272,
+                          mainAxisExtent: 292,
                           mainAxisSpacing: 14,
                           crossAxisSpacing: 14,
                         ),
@@ -546,7 +546,7 @@ class SkillCard extends StatelessWidget {
               const SizedBox(height: 7),
               Text(
                 skill.description.isEmpty ? '暂无描述' : skill.description,
-                maxLines: 3,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 13, height: 1.5, color: muted),
               ),
@@ -587,28 +587,66 @@ class SkillCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (skill.isPublic)
-                    FilledButton.tonal(
-                      onPressed: skill.pulled || controller.busy
-                          ? null
-                          : () => controller.pull(skill),
-                      child: Text(skill.pulled ? '已拉取' : '拉取'),
-                    )
-                  else
-                    FilledButton.tonalIcon(
-                      onPressed: controller.busy
-                          ? null
-                          : () => showInstallDialog(
-                              context,
-                              controller,
-                              skill,
-                              LocalAction.install,
-                            ),
-                      icon: const Icon(Icons.download_done_rounded, size: 17),
-                      label: const Text('安装'),
-                    ),
                 ],
               ),
+              const SizedBox(height: 10),
+              if (skill.isPublic)
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    onPressed: skill.pulled || controller.busy
+                        ? null
+                        : () => controller.pull(skill),
+                    icon: Icon(
+                      skill.pulled ? Icons.check_rounded : Icons.south_rounded,
+                      size: 17,
+                    ),
+                    label: Text(skill.pulled ? '已在我的空间' : '拉取到我的空间'),
+                  ),
+                )
+              else
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: controller.busy
+                            ? null
+                            : () => confirmDeleteSkill(
+                                context,
+                                controller,
+                                skill,
+                              ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFA44839),
+                          side: const BorderSide(color: Color(0xFFF0D1CB)),
+                          backgroundColor: const Color(0xFFFFF9F7),
+                        ),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 17,
+                        ),
+                        label: const Text('删除'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        onPressed: controller.busy
+                            ? null
+                            : () => showInstallDialog(
+                                context,
+                                controller,
+                                skill,
+                                LocalAction.install,
+                              ),
+                        style: FilledButton.styleFrom(backgroundColor: purple),
+                        icon: const Icon(Icons.download_done_rounded, size: 17),
+                        label: const Text('安装到本机'),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

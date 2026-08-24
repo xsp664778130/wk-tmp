@@ -94,4 +94,16 @@ void main() {
     final skill = await api.updateNote('s1', '分享时也要带上');
     expect(skill.note, '分享时也要带上');
   });
+
+  test('deletes an owned Skill from the private workspace API', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'DELETE');
+      expect(request.url.path, '/api/skills/s1');
+      expect(request.headers['cookie'], 'skillport_session=token-123');
+      return http.Response('', 204);
+    });
+    final api = SkillPortApi(httpClient: client)..token = 'token-123';
+
+    await api.deleteSkill('s1');
+  });
 }

@@ -148,84 +148,134 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
 
   List<Widget> _publicActions(BuildContext context, SkillItem skill) =>
       <Widget>[
-        if (skill.ownedByCurrentUser)
-          TextButton(
-            onPressed: widget.controller.busy
-                ? null
-                : () async {
-                    if (await widget.controller.unpublish(skill) &&
-                        context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  },
-            child: const Text('从公有池下架'),
+        SizedBox(
+          width: 560,
+          child: Row(
+            children: <Widget>[
+              if (skill.ownedByCurrentUser)
+                OutlinedButton.icon(
+                  onPressed: widget.controller.busy
+                      ? null
+                      : () async {
+                          if (await widget.controller.unpublish(skill) &&
+                              context.mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
+                  icon: const Icon(Icons.public_off_outlined, size: 17),
+                  label: const Text('从公有池下架'),
+                ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('关闭'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: skill.pulled || widget.controller.busy
+                    ? null
+                    : () async {
+                        if (await widget.controller.pull(skill) &&
+                            context.mounted) {
+                          Navigator.pop(context);
+                        }
+                      },
+                style: FilledButton.styleFrom(backgroundColor: purple),
+                icon: Icon(
+                  skill.pulled ? Icons.check_rounded : Icons.south_rounded,
+                  size: 17,
+                ),
+                label: Text(skill.pulled ? '已在我的空间' : '拉取到我的空间'),
+              ),
+            ],
           ),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('关闭'),
-        ),
-        FilledButton(
-          onPressed: skill.pulled || widget.controller.busy
-              ? null
-              : () async {
-                  if (await widget.controller.pull(skill) && context.mounted) {
-                    Navigator.pop(context);
-                  }
-                },
-          child: Text(skill.pulled ? '已在我的空间' : '拉取到我的空间'),
         ),
       ];
 
   List<Widget> _privateActions(BuildContext context, SkillItem skill) =>
       <Widget>[
-        TextButton(
-          onPressed: widget.controller.busy
-              ? null
-              : () => _confirmDelete(context, widget.controller, skill),
-          style: TextButton.styleFrom(foregroundColor: const Color(0xFFB04435)),
-          child: const Text('删除云端 Skill'),
-        ),
-        OutlinedButton(
-          onPressed: widget.controller.busy
-              ? null
-              : () => showInstallDialog(
-                  context,
-                  widget.controller,
-                  skill,
-                  LocalAction.uninstall,
-                ),
-          child: const Text('从本机卸载'),
-        ),
-        TextButton(
-          onPressed: widget.controller.busy
-              ? null
-              : () => widget.controller.updateNote(skill, _note.text),
-          child: const Text('保存备注'),
-        ),
-        if (skill.shared)
-          TextButton(
-            onPressed: widget.controller.busy
-                ? null
-                : () => widget.controller.unpublish(skill),
-            child: const Text('从公有池下架'),
-          )
-        else
-          TextButton(
-            onPressed: widget.controller.busy
-                ? null
-                : () => widget.controller.share(skill),
-            child: const Text('分享到公有池'),
+        SizedBox(
+          width: 560,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  TextButton.icon(
+                    onPressed: widget.controller.busy
+                        ? null
+                        : () => confirmDeleteSkill(
+                            context,
+                            widget.controller,
+                            skill,
+                            closeParentOnSuccess: true,
+                          ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFB04435),
+                    ),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 17),
+                    label: const Text('删除云端 Skill'),
+                  ),
+                  const SizedBox(width: 6),
+                  OutlinedButton.icon(
+                    onPressed: widget.controller.busy
+                        ? null
+                        : () => showInstallDialog(
+                            context,
+                            widget.controller,
+                            skill,
+                            LocalAction.uninstall,
+                          ),
+                    icon: const Icon(Icons.remove_circle_outline, size: 17),
+                    label: const Text('从本机卸载'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: <Widget>[
+                  TextButton.icon(
+                    onPressed: widget.controller.busy
+                        ? null
+                        : () => widget.controller.updateNote(skill, _note.text),
+                    icon: const Icon(Icons.save_outlined, size: 17),
+                    label: const Text('保存备注'),
+                  ),
+                  const SizedBox(width: 6),
+                  OutlinedButton.icon(
+                    onPressed: widget.controller.busy
+                        ? null
+                        : skill.shared
+                        ? () => widget.controller.unpublish(skill)
+                        : () => widget.controller.share(skill),
+                    icon: Icon(
+                      skill.shared
+                          ? Icons.public_off_outlined
+                          : Icons.ios_share_rounded,
+                      size: 17,
+                    ),
+                    label: Text(skill.shared ? '从公有池下架' : '分享到公有池'),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: widget.controller.busy
+                          ? null
+                          : () => showInstallDialog(
+                              context,
+                              widget.controller,
+                              skill,
+                              LocalAction.install,
+                            ),
+                      style: FilledButton.styleFrom(backgroundColor: purple),
+                      icon: const Icon(Icons.download_done_rounded, size: 17),
+                      label: const Text('安装到本机'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        FilledButton(
-          onPressed: widget.controller.busy
-              ? null
-              : () => showInstallDialog(
-                  context,
-                  widget.controller,
-                  skill,
-                  LocalAction.install,
-                ),
-          child: const Text('安装到本机'),
         ),
       ];
 }
@@ -661,11 +711,12 @@ class _InstallDialogState extends State<InstallDialog> {
   }
 }
 
-Future<void> _confirmDelete(
+Future<void> confirmDeleteSkill(
   BuildContext context,
   AppController controller,
-  SkillItem skill,
-) async {
+  SkillItem skill, {
+  bool closeParentOnSuccess = false,
+}) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
@@ -688,7 +739,9 @@ Future<void> _confirmDelete(
   );
   if (confirmed == true) {
     final success = await controller.delete(skill);
-    if (success && context.mounted) Navigator.pop(context);
+    if (success && closeParentOnSuccess && context.mounted) {
+      Navigator.pop(context);
+    }
   }
 }
 

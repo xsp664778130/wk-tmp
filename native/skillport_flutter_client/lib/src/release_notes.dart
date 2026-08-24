@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 
-const currentReleaseVersion = '1.0.7';
+const currentReleaseVersion = '1.0.8';
 const currentReleaseDate = '2026-08-24';
-const currentReleaseTitle = '版本通知全端同步';
+const currentReleaseTitle = '我的 Skill 快捷管理升级';
 const currentReleaseChanges = <String>[
-  'K3s 托管网页同步显示右上角版本更新入口。',
-  'macOS 与 Windows 客户端在登录页和主界面显示版本更新入口。',
-  '点击版本更新可直接查看当前版本的新增、优化与修复内容。',
+  '我的 Skill 卡片新增删除按钮，无需先打开详情页。',
+  '删除成功后网页与客户端列表立即同步刷新。',
+  '重新设计卡片和详情页按钮排布，操作更简洁清晰。',
 ];
 
 Future<void> showReleaseNotes(BuildContext context) => showDialog<void>(
