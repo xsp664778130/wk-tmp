@@ -15,6 +15,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.9",
+    date: "2026-08-24",
+    title: "上传兼容与草稿保护",
+    changes: [
+      "压缩包内的 SKILL.md 文件名支持大小写兼容，并显示实际检查到的文件路径。",
+      "上传弹窗不再因点击遮罩意外关闭，未提交的名称、描述和分类会自动恢复。",
+      "重新设计删除按钮，避免窄卡片中出现文字竖排。",
+    ],
+  },
+  {
     version: "1.0.8",
     date: "2026-08-24",
     title: "我的 Skill 快捷管理升级",
@@ -49,6 +59,7 @@ const releaseNotes = [
 
 const currentRelease = releaseNotes[0];
 const releaseSeenStorageKey = "skillport.release-seen";
+const uploadDraftStorageKey = "skillport.upload-draft.v1";
 
 type SkillCategory = (typeof skillCategories)[number];
 
@@ -230,11 +241,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.8",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.9",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.8",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.9",
   },
 };
 
@@ -877,7 +888,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
                     </button>
                   ) : (
                     <div className="local-card-actions">
-                      <button className="delete-card-button" aria-label={`删除 ${skill.name}`} onClick={(event) => { event.stopPropagation(); setActionCandidate({ skill, action: "delete" }); }}>删除</button>
+                      <button className="delete-card-button" title="删除云端 Skill" aria-label={`删除 ${skill.name}`} onClick={(event) => { event.stopPropagation(); setActionCandidate({ skill, action: "delete" }); }}><span aria-hidden="true">⌫</span><span>删除</span></button>
                       <button className="uninstall-card-button" onClick={(event) => { event.stopPropagation(); setUninstaller(skill); }}>卸载</button>
                       <button className="install-card-button" onClick={(event) => { event.stopPropagation(); setInstaller(skill); }}>加载到本机 <span>→</span></button>
                     </div>
@@ -1297,19 +1308,43 @@ function uploadNameFromFile(file: File | null) {
   return file.name.replace(/\.(zip|skill|md)$/i, "").trim();
 }
 
+function readUploadDraft() {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(window.localStorage.getItem(uploadDraftStorageKey) || "null") as Partial<{
+      name: string; description: string; category: SkillCategory;
+    }> | null;
+  } catch {
+    return null;
+  }
+}
+
 function UploadModal({ initialFile, onClose, onUpload }: {
   initialFile: File | null;
   onClose: () => void;
   onUpload: (file: File, metadata: SkillUploadMetadata, avatar?: File) => Promise<void>;
 }) {
+  const savedDraft = useRef(readUploadDraft()).current;
   const [file, setFile] = useState<File | null>(initialFile);
-  const [name, setName] = useState(() => uploadNameFromFile(initialFile));
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<SkillCategory>("编程技能");
+  const [name, setName] = useState(() => typeof savedDraft?.name === "string" && savedDraft.name.trim()
+    ? savedDraft.name
+    : uploadNameFromFile(initialFile));
+  const [description, setDescription] = useState(() => typeof savedDraft?.description === "string" ? savedDraft.description : "");
+  const [category, setCategory] = useState<SkillCategory>(() => savedDraft?.category && skillCategories.includes(savedDraft.category)
+    ? savedDraft.category
+    : "编程技能");
   const [avatar, setAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(uploadDraftStorageKey, JSON.stringify({ name, description, category }));
+    } catch {
+      // 浏览器禁用本地存储时仍可正常上传。
+    }
+  }, [name, description, category]);
 
   useEffect(() => () => {
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
@@ -1337,6 +1372,7 @@ function UploadModal({ initialFile, onClose, onUpload }: {
     setError("");
     try {
       await onUpload(file, { name: name.trim(), description: description.trim(), category }, avatar || undefined);
+      try { window.localStorage.removeItem(uploadDraftStorageKey); } catch { /* 上传本身已经成功。 */ }
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "上传没有完成，请稍后再试");
       setBusy(false);
@@ -1344,8 +1380,8 @@ function UploadModal({ initialFile, onClose, onUpload }: {
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
-      <div className="modal upload-modal" role="dialog" aria-modal="true" aria-label="上传 Skill" onMouseDown={(event) => event.stopPropagation()}>
+    <div className="modal-backdrop">
+      <div className="modal upload-modal" role="dialog" aria-modal="true" aria-label="上传 Skill">
         <button className="close-button" disabled={busy} onClick={onClose}>×</button><span className="step-label">PRIVATE UPLOAD</span><h2>上传你的 Skill</h2><p className="install-lead">名称、描述和分类由你设置；服务器仍会检查目录和 SKILL.md，不符合标准的文件不会保存。</p>
         <label className={file ? "large-upload selected" : "large-upload"}><input type="file" disabled={busy} accept=".zip,.skill,.md" onChange={(event) => { const next = event.target.files?.[0] || null; setFile(next); if (!name.trim()) setName(uploadNameFromFile(next)); setError(""); }}/><span>{file ? "✓" : "↑"}</span><b>{file ? file.name : "选择 Skill 文件"}</b><small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · 上传后保留原文件` : ".zip、.skill 或 SKILL.md，最大 25MB"}</small></label>
         <div className="upload-fields">
