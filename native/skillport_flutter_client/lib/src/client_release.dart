@@ -59,13 +59,12 @@ class ClientReleaseService {
     String baseUrl = 'https://www.jmuyuer.com',
     http.Client? httpClient,
     String? operatingSystem,
-    InstallerLauncher? installerLauncher,
+    this.installerLauncher,
     Future<Directory> Function()? temporaryDirectoryFactory,
   }) : _baseUri = Uri.parse(baseUrl.replaceFirst(RegExp(r'/$'), '')),
        _http = httpClient ?? http.Client(),
        _ownsClient = httpClient == null,
        _operatingSystem = operatingSystem ?? Platform.operatingSystem,
-       _installerLauncher = installerLauncher,
        _temporaryDirectoryFactory =
            temporaryDirectoryFactory ??
            (() => Directory.systemTemp.createTemp('skillport-update-'));
@@ -74,7 +73,7 @@ class ClientReleaseService {
   final http.Client _http;
   final bool _ownsClient;
   final String _operatingSystem;
-  final InstallerLauncher? _installerLauncher;
+  final InstallerLauncher? installerLauncher;
   final Future<Directory> Function() _temporaryDirectoryFactory;
 
   Future<ClientReleaseInfo> fetchLatest() async {
@@ -150,8 +149,8 @@ class ClientReleaseService {
         throw const HttpException('安装包下载不完整');
       }
       onProgress?.call(1);
-      if (_installerLauncher != null) {
-        await _installerLauncher(_operatingSystem, installer.path);
+      if (installerLauncher != null) {
+        await installerLauncher!(_operatingSystem, installer.path);
       } else {
         await _launchInstaller(installer.path);
       }
