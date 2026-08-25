@@ -4,6 +4,15 @@ export async function backendRequest(request: Request, path: string, init?: Requ
   const sessionToken = sessionTokenFromRequest(request);
   if (!sessionToken) return Response.json({ error: "请先登录。" }, { status: 401 });
 
+  return upstreamRequest(path, init, sessionToken);
+}
+
+export async function publicBackendRequest(path: string, init?: RequestInit) {
+  return upstreamRequest(path, init);
+}
+
+async function upstreamRequest(path: string, init?: RequestInit, sessionToken?: string) {
+
   const baseUrl = process.env.SKILLPORT_BACKEND_URL?.replace(/\/$/, "");
   const gatewayKey = process.env.SKILLPORT_GATEWAY_KEY;
   if (!baseUrl || !gatewayKey) {
@@ -12,7 +21,7 @@ export async function backendRequest(request: Request, path: string, init?: Requ
 
   const headers = new Headers(init?.headers);
   headers.set("X-SkillPort-Gateway-Key", gatewayKey);
-  headers.set("Authorization", `Bearer ${sessionToken}`);
+  if (sessionToken) headers.set("Authorization", `Bearer ${sessionToken}`);
 
   try {
     const upstream = await fetch(`${baseUrl}${path}`, { ...init, headers });

@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.15",
+    date: "2026-08-25",
+    title: "公开意见墙与分页",
+    changes: [
+      "意见信箱升级为公开意见墙，未登录访客也可以浏览大家提交的意见。",
+      "每条意见显示提交人昵称、意见类型与准确提交时间。",
+      "列表采用服务端 MySQL 分页，支持逐页浏览并保留传真提交动画。",
+    ],
+  },
+  {
     version: "1.0.14",
     date: "2026-08-25",
     title: "Cursor Skills 支持",
@@ -310,11 +320,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.14",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.15",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.14",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.15",
   },
 };
 
@@ -867,7 +877,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             <p>{selectedDevice ? selectedDevice.name : "请先选择当前浏览器对应的电脑"}</p>
             <div className="mini-tools"><span>CX</span><span>Q</span><span>AI</span></div>
           </div>
-          <button className="settings-row feedback-entry" onClick={() => guardAccount(() => setFeedbackOpen(true))}><span>✉</span> 意见信箱 <span>›</span></button>
+          <button className="settings-row feedback-entry" onClick={() => setFeedbackOpen(true)}><span>✉</span> 公开意见墙 <span>›</span></button>
           <button className="settings-row"><span>⚙</span> 设置与帮助 <span>›</span></button>
         </div>
       </aside>
@@ -1039,8 +1049,10 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         onDownload={(platform) => { startClientDownload(platform); setClientDownloadOpen(false); setToast(`${clientDownloads[platform].label}已开始下载`); }}
       />}
       {feedbackOpen && <FeedbackMailboxModal
+        signedIn={Boolean(user)}
         onClose={() => setFeedbackOpen(false)}
-        onSubmitted={() => { setFeedbackOpen(false); setToast("意见已送达，感谢你的反馈"); }}
+        onRequireSignIn={() => { setFeedbackOpen(false); setAuthOpen(true); }}
+        onSubmitted={() => setToast("意见已公开送达，感谢你的反馈")}
       />}
       {authOpen && <AuthModal
         onClose={() => setAuthOpen(false)}
@@ -1053,11 +1065,44 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
 
 const feedbackKinds = ["功能建议", "问题反馈", "体验优化", "其他"] as const;
 
-function FeedbackMailboxModal({ onClose, onSubmitted }: { onClose: () => void; onSubmitted: () => void }) {
+type PublicFeedback = { id: string; submitter: string; kind: string; content: string; createdAt: string };
+type FeedbackPage = { items: PublicFeedback[]; page: number; size: number; totalElements: number; totalPages: number; hasPrevious: boolean; hasNext: boolean };
+
+function FeedbackMailboxModal({ signedIn, onClose, onRequireSignIn, onSubmitted }: {
+  signedIn: boolean;
+  onClose: () => void;
+  onRequireSignIn: () => void;
+  onSubmitted: () => void;
+}) {
+  const [view, setView] = useState<"wall" | "compose">("wall");
   const [kind, setKind] = useState<(typeof feedbackKinds)[number]>("功能建议");
   const [content, setContent] = useState("");
   const [stage, setStage] = useState<"writing" | "sending" | "sent">("writing");
   const [error, setError] = useState("");
+  const [feedbackPage, setFeedbackPage] = useState<FeedbackPage | null>(null);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (view !== "wall") return;
+    const controller = new AbortController();
+    setLoading(true);
+    setListError("");
+    fetch(`/api/feedback?page=${page}&size=6`, { signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(String(data?.detail || data?.error || "暂时无法读取公开意见"));
+        return data as FeedbackPage;
+      })
+      .then((data) => setFeedbackPage(data))
+      .catch((loadError) => {
+        if ((loadError as Error).name !== "AbortError") setListError(loadError instanceof Error ? loadError.message : "暂时无法读取公开意见");
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [page, refreshKey, view]);
 
   async function submitFeedback() {
     const normalized = content.trim();
@@ -1084,16 +1129,57 @@ function FeedbackMailboxModal({ onClose, onSubmitted }: { onClose: () => void; o
     }
   }
 
+  function showWallAfterSubmit() {
+    onSubmitted();
+    setContent("");
+    setStage("writing");
+    setPage(1);
+    setRefreshKey((value) => value + 1);
+    setView("wall");
+  }
+
+  function openComposer() {
+    if (!signedIn) {
+      onRequireSignIn();
+      return;
+    }
+    setView("compose");
+  }
+
   return (
     <div className="modal-backdrop feedback-backdrop" onMouseDown={stage === "sending" ? undefined : onClose}>
       <div className="modal feedback-modal" role="dialog" aria-modal="true" aria-label="意见信箱" onMouseDown={(event) => event.stopPropagation()}>
         {stage !== "sending" && <button className="close-button" onClick={onClose} aria-label="关闭意见信箱">×</button>}
         <span className="step-label">FEEDBACK MAILBOX</span>
-        <h2>意见信箱</h2>
-        <p className="feedback-lead">每一封意见都会进入 SkillPort 的产品信箱，帮助我们决定下一次改进。</p>
+        <h2>公开意见墙</h2>
+        <p className="feedback-lead">每个人都能浏览真实建议；登录后可以像发传真一样提交新意见。</p>
 
-        {stage === "writing" ? (
+        {stage === "writing" && <div className="feedback-tabs" role="tablist">
+          <button className={view === "wall" ? "active" : ""} onClick={() => setView("wall")}>大家的意见</button>
+          <button className={view === "compose" ? "active" : ""} onClick={openComposer}>提交意见</button>
+        </div>}
+
+        {stage === "writing" && view === "wall" ? (
+          <div className="feedback-wall">
+            {loading && <div className="feedback-list-state">正在翻阅大家的意见…</div>}
+            {!loading && listError && <div className="feedback-error" role="alert">{listError}<button onClick={() => setRefreshKey((value) => value + 1)}>重试</button></div>}
+            {!loading && !listError && feedbackPage?.items.length === 0 && <div className="feedback-empty"><span>✉</span><b>还没有公开意见</b><p>成为第一个留下建议的人吧。</p><button onClick={openComposer}>提交第一条意见</button></div>}
+            {!loading && !listError && Boolean(feedbackPage?.items.length) && <div className="feedback-public-list">
+              {feedbackPage!.items.map((item) => <article key={item.id}>
+                <div><span>{item.kind}</span><time dateTime={item.createdAt}>{formatFeedbackTime(item.createdAt)}</time></div>
+                <p>{item.content}</p>
+                <footer><i>{item.submitter.trim().slice(0, 1) || "S"}</i><b>{item.submitter || "SkillPort 用户"}</b></footer>
+              </article>)}
+            </div>}
+            {!loading && !listError && feedbackPage && feedbackPage.totalPages > 0 && <div className="feedback-pagination">
+              <button disabled={!feedbackPage.hasPrevious} onClick={() => setPage((value) => Math.max(1, value - 1))}>← 上一页</button>
+              <span>第 <b>{feedbackPage.page}</b> / {feedbackPage.totalPages} 页 · 共 {feedbackPage.totalElements} 条</span>
+              <button disabled={!feedbackPage.hasNext} onClick={() => setPage((value) => value + 1)}>下一页 →</button>
+            </div>}
+          </div>
+        ) : stage === "writing" ? (
           <div className="feedback-form">
+            <div className="feedback-public-notice"><span>公开</span>提交后，意见内容、你的昵称和提交时间会展示给所有人。</div>
             <label><span>意见类型</span><select value={kind} onChange={(event) => setKind(event.target.value as (typeof feedbackKinds)[number])}>{feedbackKinds.map((item) => <option value={item} key={item}>{item}</option>)}</select></label>
             <label><span>写下你的想法</span><textarea autoFocus rows={6} maxLength={2000} value={content} onChange={(event) => { setContent(event.target.value); setError(""); }} placeholder="例如：希望可以批量选择多个 Skill，一次安装到 Codex…"/><small>{content.length}/2000</small></label>
             {error && <div className="feedback-error" role="alert">{error}</div>}
@@ -1110,12 +1196,20 @@ function FeedbackMailboxModal({ onClose, onSubmitted }: { onClose: () => void; o
             <div className="fax-signal"><i/><i/><i/></div>
             <h3>{stage === "sending" ? "正在传真你的意见…" : "意见已送达"}</h3>
             <p>{stage === "sending" ? "纸张扫描中，请稍候。" : "感谢你认真写下这封信，我们会仔细阅读。"}</p>
-            {stage === "sent" && <button className="full-primary feedback-finish" onClick={onSubmitted}>完成</button>}
+            {stage === "sent" && <button className="full-primary feedback-finish" onClick={showWallAfterSubmit}>查看公开意见</button>}
           </div>
         )}
       </div>
     </div>
   );
+}
+
+function formatFeedbackTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(date);
 }
 
 function ClientDownloadModal({ onClose, onDownload }: { onClose: () => void; onDownload: (platform: ClientPlatform) => void }) {
