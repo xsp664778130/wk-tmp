@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.12",
+    date: "2026-08-25",
+    title: "最近 5 个版本记录",
+    changes: [
+      "版本更新弹窗新增固定滚动区域和始终可见的滚动条。",
+      "按发布时间从新到旧展示最近 5 个版本的完整更新内容。",
+      "发现云端新版本时自动置顶，并保留最近历史记录。",
+    ],
+  },
+  {
     version: "1.0.11",
     date: "2026-08-25",
     title: "本机 Skill 目录可见",
@@ -278,11 +288,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.11",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.12",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.11",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.12",
   },
 };
 
@@ -853,7 +863,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             {releaseOpen && (
               <section className="release-panel" aria-label="版本更新内容">
                 <div className="release-panel-head"><div><span>LATEST UPDATE</span><h2>版本更新</h2></div><button onClick={() => setReleaseOpen(false)} aria-label="关闭版本更新">×</button></div>
-                {releaseNotes.map((release, index) => (
+                {releaseNotes.slice(0, 5).map((release, index) => (
                   <article className="release-note" key={release.version}>
                     <div className="release-version"><b>v{release.version}</b>{index === 0 && <em>当前版本</em>}<time dateTime={release.date}>{release.date}</time></div>
                     <h3>{release.title}</h3>
