@@ -76,6 +76,19 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
   late final TextEditingController _note = TextEditingController(
     text: widget.skill.note,
   );
+  late String _category = widget.skill.category;
+  late String _savedCategory = widget.skill.category;
+  bool _categorySaving = false;
+
+  Future<void> _saveCategory() async {
+    setState(() => _categorySaving = true);
+    final saved = await widget.controller.updateCategory(widget.skill, _category);
+    if (!mounted) return;
+    setState(() {
+      _categorySaving = false;
+      if (saved) _savedCategory = _category;
+    });
+  }
 
   @override
   void dispose() {
@@ -104,7 +117,7 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
                   ),
                 ),
                 Text(
-                  skill.category,
+                  skill.isPublic ? skill.category : _category,
                   style: const TextStyle(fontSize: 12, color: muted),
                 ),
               ],
@@ -146,6 +159,45 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
                   ),
                 ),
               ] else ...<Widget>[
+                const SizedBox(height: 15),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _category,
+                        decoration: InputDecoration(
+                          labelText: 'Skill 分类',
+                          helperText: skill.shared
+                              ? '保存后自动同步公有池'
+                              : '与公有池使用同一套分类',
+                        ),
+                        items: skillCategories
+                            .where((category) => category != '全部技能')
+                            .map((category) => DropdownMenuItem<String>(
+                                  value: category,
+                                  child: Text(category),
+                                ))
+                            .toList(),
+                        onChanged: _categorySaving
+                            ? null
+                            : (value) => setState(() => _category = value ?? _category),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton.icon(
+                      onPressed: _categorySaving || _category == _savedCategory
+                          ? null
+                          : _saveCategory,
+                      icon: _categorySaving
+                          ? const SizedBox.square(
+                              dimension: 15,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.category_outlined, size: 17),
+                      label: Text(_categorySaving ? '保存中…' : '保存分类'),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 15),
                 TextField(
                   controller: _note,

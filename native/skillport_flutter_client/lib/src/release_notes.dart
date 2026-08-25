@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.15';
+const currentReleaseVersion = '1.0.16';
 const currentReleaseDate = '2026-08-25';
-const currentReleaseTitle = '公开意见墙与分页';
+const currentReleaseTitle = 'Skill 分类同步编辑';
 const currentReleaseChanges = <String>[
-  '意见信箱升级为公开意见墙，所有用户都可以浏览大家提交的意见。',
-  '每条意见显示提交人昵称、意见类型与准确提交时间。',
-  '列表采用服务端 MySQL 分页，支持逐页浏览并保留传真提交动画。',
+  '我的 Skill 详情新增分类编辑，可以随时切换统一分类。',
+  '已分享到公有池的 Skill 会在同一事务中同步修改公开分类。',
+  '网页与桌面客户端都会立即刷新私人空间和公有池分类。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.15',
+    date: '2026-08-25',
+    title: '公开意见墙与分页',
+    changes: <String>[
+      '意见信箱升级为公开意见墙，所有用户都可以浏览大家提交的意见。',
+      '每条意见显示提交人昵称、意见类型与准确提交时间。',
+      '列表采用服务端 MySQL 分页，支持逐页浏览并保留传真提交动画。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.14',
@@ -61,16 +71,6 @@ const bundledReleaseNotes = <ReleaseNoteData>[
       '版本更新弹窗新增固定滚动区域和始终可见的滚动条。',
       '按发布时间从新到旧展示最近 5 个版本的完整更新内容。',
       '发现云端新版本时自动置顶，并保留最近历史记录。',
-    ],
-  ),
-  ReleaseNoteData(
-    version: '1.0.11',
-    date: '2026-08-25',
-    title: '本机 Skill 目录可见',
-    changes: <String>[
-      '已识别的 AI 工具卡片直接显示实际本机 Skills 目录。',
-      '目录路径使用独立文件夹样式，长路径自动折行并保留完整提示。',
-      '未检测到的工具不展示目录，避免把预设路径误认为已安装目录。',
     ],
   ),
 ];

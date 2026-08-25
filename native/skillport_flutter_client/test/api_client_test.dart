@@ -95,6 +95,36 @@ void main() {
     expect(skill.note, '分享时也要带上');
   });
 
+  test('updates a private Skill category through the synchronized API', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'PATCH');
+      expect(request.url.path, '/api/skills/s1');
+      expect(request.headers['cookie'], 'skillport_session=token-123');
+      expect(jsonDecode(request.body), <String, String>{'category': '日志技能'});
+      return http.Response(
+        jsonEncode(<String, dynamic>{
+          'id': 's1',
+          'name': 'Audit Skill',
+          'description': 'Checks infrastructure',
+          'category': '日志技能',
+          'fileName': 'audit.zip',
+          'sizeBytes': 12,
+          'sha256': 'abc',
+          'toolCompatibility': 'codex,qoder',
+          'shared': true,
+        }),
+        200,
+        headers: const <String, String>{'content-type': 'application/json'},
+      );
+    });
+    final api = SkillPortApi(httpClient: client)..token = 'token-123';
+
+    final skill = await api.updateCategory('s1', '日志技能');
+
+    expect(skill.category, '日志技能');
+    expect(skill.shared, isTrue);
+  });
+
   test('deletes an owned Skill from the private workspace API', () async {
     final client = MockClient((request) async {
       expect(request.method, 'DELETE');

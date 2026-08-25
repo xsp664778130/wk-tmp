@@ -205,6 +205,20 @@ class AppController extends ChangeNotifier {
     }, successMessage: '备注已保存，仅当前账户可见');
   }
 
+  Future<bool> updateCategory(SkillItem skill, String category) async {
+    return _perform('正在保存分类…', () async {
+      final updated = await _api.updateCategory(skill.id, category);
+      privateSkills = privateSkills
+          .map((item) => item.id == updated.id ? updated : item)
+          .toList();
+      publicSkills = publicSkills
+          .map((item) => item.sourceSkillId == skill.id
+              ? item.copyWith(category: updated.category)
+              : item)
+          .toList();
+    }, successMessage: skill.shared ? '分类已保存，并同步到 Skill 公有池' : 'Skill 分类已保存');
+  }
+
   Future<bool> pull(SkillItem skill) async {
     return _perform('正在拉取 Skill…', () async {
       final result = await _api.pullSkill(skill.id);

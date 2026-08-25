@@ -101,6 +101,7 @@ class SkillItem {
   );
 
   SkillItem copyWith({
+    String? category,
     String? note,
     bool? shared,
     bool? pulled,
@@ -109,7 +110,7 @@ class SkillItem {
     id: id,
     name: name,
     description: description,
-    category: category,
+    category: category ?? this.category,
     fileName: fileName,
     sizeBytes: sizeBytes,
     sha256: sha256,
