@@ -3,13 +3,78 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.11';
+const currentReleaseVersion = '1.0.12';
 const currentReleaseDate = '2026-08-25';
-const currentReleaseTitle = '本机 Skill 目录可见';
+const currentReleaseTitle = '最近 5 个版本记录';
 const currentReleaseChanges = <String>[
-  '已识别的 AI 工具卡片直接显示实际本机 Skills 目录。',
-  '目录路径使用独立文件夹样式，长路径自动折行并保留完整提示。',
-  '未检测到的工具不展示目录，避免把预设路径误认为已安装目录。',
+  '版本更新弹窗新增固定滚动区域和始终可见的滚动条。',
+  '按发布时间从新到旧展示最近 5 个版本的完整更新内容。',
+  '发现云端新版本时自动置顶，并保留最近历史记录。',
+];
+
+class ReleaseNoteData {
+  const ReleaseNoteData({
+    required this.version,
+    required this.date,
+    required this.title,
+    required this.changes,
+  });
+
+  final String version;
+  final String date;
+  final String title;
+  final List<String> changes;
+}
+
+const bundledReleaseNotes = <ReleaseNoteData>[
+  ReleaseNoteData(
+    version: currentReleaseVersion,
+    date: currentReleaseDate,
+    title: currentReleaseTitle,
+    changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.11',
+    date: '2026-08-25',
+    title: '本机 Skill 目录可见',
+    changes: <String>[
+      '已识别的 AI 工具卡片直接显示实际本机 Skills 目录。',
+      '目录路径使用独立文件夹样式，长路径自动折行并保留完整提示。',
+      '未检测到的工具不展示目录，避免把预设路径误认为已安装目录。',
+    ],
+  ),
+  ReleaseNoteData(
+    version: '1.0.10',
+    date: '2026-08-25',
+    title: '客户端在线更新',
+    changes: <String>[
+      '客户端自动检查云端最新版本，并准确比较当前版本。',
+      '发现新版本时显示更新提示、版本号和红点提醒。',
+      '更新弹窗按当前系统提供 macOS 或 Windows 的立即更新按钮。',
+      '已是最新版时明确显示当前版本，不再持续显示误导性的红点。',
+    ],
+  ),
+  ReleaseNoteData(
+    version: '1.0.9',
+    date: '2026-08-24',
+    title: '上传兼容与草稿保护',
+    changes: <String>[
+      '兼容压缩包内不同大小写的 SKILL.md，并增强失败路径提示。',
+      '上传弹窗只能通过关闭按钮退出，避免误点遮罩丢失内容。',
+      '自动恢复上次未提交的上传内容，并重新设计删除按钮。',
+      '移除 OpenAI，新增 OpenCode 与 Claude Code 的检测和本机安装支持。',
+    ],
+  ),
+  ReleaseNoteData(
+    version: '1.0.8',
+    date: '2026-08-24',
+    title: '我的 Skill 快捷管理升级',
+    changes: <String>[
+      '我的 Skill 卡片新增删除按钮，无需先打开详情页。',
+      '删除成功后网页与客户端列表立即同步刷新。',
+      'macOS 与 Windows 客户端重新设计卡片和详情页按钮排布。',
+    ],
+  ),
 ];
 
 class VersionUpdateButton extends StatefulWidget {
@@ -158,7 +223,7 @@ class _VersionUpdateButtonState extends State<VersionUpdateButton> {
   }
 }
 
-class ReleaseNotesDialog extends StatelessWidget {
+class ReleaseNotesDialog extends StatefulWidget {
   const ReleaseNotesDialog({
     super.key,
     this.release,
@@ -173,15 +238,43 @@ class ReleaseNotesDialog extends StatelessWidget {
   final Future<void> Function()? onUpdate;
 
   @override
+  State<ReleaseNotesDialog> createState() => _ReleaseNotesDialogState();
+}
+
+class _ReleaseNotesDialogState extends State<ReleaseNotesDialog> {
+  final ScrollController _scrollController = ScrollController();
+
+  List<ReleaseNoteData> get _shownReleases {
+    final releases = <ReleaseNoteData>[];
+    if (widget.updateAvailable && widget.release != null) {
+      releases.add(
+        ReleaseNoteData(
+          version: widget.release!.version,
+          date: widget.release!.date,
+          title: widget.release!.title,
+          changes: widget.release!.changes,
+        ),
+      );
+    }
+    for (final release in bundledReleaseNotes) {
+      if (!releases.any((item) => item.version == release.version)) {
+        releases.add(release);
+      }
+    }
+    return releases.take(5).toList(growable: false);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final shownVersion = updateAvailable
-        ? release!.version
-        : currentReleaseVersion;
-    final shownDate = updateAvailable ? release!.date : currentReleaseDate;
-    final shownTitle = updateAvailable ? release!.title : currentReleaseTitle;
-    final shownChanges = updateAvailable && release!.changes.isNotEmpty
-        ? release!.changes
-        : currentReleaseChanges;
+    final contentHeight = (MediaQuery.sizeOf(context).height * 0.58)
+        .clamp(300.0, 520.0)
+        .toDouble();
     return AlertDialog(
       constraints: const BoxConstraints(maxWidth: 560),
       titlePadding: const EdgeInsets.fromLTRB(28, 25, 18, 0),
@@ -198,7 +291,7 @@ class ReleaseNotesDialog extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              updateAvailable
+              widget.updateAvailable
                   ? Icons.system_update_alt_rounded
                   : Icons.auto_awesome_rounded,
               color: purple,
@@ -210,7 +303,7 @@ class ReleaseNotesDialog extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  updateAvailable ? 'UPDATE AVAILABLE' : 'LATEST UPDATE',
+                  widget.updateAvailable ? 'UPDATE AVAILABLE' : 'LATEST UPDATE',
                   style: const TextStyle(
                     fontSize: 10,
                     color: purple,
@@ -220,7 +313,7 @@ class ReleaseNotesDialog extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  updateAvailable ? '发现新版本' : '版本更新',
+                  widget.updateAvailable ? '发现新版本' : '版本更新',
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
               ],
@@ -233,96 +326,45 @@ class ReleaseNotesDialog extends StatelessWidget {
           ),
         ],
       ),
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Text(
-                  'v$shownVersion',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(width: 9),
-                Chip(
-                  label: Text(updateAvailable ? '可以更新' : '当前版本'),
-                  visualDensity: VisualDensity.compact,
-                  labelStyle: const TextStyle(
-                    fontSize: 11,
-                    color: purple,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  shownDate,
-                  style: const TextStyle(fontSize: 12, color: muted),
-                ),
-              ],
-            ),
-            if (updateAvailable) ...<Widget>[
-              const SizedBox(height: 4),
-              const Text(
-                '当前安装版本：v$currentReleaseVersion',
-                style: TextStyle(fontSize: 12, color: muted),
-              ),
-            ],
-            const SizedBox(height: 12),
-            Text(
-              shownTitle,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 13),
-            ...shownChanges.map(
-              (change) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Padding(
-                      padding: EdgeInsets.only(top: 7),
-                      child: Icon(Icons.circle, size: 6, color: purple),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        change,
-                        style: const TextStyle(height: 1.5, color: muted),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(
-                color: checkFailed
-                    ? const Color(0xFFFFF5E7)
-                    : const Color(0xFFF6F3FF),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Text(
-                checkFailed
-                    ? '暂时无法连接更新服务，当前显示客户端内置的版本信息。'
-                    : updateAvailable
-                    ? '点击“立即更新”会自动下载适合这台电脑的安装包。'
-                    : '当前已是最新版本，后续有更新时这里会主动提示。',
-                style: const TextStyle(fontSize: 12, color: muted),
-              ),
-            ),
-          ],
+      content: SizedBox(
+        height: contentHeight,
+        width: double.maxFinite,
+        child: Scrollbar(
+          controller: _scrollController,
+          thumbVisibility: true,
+          trackVisibility: true,
+          thickness: 7,
+          radius: const Radius.circular(8),
+          child: ListView.separated(
+            controller: _scrollController,
+            padding: const EdgeInsets.only(right: 18),
+            itemCount: _shownReleases.length + 1,
+            separatorBuilder: (_, _) => const SizedBox(height: 14),
+            itemBuilder: (context, index) {
+              if (index == _shownReleases.length) {
+                return _ReleaseStatusNotice(
+                  checkFailed: widget.checkFailed,
+                  updateAvailable: widget.updateAvailable,
+                );
+              }
+              final release = _shownReleases[index];
+              return _ReleaseNoteCard(
+                release: release,
+                status: widget.updateAvailable && index == 0
+                    ? '可以更新'
+                    : release.version == currentReleaseVersion
+                    ? '当前版本'
+                    : '历史版本',
+                highlighted: index == 0,
+              );
+            },
+          ),
         ),
       ),
       actions: <Widget>[
-        if (updateAvailable && onUpdate != null)
+        if (widget.updateAvailable && widget.onUpdate != null)
           FilledButton.icon(
-            onPressed: onUpdate,
+            onPressed: widget.onUpdate,
             style: FilledButton.styleFrom(backgroundColor: purple),
             icon: const Icon(Icons.download_rounded),
             label: const Text('立即更新'),
@@ -334,6 +376,112 @@ class ReleaseNotesDialog extends StatelessWidget {
             child: const Text('我知道了'),
           ),
       ],
+    );
+  }
+}
+
+class _ReleaseNoteCard extends StatelessWidget {
+  const _ReleaseNoteCard({
+    required this.release,
+    required this.status,
+    required this.highlighted,
+  });
+
+  final ReleaseNoteData release;
+  final String status;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: highlighted ? const Color(0xFFF8F6FF) : Colors.white,
+        border: Border.all(color: highlighted ? const Color(0xFFD8CFFF) : line),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Text(
+                'v${release.version}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(width: 9),
+              Chip(
+                label: Text(status),
+                visualDensity: VisualDensity.compact,
+                labelStyle: TextStyle(
+                  fontSize: 11,
+                  color: status == '历史版本' ? muted : purple,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              Text(release.date, style: const TextStyle(fontSize: 12, color: muted)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            release.title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 10),
+          ...release.changes.map(
+            (change) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Padding(
+                    padding: EdgeInsets.only(top: 7),
+                    child: Icon(Icons.circle, size: 6, color: purple),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      change,
+                      style: const TextStyle(height: 1.45, color: muted),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReleaseStatusNotice extends StatelessWidget {
+  const _ReleaseStatusNotice({
+    required this.checkFailed,
+    required this.updateAvailable,
+  });
+
+  final bool checkFailed;
+  final bool updateAvailable;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: checkFailed ? const Color(0xFFFFF5E7) : const Color(0xFFF6F3FF),
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Text(
+        checkFailed
+            ? '暂时无法连接更新服务，当前显示客户端内置的最近 5 个版本。'
+            : updateAvailable
+            ? '点击“立即更新”会自动下载适合这台电脑的安装包。'
+            : '当前已是最新版本；向下滚动可查看最近 5 个版本。',
+        style: const TextStyle(fontSize: 12, color: muted),
+      ),
     );
   }
 }
