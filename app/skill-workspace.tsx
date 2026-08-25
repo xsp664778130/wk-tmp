@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.16",
+    date: "2026-08-25",
+    title: "Skill 分类同步编辑",
+    changes: [
+      "我的 Skill 详情新增分类编辑，可以随时切换统一分类。",
+      "已分享到公有池的 Skill 会在同一事务中同步修改公开分类。",
+      "网页与桌面客户端都会立即刷新私人空间和公有池分类。",
+    ],
+  },
+  {
     version: "1.0.15",
     date: "2026-08-25",
     title: "公开意见墙与分页",
@@ -320,11 +330,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.15",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.16",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.15",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.16",
   },
 };
 
@@ -808,6 +818,33 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     }
   }
 
+  async function updateSkillCategory(skill: Skill, category: SkillCategory) {
+    try {
+      const response = await fetch(`/api/skills/${encodeURIComponent(skill.id)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ category }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.detail || data?.error || "分类修改没有完成"));
+      const normalizedCategory = normalizeSkillCategory(data?.category || category);
+      setPrivateSkills((current) => current.map((item) => item.id === skill.id
+        ? { ...item, category: normalizedCategory }
+        : item));
+      setPublicSkills((current) => current.map((item) => item.sourceSkillId === skill.id
+        ? { ...item, category: normalizedCategory }
+        : item));
+      setSelected((current) => current?.id === skill.id
+        ? { ...current, category: normalizedCategory }
+        : current);
+      setToast(skill.shared ? "分类已保存，并同步到 Skill 公有池" : "Skill 分类已保存");
+      return true;
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "分类修改没有完成，请稍后再试");
+      return false;
+    }
+  }
+
   async function confirmSkillAction() {
     if (!actionCandidate || !user) return;
     const { skill, action } = actionCandidate;
@@ -1028,7 +1065,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         </section>
       </aside>
 
-      {selected && <DetailModal skill={selected} pulling={pullingId === selected.id} onClose={() => setSelected(null)} onInstall={() => { setInstaller(selected); setSelected(null); }} onUninstall={() => { setUninstaller(selected); setSelected(null); }} onPull={() => void pullSkill(selected)} onShare={() => setShareCandidate(selected)} onDelete={() => setActionCandidate({ skill: selected, action: "delete" })} onUnpublish={() => setActionCandidate({ skill: selected, action: "unpublish" })} onSaveNote={(note) => {
+      {selected && <DetailModal skill={selected} pulling={pullingId === selected.id} onClose={() => setSelected(null)} onInstall={() => { setInstaller(selected); setSelected(null); }} onUninstall={() => { setUninstaller(selected); setSelected(null); }} onPull={() => void pullSkill(selected)} onShare={() => setShareCandidate(selected)} onDelete={() => setActionCandidate({ skill: selected, action: "delete" })} onUnpublish={() => setActionCandidate({ skill: selected, action: "unpublish" })} onSaveCategory={(category) => updateSkillCategory(selected, category)} onSaveNote={(note) => {
         setPrivateSkills((current) => current.map((skill) => skill.id === selected.id ? { ...skill, note } : skill));
         setSelected((current) => current ? { ...current, note } : current);
         if (selected.uploaded && user) fetch("/api/skills", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: selected.id, note }) }).catch(() => undefined);
@@ -1229,7 +1266,7 @@ function ClientDownloadModal({ onClose, onDownload }: { onClose: () => void; onD
   );
 }
 
-function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, onShare, onDelete, onUnpublish, onSaveNote }: {
+function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, onShare, onDelete, onUnpublish, onSaveCategory, onSaveNote }: {
   skill: Skill;
   pulling: boolean;
   onClose: () => void;
@@ -1239,15 +1276,24 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
   onShare: () => void;
   onDelete: () => void;
   onUnpublish: () => void;
+  onSaveCategory: (category: SkillCategory) => Promise<boolean>;
   onSaveNote: (note: string) => void;
 }) {
   const [note, setNote] = useState(skill.note || "");
+  const [category, setCategory] = useState<SkillCategory>(skill.category);
+  const [categorySaving, setCategorySaving] = useState(false);
   const isPublic = skill.scope === "public";
+
+  async function saveCategory() {
+    setCategorySaving(true);
+    await onSaveCategory(category);
+    setCategorySaving(false);
+  }
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div className="modal detail-modal" role="dialog" aria-modal="true" aria-label={`${skill.name} 详情`} onMouseDown={(event) => event.stopPropagation()}>
         <button className="close-button" onClick={onClose}>×</button>
-        <div className="detail-hero"><SkillAvatar skill={skill} large/><div><span className="category-pill">{skill.category}</span><h2>{skill.name}</h2><p>by {skill.author} · {skill.uses}</p></div></div>
+        <div className="detail-hero"><SkillAvatar skill={skill} large/><div><span className="category-pill">{isPublic ? skill.category : category}</span><h2>{skill.name}</h2><p>by {skill.author} · {skill.uses}</p></div></div>
         <p className="detail-description">{skill.description}</p>
         <div className="compatibility"><b>兼容工具</b><div>{skill.compatible.map((id) => <span key={id}>{toolMeta[id as keyof typeof toolMeta]?.name}</span>)}</div></div>
         {isPublic ? (
@@ -1257,6 +1303,7 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
           </>
         ) : (
           <>
+            <label className="category-edit-field"><span><b>Skill 分类</b><small>{skill.shared ? "保存后自动同步公有池" : "与公有池使用同一套分类"}</small></span><div><select value={category} disabled={categorySaving} onChange={(event) => setCategory(event.target.value as SkillCategory)}>{skillCategories.map((item) => <option key={item} value={item}>{item}</option>)}</select><button disabled={categorySaving || category === skill.category} onClick={() => void saveCategory()}>{categorySaving ? "保存中…" : "保存分类"}</button></div></label>
             <label className="note-field"><span><b>我的备注</b><small>仅你自己可见</small></span><textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="记录使用方法、适用项目或注意事项…" maxLength={1000}/><em>{note.length}/1000</em></label>
             <div className="share-inline"><span>◎</span><p><b>{skill.shared ? "已分享到公有池" : "分享给社区"}</b><small>{skill.shared ? "其他用户可以拉取公开副本，备注仍保持私有。" : "只公开名称、描述、分类、头像和 Skill 文件，不公开个人备注。"}</small></p><button className={skill.shared ? "unpublish-inline" : ""} onClick={skill.shared ? onUnpublish : onShare}>{skill.shared ? "下架" : "分享"}</button></div>
             <div className="modal-actions"><button className="danger-button" onClick={onDelete}>删除云端 Skill</button><button className="secondary-button uninstall-detail-button" onClick={onUninstall}>从本机卸载</button><button className="secondary-button" onClick={() => onSaveNote(note)}>保存备注</button><button className="primary-button" onClick={onInstall}>加载到本机 <span>→</span></button></div>
