@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.11",
+    date: "2026-08-25",
+    title: "本机 Skill 目录可见",
+    changes: [
+      "已识别的 AI 工具卡片直接显示实际本机 Skills 目录。",
+      "目录路径使用独立文件夹样式，长路径自动折行并保留完整提示。",
+      "未检测到的工具不展示目录，避免把预设路径误认为已安装目录。",
+    ],
+  },
+  {
     version: "1.0.10",
     date: "2026-08-25",
     title: "客户端在线更新",
@@ -268,11 +278,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.10",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.11",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.10",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.11",
   },
 };
 
