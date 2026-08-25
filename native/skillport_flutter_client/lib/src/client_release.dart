@@ -67,7 +67,7 @@ class ClientReleaseService {
           _baseUri.resolve('/bridge/client/latest.json'),
           headers: const <String, String>{
             'accept': 'application/json',
-            'user-agent': 'SkillPort-Flutter/1.0.10',
+            'user-agent': 'SkillPort-Flutter/1.0.11',
           },
         )
         .timeout(const Duration(seconds: 8));

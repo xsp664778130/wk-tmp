@@ -3,14 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.10';
+const currentReleaseVersion = '1.0.11';
 const currentReleaseDate = '2026-08-25';
-const currentReleaseTitle = '客户端在线更新';
+const currentReleaseTitle = '本机 Skill 目录可见';
 const currentReleaseChanges = <String>[
-  '客户端自动检查云端最新版本，并准确比较当前版本。',
-  '发现新版本时显示更新提示、版本号和红点提醒。',
-  '更新弹窗按当前系统提供 macOS 或 Windows 的立即更新按钮。',
-  '已是最新版时明确显示当前版本，不再持续显示误导性的红点。',
+  '已识别的 AI 工具卡片直接显示实际本机 Skills 目录。',
+  '目录路径使用独立文件夹样式，长路径自动折行并保留完整提示。',
+  '未检测到的工具不展示目录，避免把预设路径误认为已安装目录。',
 ];
 
 class VersionUpdateButton extends StatefulWidget {

@@ -734,6 +734,46 @@ class LocalRail extends StatelessWidget {
                               : muted,
                         ),
                       ),
+                      if (tool.detected) ...<Widget>[
+                        const SizedBox(height: 6),
+                        Tooltip(
+                          message: tool.directory,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF6F4FA),
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                            child: Row(
+                              children: <Widget>[
+                                const Icon(
+                                  Icons.folder_open_rounded,
+                                  size: 13,
+                                  color: purple,
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    tool.directory,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      height: 1.35,
+                                      color: Color(0xFF686270),
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
