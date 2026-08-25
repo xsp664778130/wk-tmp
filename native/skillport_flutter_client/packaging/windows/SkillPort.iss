@@ -1,5 +1,5 @@
 #define MyAppName "SkillPort"
-#define MyAppVersion "1.0.16"
+#define MyAppVersion "1.0.17"
 #define MyAppPublisher "SkillPort"
 #define MyAppExeName "skillport_client.exe"
 

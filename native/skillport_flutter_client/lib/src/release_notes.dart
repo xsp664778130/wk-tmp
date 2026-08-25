@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.16';
+const currentReleaseVersion = '1.0.17';
 const currentReleaseDate = '2026-08-25';
-const currentReleaseTitle = 'Skill 分类同步编辑';
+const currentReleaseTitle = '一键客户端自动更新';
 const currentReleaseChanges = <String>[
-  '我的 Skill 详情新增分类编辑，可以随时切换统一分类。',
-  '已分享到公有池的 Skill 会在同一事务中同步修改公开分类。',
-  '网页与桌面客户端都会立即刷新私人空间和公有池分类。',
+  '客户端发现云端新版本时，版本弹窗显示“立即更新到最新版”按钮。',
+  '点击后在客户端内下载匹配当前系统的安装包，并实时显示下载进度。',
+  '下载完成后自动启动 Windows 或 macOS 安装程序，不再跳转浏览器手动查找文件。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.16',
+    date: '2026-08-25',
+    title: 'Skill 分类同步编辑',
+    changes: <String>[
+      '我的 Skill 详情新增分类编辑，可以随时切换统一分类。',
+      '已分享到公有池的 Skill 会在同一事务中同步修改公开分类。',
+      '网页与桌面客户端都会立即刷新私人空间和公有池分类。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.15',
@@ -61,16 +71,6 @@ const bundledReleaseNotes = <ReleaseNoteData>[
       '网页与桌面客户端新增账号专属的意见信箱入口。',
       '提交时播放纸张扫描、信号传输和送达回执的传真动画。',
       '意见安全写入 MySQL，并与提交用户账号绑定。',
-    ],
-  ),
-  ReleaseNoteData(
-    version: '1.0.12',
-    date: '2026-08-25',
-    title: '最近 5 个版本记录',
-    changes: <String>[
-      '版本更新弹窗新增固定滚动区域和始终可见的滚动条。',
-      '按发布时间从新到旧展示最近 5 个版本的完整更新内容。',
-      '发现云端新版本时自动置顶，并保留最近历史记录。',
     ],
   ),
 ];
@@ -125,34 +125,27 @@ class _VersionUpdateButtonState extends State<VersionUpdateButton> {
     if (!mounted) return;
     await showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => ReleaseNotesDialog(
         release: _release,
         updateAvailable: _updateAvailable,
         checkFailed: _checkFailed,
         onUpdate: _release == null
             ? null
-            : () => _startUpdate(dialogContext, _release!),
+            : (onProgress) => _startUpdate(_release!, onProgress),
       ),
     );
   }
 
   Future<void> _startUpdate(
-    BuildContext dialogContext,
     ClientReleaseInfo release,
+    ValueChanged<double> onProgress,
   ) async {
-    try {
-      await _service.openInstaller(release);
-      if (!mounted || !dialogContext.mounted) return;
-      Navigator.pop(dialogContext);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已打开最新版安装包下载，下载完成后运行即可更新。')),
-      );
-    } catch (_) {
-      if (!dialogContext.mounted) return;
-      ScaffoldMessenger.of(dialogContext).showSnackBar(
-        const SnackBar(content: Text('暂时无法打开更新下载，请稍后重试。')),
-      );
-    }
+    await _service.downloadAndLaunch(release, onProgress: onProgress);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('最新版安装程序已启动，请按系统提示完成更新。')),
+    );
   }
 
   @override
@@ -233,7 +226,7 @@ class ReleaseNotesDialog extends StatefulWidget {
   final ClientReleaseInfo? release;
   final bool updateAvailable;
   final bool checkFailed;
-  final Future<void> Function()? onUpdate;
+  final Future<void> Function(ValueChanged<double> onProgress)? onUpdate;
 
   @override
   State<ReleaseNotesDialog> createState() => _ReleaseNotesDialogState();
@@ -241,6 +234,9 @@ class ReleaseNotesDialog extends StatefulWidget {
 
 class _ReleaseNotesDialogState extends State<ReleaseNotesDialog> {
   final ScrollController _scrollController = ScrollController();
+  bool _updating = false;
+  double _updateProgress = 0;
+  String? _updateError;
 
   List<ReleaseNoteData> get _shownReleases {
     final releases = <ReleaseNoteData>[];
@@ -266,6 +262,31 @@ class _ReleaseNotesDialogState extends State<ReleaseNotesDialog> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _runUpdate() async {
+    final update = widget.onUpdate;
+    if (update == null || _updating) return;
+    setState(() {
+      _updating = true;
+      _updateProgress = 0;
+      _updateError = null;
+    });
+    try {
+      await update((progress) {
+        if (!mounted) return;
+        setState(
+          () => _updateProgress = progress.clamp(0, 1).toDouble(),
+        );
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _updating = false;
+        _updateError = '更新失败，请检查网络后重试。';
+      });
+    }
   }
 
   @override
@@ -318,7 +339,7 @@ class _ReleaseNotesDialogState extends State<ReleaseNotesDialog> {
             ),
           ),
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: _updating ? null : () => Navigator.pop(context),
             tooltip: '关闭',
             icon: const Icon(Icons.close_rounded),
           ),
@@ -360,12 +381,36 @@ class _ReleaseNotesDialogState extends State<ReleaseNotesDialog> {
         ),
       ),
       actions: <Widget>[
+        if (_updateError != null)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Text(
+              _updateError!,
+              style: const TextStyle(
+                color: Color(0xFFC74331),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         if (widget.updateAvailable && widget.onUpdate != null)
           FilledButton.icon(
-            onPressed: widget.onUpdate,
+            onPressed: _updating ? null : _runUpdate,
             style: FilledButton.styleFrom(backgroundColor: purple),
-            icon: const Icon(Icons.download_rounded),
-            label: const Text('立即更新'),
+            icon: _updating
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.system_update_alt_rounded),
+            label: Text(
+              _updating
+                  ? '正在下载 ${(_updateProgress * 100).round()}%'
+                  : '立即更新到 v${widget.release!.version}',
+            ),
           )
         else
           FilledButton(
@@ -476,7 +521,7 @@ class _ReleaseStatusNotice extends StatelessWidget {
         checkFailed
             ? '暂时无法连接更新服务，当前显示客户端内置的最近 5 个版本。'
             : updateAvailable
-            ? '点击“立即更新”会自动下载适合这台电脑的安装包。'
+            ? '点击“立即更新”会下载适合这台电脑的安装包并自动启动；macOS 会显示系统安装确认。'
             : '当前已是最新版本；向下滚动可查看最近 5 个版本。',
         style: const TextStyle(fontSize: 12, color: muted),
       ),
