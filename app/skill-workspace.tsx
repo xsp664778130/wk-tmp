@@ -91,6 +91,7 @@ const releaseNotes = [
 ] as const;
 
 const currentRelease = releaseNotes[0];
+const releaseHistoryLimit = 5;
 const releaseSeenStorageKey = "skillport.release-seen";
 const uploadDraftStorageKey = "skillport.upload-draft.v1";
 
@@ -863,7 +864,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             {releaseOpen && (
               <section className="release-panel" aria-label="版本更新内容">
                 <div className="release-panel-head"><div><span>LATEST UPDATE</span><h2>版本更新</h2></div><button onClick={() => setReleaseOpen(false)} aria-label="关闭版本更新">×</button></div>
-                {releaseNotes.slice(0, 5).map((release, index) => (
+                {releaseNotes.slice(0, releaseHistoryLimit).map((release, index) => (
                   <article className="release-note" key={release.version}>
                     <div className="release-version"><b>v{release.version}</b>{index === 0 && <em>当前版本</em>}<time dateTime={release.date}>{release.date}</time></div>
                     <h3>{release.title}</h3>
