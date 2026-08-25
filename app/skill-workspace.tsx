@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.13",
+    date: "2026-08-25",
+    title: "意见信箱与传真动画",
+    changes: [
+      "网页与桌面客户端新增账号专属的意见信箱入口。",
+      "提交时播放纸张扫描、信号传输和送达回执的传真动画。",
+      "意见安全写入 MySQL，并与提交用户账号绑定。",
+    ],
+  },
+  {
     version: "1.0.12",
     date: "2026-08-25",
     title: "最近 5 个版本记录",
@@ -289,11 +299,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.12",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.13",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.12",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.13",
   },
 };
 
@@ -375,6 +385,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const [clientPlatform, setClientPlatform] = useState<ClientPlatform | null>(null);
   const [clientDownloadOpen, setClientDownloadOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [shareCandidate, setShareCandidate] = useState<Skill | null>(null);
@@ -845,6 +856,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             <p>{selectedDevice ? selectedDevice.name : "请先选择当前浏览器对应的电脑"}</p>
             <div className="mini-tools"><span>CX</span><span>Q</span><span>AI</span></div>
           </div>
+          <button className="settings-row feedback-entry" onClick={() => guardAccount(() => setFeedbackOpen(true))}><span>✉</span> 意见信箱 <span>›</span></button>
           <button className="settings-row"><span>⚙</span> 设置与帮助 <span>›</span></button>
         </div>
       </aside>
@@ -1015,11 +1027,82 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         onClose={() => setClientDownloadOpen(false)}
         onDownload={(platform) => { startClientDownload(platform); setClientDownloadOpen(false); setToast(`${clientDownloads[platform].label}已开始下载`); }}
       />}
+      {feedbackOpen && <FeedbackMailboxModal
+        onClose={() => setFeedbackOpen(false)}
+        onSubmitted={() => { setFeedbackOpen(false); setToast("意见已送达，感谢你的反馈"); }}
+      />}
       {authOpen && <AuthModal
         onClose={() => setAuthOpen(false)}
         onAuthenticated={(authenticatedUser) => { setUser(authenticatedUser); setAuthOpen(false); setToast("欢迎进入你的 SkillPort 私人空间"); }}
       />}
       {toast && <div className="toast"><span>✓</span>{toast}</div>}
+    </div>
+  );
+}
+
+const feedbackKinds = ["功能建议", "问题反馈", "体验优化", "其他"] as const;
+
+function FeedbackMailboxModal({ onClose, onSubmitted }: { onClose: () => void; onSubmitted: () => void }) {
+  const [kind, setKind] = useState<(typeof feedbackKinds)[number]>("功能建议");
+  const [content, setContent] = useState("");
+  const [stage, setStage] = useState<"writing" | "sending" | "sent">("writing");
+  const [error, setError] = useState("");
+
+  async function submitFeedback() {
+    const normalized = content.trim();
+    if (normalized.length < 5) {
+      setError("请至少填写 5 个字，让我们更准确地理解你的想法。");
+      return;
+    }
+    setError("");
+    setStage("sending");
+    const minimumAnimation = new Promise((resolve) => window.setTimeout(resolve, 1900));
+    try {
+      const request = fetch("/api/feedback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind, content: normalized }),
+      });
+      const [response] = await Promise.all([request, minimumAnimation]);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.detail || data?.error || "意见暂时没有送达"));
+      setStage("sent");
+    } catch (submissionError) {
+      setStage("writing");
+      setError(submissionError instanceof Error ? submissionError.message : "意见暂时没有送达，请稍后重试。");
+    }
+  }
+
+  return (
+    <div className="modal-backdrop feedback-backdrop" onMouseDown={stage === "sending" ? undefined : onClose}>
+      <div className="modal feedback-modal" role="dialog" aria-modal="true" aria-label="意见信箱" onMouseDown={(event) => event.stopPropagation()}>
+        {stage !== "sending" && <button className="close-button" onClick={onClose} aria-label="关闭意见信箱">×</button>}
+        <span className="step-label">FEEDBACK MAILBOX</span>
+        <h2>意见信箱</h2>
+        <p className="feedback-lead">每一封意见都会进入 SkillPort 的产品信箱，帮助我们决定下一次改进。</p>
+
+        {stage === "writing" ? (
+          <div className="feedback-form">
+            <label><span>意见类型</span><select value={kind} onChange={(event) => setKind(event.target.value as (typeof feedbackKinds)[number])}>{feedbackKinds.map((item) => <option value={item} key={item}>{item}</option>)}</select></label>
+            <label><span>写下你的想法</span><textarea autoFocus rows={6} maxLength={2000} value={content} onChange={(event) => { setContent(event.target.value); setError(""); }} placeholder="例如：希望可以批量选择多个 Skill，一次安装到 Codex…"/><small>{content.length}/2000</small></label>
+            {error && <div className="feedback-error" role="alert">{error}</div>}
+            <button className="full-primary feedback-submit" disabled={content.trim().length < 5} onClick={() => void submitFeedback()}><span>发送意见</span><b>→</b></button>
+          </div>
+        ) : (
+          <div className={`fax-stage ${stage}`} aria-live="polite">
+            <div className="fax-paper"><span>SKILLPORT</span><i/><i/><i/><b>你的意见</b></div>
+            <div className="fax-machine">
+              <div className="fax-top"><span className="fax-status-light"/><b>{stage === "sending" ? "TRANSMITTING" : "DELIVERED"}</b></div>
+              <div className="fax-slot"><i/></div>
+              <div className="fax-controls"><span/><span/><span/></div>
+            </div>
+            <div className="fax-signal"><i/><i/><i/></div>
+            <h3>{stage === "sending" ? "正在传真你的意见…" : "意见已送达"}</h3>
+            <p>{stage === "sending" ? "纸张扫描中，请稍候。" : "感谢你认真写下这封信，我们会仔细阅读。"}</p>
+            {stage === "sent" && <button className="full-primary feedback-finish" onClick={onSubmitted}>完成</button>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
