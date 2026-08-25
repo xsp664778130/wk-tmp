@@ -19,12 +19,6 @@ void main() {
       'toolCompatibility': 'codex,qoder,openai',
     });
 
-    expect(skill.compatible, <String>[
-      'codex',
-      'qoder',
-      'opencode',
-      'claude',
-      'cursor',
-    ]);
+    expect(skill.compatible, <String>['codex', 'qoder', 'opencode', 'claude']);
   });
 }
