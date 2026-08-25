@@ -18,17 +18,17 @@ void main() {
   test('loads the public latest-client manifest', () async {
     final client = MockClient((request) async {
       expect(request.url.path, '/bridge/client/latest.json');
-      expect(request.headers['user-agent'], 'SkillPort-Flutter/1.0.17');
+      expect(request.headers['user-agent'], 'SkillPort-Flutter/1.0.18');
       return http.Response(
         jsonEncode(<String, dynamic>{
-          'version': '1.0.17',
+          'version': '1.0.18',
           'date': '2026-08-26',
           'title': '下一版本',
           'changes': <String>['新增自动更新'],
           'macosUrl':
-              'https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.17',
+              'https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.18',
           'windowsUrl':
-              'https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.17',
+              'https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.18',
         }),
         200,
         headers: const <String, String>{'content-type': 'application/json'},
@@ -38,7 +38,7 @@ void main() {
 
     final release = await service.fetchLatest();
 
-    expect(release.version, '1.0.17');
+    expect(release.version, '1.0.18');
     expect(release.changes, <String>['新增自动更新']);
     expect(isNewerVersion(release.version, '1.0.10'), isTrue);
   });
@@ -47,7 +47,7 @@ void main() {
     final client = MockClient(
       (request) async => http.Response(
         jsonEncode(<String, dynamic>{
-          'version': '1.0.17',
+          'version': '1.0.18',
           'date': '2026-08-26',
           'title': '不安全更新',
           'changes': <String>[],
@@ -66,7 +66,7 @@ void main() {
   });
 
   test('downloads the platform installer locally and launches it', () async {
-    final payload = utf8.encode('skillport-installer-v1.0.17');
+    final payload = utf8.encode('skillport-installer-v1.0.18');
     late Directory temporaryDirectory;
     String? launchedOperatingSystem;
     String? launchedPath;
@@ -74,11 +74,11 @@ void main() {
     final client = MockClient((request) async {
       expect(
         request.url.toString(),
-        'https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.17',
+        'https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.18',
       );
       expect(
         request.headers['user-agent'],
-        'SkillPort-Flutter-Updater/1.0.17',
+        'SkillPort-Flutter-Updater/1.0.18',
       );
       return http.Response.bytes(
         payload,
@@ -101,15 +101,15 @@ void main() {
       },
     );
     final release = ClientReleaseInfo(
-      version: '1.0.17',
+      version: '1.0.18',
       date: '2026-08-25',
       title: '一键客户端自动更新',
       changes: <String>['自动更新'],
       macosUrl: Uri.parse(
-        'https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.17',
+        'https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.18',
       ),
       windowsUrl: Uri.parse(
-        'https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.17',
+        'https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.18',
       ),
     );
 

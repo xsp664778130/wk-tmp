@@ -80,13 +80,20 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
   late String _savedCategory = widget.skill.category;
   bool _categorySaving = false;
 
-  Future<void> _saveCategory() async {
-    setState(() => _categorySaving = true);
-    final saved = await widget.controller.updateCategory(widget.skill, _category);
+  Future<void> _saveCategory(String category) async {
+    setState(() {
+      _category = category;
+      _categorySaving = true;
+    });
+    final saved = await widget.controller.updateCategory(widget.skill, category);
     if (!mounted) return;
     setState(() {
       _categorySaving = false;
-      if (saved) _savedCategory = _category;
+      if (saved) {
+        _savedCategory = category;
+      } else {
+        _category = _savedCategory;
+      }
     });
   }
 
@@ -101,6 +108,9 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
     final skill = widget.skill;
     return AlertDialog(
       constraints: const BoxConstraints(maxWidth: 610),
+      titlePadding: const EdgeInsets.fromLTRB(28, 26, 18, 0),
+      contentPadding: const EdgeInsets.fromLTRB(28, 22, 28, 10),
+      actionsPadding: const EdgeInsets.fromLTRB(28, 8, 28, 24),
       title: Row(
         children: <Widget>[
           _DialogAvatar(skill: skill),
@@ -122,6 +132,11 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            tooltip: '关闭',
+            icon: const Icon(Icons.close_rounded),
           ),
         ],
       ),
@@ -160,43 +175,39 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
                 ),
               ] else ...<Widget>[
                 const SizedBox(height: 15),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _category,
-                        decoration: InputDecoration(
-                          labelText: 'Skill 分类',
-                          helperText: skill.shared
-                              ? '保存后自动同步公有池'
-                              : '与公有池使用同一套分类',
+                DropdownButtonFormField<String>(
+                  key: ValueKey<String>(_category),
+                  initialValue: _category,
+                  decoration: InputDecoration(
+                    labelText: 'Skill 分类',
+                    helperText: _categorySaving
+                        ? '正在保存分类…'
+                        : skill.shared
+                        ? '选择后自动保存并同步公有池'
+                        : '选择后自动保存',
+                    suffixIcon: _categorySaving
+                        ? const Padding(
+                            padding: EdgeInsets.all(14),
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : null,
+                  ),
+                  items: skillCategories
+                      .where((category) => category != '全部技能')
+                      .map(
+                        (category) => DropdownMenuItem<String>(
+                          value: category,
+                          child: Text(category),
                         ),
-                        items: skillCategories
-                            .where((category) => category != '全部技能')
-                            .map((category) => DropdownMenuItem<String>(
-                                  value: category,
-                                  child: Text(category),
-                                ))
-                            .toList(),
-                        onChanged: _categorySaving
-                            ? null
-                            : (value) => setState(() => _category = value ?? _category),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    OutlinedButton.icon(
-                      onPressed: _categorySaving || _category == _savedCategory
-                          ? null
-                          : _saveCategory,
-                      icon: _categorySaving
-                          ? const SizedBox.square(
-                              dimension: 15,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.category_outlined, size: 17),
-                      label: Text(_categorySaving ? '保存中…' : '保存分类'),
-                    ),
-                  ],
+                      )
+                      .toList(),
+                  onChanged: _categorySaving
+                      ? null
+                      : (value) {
+                          if (value != null && value != _savedCategory) {
+                            _saveCategory(value);
+                          }
+                        },
                 ),
                 const SizedBox(height: 15),
                 TextField(
@@ -206,6 +217,16 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
                   decoration: const InputDecoration(
                     labelText: '我的备注（仅自己可见）',
                     alignLabelWithHint: true,
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton.icon(
+                    onPressed: widget.controller.busy
+                        ? null
+                        : () => widget.controller.updateNote(skill, _note.text),
+                    icon: const Icon(Icons.save_outlined, size: 17),
+                    label: const Text('保存备注'),
                   ),
                 ),
               ],
@@ -223,43 +244,48 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
       <Widget>[
         SizedBox(
           width: 560,
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              if (skill.ownedByCurrentUser)
-                OutlinedButton.icon(
-                  onPressed: widget.controller.busy
+              SizedBox(
+                height: 50,
+                child: FilledButton.icon(
+                  onPressed: skill.pulled || widget.controller.busy
                       ? null
                       : () async {
-                          if (await widget.controller.unpublish(skill) &&
+                          if (await widget.controller.pull(skill) &&
                               context.mounted) {
                             Navigator.pop(context);
                           }
                         },
-                  icon: const Icon(Icons.public_off_outlined, size: 17),
-                  label: const Text('从公有池下架'),
+                  style: FilledButton.styleFrom(backgroundColor: purple),
+                  icon: Icon(
+                    skill.pulled ? Icons.check_rounded : Icons.south_rounded,
+                    size: 17,
+                  ),
+                  label: Text(
+                    skill.pulled ? '已在我的空间' : '拉取到我的空间',
+                  ),
                 ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('关闭'),
               ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: skill.pulled || widget.controller.busy
-                    ? null
-                    : () async {
-                        if (await widget.controller.pull(skill) &&
-                            context.mounted) {
-                          Navigator.pop(context);
-                        }
-                      },
-                style: FilledButton.styleFrom(backgroundColor: purple),
-                icon: Icon(
-                  skill.pulled ? Icons.check_rounded : Icons.south_rounded,
-                  size: 17,
+              if (skill.ownedByCurrentUser) ...<Widget>[
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    onPressed: widget.controller.busy
+                        ? null
+                        : () async {
+                            if (await widget.controller.unpublish(skill) &&
+                                context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          },
+                    icon: const Icon(Icons.public_off_outlined, size: 17),
+                    label: const Text('从公有池下架'),
+                  ),
                 ),
-                label: Text(skill.pulled ? '已在我的空间' : '拉取到我的空间'),
-              ),
+              ],
             ],
           ),
         ),
@@ -272,80 +298,101 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  TextButton.icon(
-                    onPressed: widget.controller.busy
-                        ? null
-                        : () => confirmDeleteSkill(
-                            context,
-                            widget.controller,
-                            skill,
-                            closeParentOnSuccess: true,
-                          ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFFB04435),
-                    ),
-                    icon: const Icon(Icons.delete_outline_rounded, size: 17),
-                    label: const Text('删除云端 Skill'),
-                  ),
-                  const SizedBox(width: 6),
-                  OutlinedButton.icon(
-                    onPressed: widget.controller.busy
-                        ? null
-                        : () => showInstallDialog(
-                            context,
-                            widget.controller,
-                            skill,
-                            LocalAction.uninstall,
-                          ),
-                    icon: const Icon(Icons.remove_circle_outline, size: 17),
-                    label: const Text('从本机卸载'),
-                  ),
-                ],
+              SizedBox(
+                height: 50,
+                child: FilledButton.icon(
+                  onPressed: widget.controller.busy
+                      ? null
+                      : () => showInstallDialog(
+                          context,
+                          widget.controller,
+                          skill,
+                          LocalAction.install,
+                        ),
+                  style: FilledButton.styleFrom(backgroundColor: purple),
+                  icon: const Icon(Icons.download_done_rounded, size: 18),
+                  label: const Text('安装到本机'),
+                ),
               ),
               const SizedBox(height: 10),
               Row(
                 children: <Widget>[
-                  TextButton.icon(
-                    onPressed: widget.controller.busy
-                        ? null
-                        : () => widget.controller.updateNote(skill, _note.text),
-                    icon: const Icon(Icons.save_outlined, size: 17),
-                    label: const Text('保存备注'),
-                  ),
-                  const SizedBox(width: 6),
-                  OutlinedButton.icon(
-                    onPressed: widget.controller.busy
-                        ? null
-                        : skill.shared
-                        ? () => widget.controller.unpublish(skill)
-                        : () => widget.controller.share(skill),
-                    icon: Icon(
-                      skill.shared
-                          ? Icons.public_off_outlined
-                          : Icons.ios_share_rounded,
-                      size: 17,
+                  Expanded(
+                    child: SizedBox(
+                      height: 44,
+                      child: OutlinedButton.icon(
+                        onPressed: widget.controller.busy
+                            ? null
+                            : () => showInstallDialog(
+                                context,
+                                widget.controller,
+                                skill,
+                                LocalAction.uninstall,
+                              ),
+                        icon: const Icon(
+                          Icons.remove_circle_outline_rounded,
+                          size: 17,
+                        ),
+                        label: const Text('从本机卸载'),
+                      ),
                     ),
-                    label: Text(skill.shared ? '从公有池下架' : '分享到公有池'),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: FilledButton.icon(
-                      onPressed: widget.controller.busy
-                          ? null
-                          : () => showInstallDialog(
-                              context,
-                              widget.controller,
-                              skill,
-                              LocalAction.install,
-                            ),
-                      style: FilledButton.styleFrom(backgroundColor: purple),
-                      icon: const Icon(Icons.download_done_rounded, size: 17),
-                      label: const Text('安装到本机'),
+                    child: SizedBox(
+                      height: 44,
+                      child: OutlinedButton.icon(
+                        onPressed: widget.controller.busy
+                            ? null
+                            : skill.shared
+                            ? () async {
+                                if (await widget.controller.unpublish(skill) &&
+                                    context.mounted) {
+                                  Navigator.pop(context);
+                                }
+                              }
+                            : () async {
+                                if (await widget.controller.share(skill) &&
+                                    context.mounted) {
+                                  Navigator.pop(context);
+                                }
+                              },
+                        icon: Icon(
+                          skill.shared
+                              ? Icons.public_off_outlined
+                              : Icons.ios_share_rounded,
+                          size: 17,
+                        ),
+                        label: Text(
+                          skill.shared ? '从公有池下架' : '分享到公有池',
+                        ),
+                      ),
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.center,
+                child: TextButton.icon(
+                  onPressed: widget.controller.busy
+                      ? null
+                      : () => confirmDeleteSkill(
+                          context,
+                          widget.controller,
+                          skill,
+                          closeParentOnSuccess: true,
+                        ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFB04435),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 10,
+                    ),
+                  ),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 17),
+                  label: const Text('删除云端 Skill'),
+                ),
               ),
             ],
           ),

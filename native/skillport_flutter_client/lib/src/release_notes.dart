@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.17';
+const currentReleaseVersion = '1.0.18';
 const currentReleaseDate = '2026-08-25';
-const currentReleaseTitle = '一键客户端自动更新';
+const currentReleaseTitle = 'Skill 详情操作区焕新';
 const currentReleaseChanges = <String>[
-  '客户端发现云端新版本时，版本弹窗显示“立即更新到最新版”按钮。',
-  '点击后在客户端内下载匹配当前系统的安装包，并实时显示下载进度。',
-  '下载完成后自动启动 Windows 或 macOS 安装程序，不再跳转浏览器手动查找文件。',
+  '客户端 Skill 详情页重新划分主操作、次级操作与危险操作，按钮统一尺寸和对齐。',
+  '安装到本机作为唯一主按钮，卸载与公有池操作使用等宽次级按钮。',
+  '分类改为选择后自动保存，保存备注回归内容区域，删除操作降低视觉干扰。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.17',
+    date: '2026-08-25',
+    title: '一键客户端自动更新',
+    changes: <String>[
+      '客户端发现云端新版本时，版本弹窗显示“立即更新到最新版”按钮。',
+      '点击后在客户端内下载匹配当前系统的安装包，并实时显示下载进度。',
+      '下载完成后自动启动 Windows 或 macOS 安装程序，不再跳转浏览器手动查找文件。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.16',
@@ -61,16 +71,6 @@ const bundledReleaseNotes = <ReleaseNoteData>[
       '本机 AI 工具新增 Cursor，并显示实际的 ~/.cursor/skills 目录。',
       '网页 Bridge 与桌面客户端均可把 Skill 安装或卸载到 Cursor。',
       'macOS 与 Windows 会根据 Cursor 应用或命令进行真实识别。',
-    ],
-  ),
-  ReleaseNoteData(
-    version: '1.0.13',
-    date: '2026-08-25',
-    title: '意见信箱与传真动画',
-    changes: <String>[
-      '网页与桌面客户端新增账号专属的意见信箱入口。',
-      '提交时播放纸张扫描、信号传输和送达回执的传真动画。',
-      '意见安全写入 MySQL，并与提交用户账号绑定。',
     ],
   ),
 ];

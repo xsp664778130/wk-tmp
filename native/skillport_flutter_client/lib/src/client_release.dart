@@ -82,7 +82,7 @@ class ClientReleaseService {
           _baseUri.resolve('/bridge/client/latest.json'),
           headers: const <String, String>{
             'accept': 'application/json',
-            'user-agent': 'SkillPort-Flutter/1.0.17',
+            'user-agent': 'SkillPort-Flutter/1.0.18',
           },
         )
         .timeout(const Duration(seconds: 8));
@@ -118,7 +118,7 @@ class ClientReleaseService {
       ..followRedirects = false
       ..headers.addAll(const <String, String>{
         'accept': 'application/octet-stream',
-        'user-agent': 'SkillPort-Flutter-Updater/1.0.17',
+        'user-agent': 'SkillPort-Flutter-Updater/1.0.18',
       });
     final response = await _http
         .send(request)
