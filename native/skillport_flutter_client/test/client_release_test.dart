@@ -43,17 +43,22 @@ void main() {
   });
 
   test('rejects an update URL hosted outside SkillPort', () async {
-    final client = MockClient((request) async => http.Response(
-      jsonEncode(<String, dynamic>{
-        'version': '1.0.11',
-        'date': '2026-08-26',
-        'title': '不安全更新',
-        'changes': <String>[],
-        'macosUrl': 'https://example.com/update.pkg',
-        'windowsUrl': 'https://example.com/update.exe',
-      }),
-      200,
-    ));
+    final client = MockClient(
+      (request) async => http.Response(
+        jsonEncode(<String, dynamic>{
+          'version': '1.0.11',
+          'date': '2026-08-26',
+          'title': '不安全更新',
+          'changes': <String>[],
+          'macosUrl': 'https://example.com/update.pkg',
+          'windowsUrl': 'https://example.com/update.exe',
+        }),
+        200,
+        headers: const <String, String>{
+          'content-type': 'application/json; charset=utf-8',
+        },
+      ),
+    );
     final service = ClientReleaseService(httpClient: client);
 
     expect(service.fetchLatest(), throwsA(isA<FormatException>()));
