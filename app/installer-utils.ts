@@ -5,6 +5,7 @@ export const installerTargetRoots = {
   qoder: ".qoder/skills",
   opencode: ".config/opencode/skills",
   claude: ".claude/skills",
+  cursor: ".cursor/skills",
 } as const;
 
 export type InstallerTarget = keyof typeof installerTargetRoots;

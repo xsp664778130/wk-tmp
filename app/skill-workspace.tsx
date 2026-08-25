@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.14",
+    date: "2026-08-25",
+    title: "Cursor Skills 支持",
+    changes: [
+      "本机 AI 工具新增 Cursor，并显示实际的 ~/.cursor/skills 目录。",
+      "网页 Bridge 与桌面客户端均可把 Skill 安装或卸载到 Cursor。",
+      "macOS 与 Windows 会根据 Cursor 应用或命令进行真实识别。",
+    ],
+  },
+  {
     version: "1.0.13",
     date: "2026-08-25",
     title: "意见信箱与传真动画",
@@ -228,7 +238,7 @@ function normalizeToolCompatibility(value: unknown) {
     .map((item) => item.trim())
     .filter(Boolean);
   const migrated = requested.flatMap((item) => item === "openai" ? ["opencode", "claude"] : [item]);
-  const supported = ["codex", "qoder", "opencode", "claude"];
+  const supported = ["codex", "qoder", "opencode", "claude", "cursor"];
   const normalized = supported.filter((item) => migrated.includes(item));
   return normalized.length ? normalized : supported;
 }
@@ -287,6 +297,7 @@ const toolMeta = {
   qoder: { name: "Qoder", mark: "Q", color: "blue" },
   opencode: { name: "OpenCode", mark: "OC", color: "green" },
   claude: { name: "Claude Code", mark: "CC", color: "violet" },
+  cursor: { name: "Cursor", mark: "CU", color: "dark" },
 } as const;
 
 function displayToolPath(id: keyof typeof installerTargetRoots, windows: boolean, slug?: string) {
@@ -299,11 +310,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.13",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.14",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.13",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.14",
   },
 };
 
