@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.17",
+    date: "2026-08-25",
+    title: "一键客户端自动更新",
+    changes: [
+      "客户端发现云端新版本时，版本弹窗显示“立即更新到最新版”按钮。",
+      "点击后在客户端内下载匹配当前系统的安装包，并实时显示下载进度。",
+      "下载完成后自动启动 Windows 或 macOS 安装程序，不再跳转浏览器手动查找文件。",
+    ],
+  },
+  {
     version: "1.0.16",
     date: "2026-08-25",
     title: "Skill 分类同步编辑",
@@ -330,11 +340,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.16",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.17",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.16",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.17",
   },
 };
 
