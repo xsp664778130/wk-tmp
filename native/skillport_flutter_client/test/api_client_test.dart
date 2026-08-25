@@ -107,7 +107,7 @@ void main() {
     await api.deleteSkill('s1');
   });
 
-  test('submits feedback through the account-isolated mailbox API', () async {
+  test('submits an authenticated opinion to the public mailbox API', () async {
     final client = MockClient((request) async {
       expect(request.method, 'POST');
       expect(request.url.path, '/api/feedback');
@@ -130,5 +130,43 @@ void main() {
     final api = SkillPortApi(httpClient: client)..token = 'token-123';
 
     await api.submitFeedback(kind: '功能建议', content: '希望支持批量安装 Skill');
+  });
+
+  test('loads public feedback with submitter time and server pagination', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'GET');
+      expect(request.url.path, '/api/feedback');
+      expect(request.url.queryParameters, <String, String>{'page': '2', 'size': '6'});
+      return http.Response(
+        jsonEncode(<String, dynamic>{
+          'items': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'id': 'feedback-2',
+              'submitter': '小明',
+              'kind': '体验优化',
+              'content': '希望公开意见支持分页',
+              'createdAt': '2026-08-25T08:30:00Z',
+            },
+          ],
+          'page': 2,
+          'size': 6,
+          'totalElements': 13,
+          'totalPages': 3,
+          'hasPrevious': true,
+          'hasNext': true,
+        }),
+        200,
+        headers: const <String, String>{'content-type': 'application/json'},
+      );
+    });
+    final api = SkillPortApi(httpClient: client);
+
+    final page = await api.feedbackPage(page: 2);
+
+    expect(page.items.single.submitter, '小明');
+    expect(page.items.single.createdAt.toUtc(), DateTime.parse('2026-08-25T08:30:00Z'));
+    expect(page.page, 2);
+    expect(page.totalPages, 3);
+    expect(page.hasNext, isTrue);
   });
 }

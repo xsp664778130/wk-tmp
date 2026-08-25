@@ -154,6 +154,64 @@ class LocalActivity {
   final DateTime createdAt;
 }
 
+class PublicFeedbackItem {
+  const PublicFeedbackItem({
+    required this.id,
+    required this.submitter,
+    required this.kind,
+    required this.content,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String submitter;
+  final String kind;
+  final String content;
+  final DateTime createdAt;
+
+  factory PublicFeedbackItem.fromJson(Map<String, dynamic> json) =>
+      PublicFeedbackItem(
+        id: json['id']?.toString() ?? '',
+        submitter: json['submitter']?.toString() ?? 'SkillPort 用户',
+        kind: json['kind']?.toString() ?? '其他',
+        content: json['content']?.toString() ?? '',
+        createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0),
+      );
+}
+
+class FeedbackPage {
+  const FeedbackPage({
+    required this.items,
+    required this.page,
+    required this.size,
+    required this.totalElements,
+    required this.totalPages,
+    required this.hasPrevious,
+    required this.hasNext,
+  });
+
+  final List<PublicFeedbackItem> items;
+  final int page;
+  final int size;
+  final int totalElements;
+  final int totalPages;
+  final bool hasPrevious;
+  final bool hasNext;
+
+  factory FeedbackPage.fromJson(Map<String, dynamic> json) => FeedbackPage(
+    items: _list(json['items'])
+        .map((item) => PublicFeedbackItem.fromJson(_object(item)))
+        .toList(growable: false),
+    page: _asInt(json['page']),
+    size: _asInt(json['size']),
+    totalElements: _asInt(json['totalElements']),
+    totalPages: _asInt(json['totalPages']),
+    hasPrevious: json['hasPrevious'] == true,
+    hasNext: json['hasNext'] == true,
+  );
+}
+
 String normalizeCategory(dynamic value) {
   const legacy = <String, String>{
     '编程开发': '编程技能',
@@ -191,3 +249,8 @@ List<String> _compatibility(dynamic value) {
       .toList(growable: false);
   return result.isEmpty ? defaultToolCompatibility : result;
 }
+
+Map<String, dynamic> _object(dynamic value) =>
+    value is Map<String, dynamic> ? value : <String, dynamic>{};
+
+List<dynamic> _list(dynamic value) => value is List ? value : const <dynamic>[];

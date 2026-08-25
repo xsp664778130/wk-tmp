@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.14';
+const currentReleaseVersion = '1.0.15';
 const currentReleaseDate = '2026-08-25';
-const currentReleaseTitle = 'Cursor Skills 支持';
+const currentReleaseTitle = '公开意见墙与分页';
 const currentReleaseChanges = <String>[
-  '本机 AI 工具新增 Cursor，并显示实际的 ~/.cursor/skills 目录。',
-  '网页 Bridge 与桌面客户端均可把 Skill 安装或卸载到 Cursor。',
-  'macOS 与 Windows 会根据 Cursor 应用或命令进行真实识别。',
+  '意见信箱升级为公开意见墙，所有用户都可以浏览大家提交的意见。',
+  '每条意见显示提交人昵称、意见类型与准确提交时间。',
+  '列表采用服务端 MySQL 分页，支持逐页浏览并保留传真提交动画。',
 ];
 
 class ReleaseNoteData {
@@ -28,6 +28,22 @@ class ReleaseNoteData {
 
 const bundledReleaseNotes = <ReleaseNoteData>[
   ReleaseNoteData(
+    version: currentReleaseVersion,
+    date: currentReleaseDate,
+    title: currentReleaseTitle,
+    changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.14',
+    date: '2026-08-25',
+    title: 'Cursor Skills 支持',
+    changes: <String>[
+      '本机 AI 工具新增 Cursor，并显示实际的 ~/.cursor/skills 目录。',
+      '网页 Bridge 与桌面客户端均可把 Skill 安装或卸载到 Cursor。',
+      'macOS 与 Windows 会根据 Cursor 应用或命令进行真实识别。',
+    ],
+  ),
+  ReleaseNoteData(
     version: '1.0.13',
     date: '2026-08-25',
     title: '意见信箱与传真动画',
@@ -36,12 +52,6 @@ const bundledReleaseNotes = <ReleaseNoteData>[
       '提交时播放纸张扫描、信号传输和送达回执的传真动画。',
       '意见安全写入 MySQL，并与提交用户账号绑定。',
     ],
-  ),
-  ReleaseNoteData(
-    version: currentReleaseVersion,
-    date: currentReleaseDate,
-    title: currentReleaseTitle,
-    changes: currentReleaseChanges,
   ),
   ReleaseNoteData(
     version: '1.0.12',
@@ -61,17 +71,6 @@ const bundledReleaseNotes = <ReleaseNoteData>[
       '已识别的 AI 工具卡片直接显示实际本机 Skills 目录。',
       '目录路径使用独立文件夹样式，长路径自动折行并保留完整提示。',
       '未检测到的工具不展示目录，避免把预设路径误认为已安装目录。',
-    ],
-  ),
-  ReleaseNoteData(
-    version: '1.0.10',
-    date: '2026-08-25',
-    title: '客户端在线更新',
-    changes: <String>[
-      '客户端自动检查云端最新版本，并准确比较当前版本。',
-      '发现新版本时显示更新提示、版本号和红点提醒。',
-      '更新弹窗按当前系统提供 macOS 或 Windows 的立即更新按钮。',
-      '已是最新版时明确显示当前版本，不再持续显示误导性的红点。',
     ],
   ),
 ];

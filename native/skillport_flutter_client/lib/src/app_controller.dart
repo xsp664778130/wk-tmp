@@ -257,6 +257,9 @@ class AppController extends ChangeNotifier {
     });
   }
 
+  Future<FeedbackPage> loadFeedbackPage({int page = 1, int size = 6}) =>
+      _api.feedbackPage(page: page, size: size);
+
   Future<bool> install(SkillItem skill, List<String> targets) async {
     return _perform(
       '正在下载、校验并安装…',
