@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.13';
+const currentReleaseVersion = '1.0.14';
 const currentReleaseDate = '2026-08-25';
-const currentReleaseTitle = '意见信箱与传真动画';
+const currentReleaseTitle = 'Cursor Skills 支持';
 const currentReleaseChanges = <String>[
-  '网页与桌面客户端新增账号专属的意见信箱入口。',
-  '提交时播放纸张扫描、信号传输和送达回执的传真动画。',
-  '意见安全写入 MySQL，并与提交用户账号绑定。',
+  '本机 AI 工具新增 Cursor，并显示实际的 ~/.cursor/skills 目录。',
+  '网页 Bridge 与桌面客户端均可把 Skill 安装或卸载到 Cursor。',
+  'macOS 与 Windows 会根据 Cursor 应用或命令进行真实识别。',
 ];
 
 class ReleaseNoteData {
@@ -27,6 +27,16 @@ class ReleaseNoteData {
 }
 
 const bundledReleaseNotes = <ReleaseNoteData>[
+  ReleaseNoteData(
+    version: '1.0.13',
+    date: '2026-08-25',
+    title: '意见信箱与传真动画',
+    changes: <String>[
+      '网页与桌面客户端新增账号专属的意见信箱入口。',
+      '提交时播放纸张扫描、信号传输和送达回执的传真动画。',
+      '意见安全写入 MySQL，并与提交用户账号绑定。',
+    ],
+  ),
   ReleaseNoteData(
     version: currentReleaseVersion,
     date: currentReleaseDate,
@@ -62,17 +72,6 @@ const bundledReleaseNotes = <ReleaseNoteData>[
       '发现新版本时显示更新提示、版本号和红点提醒。',
       '更新弹窗按当前系统提供 macOS 或 Windows 的立即更新按钮。',
       '已是最新版时明确显示当前版本，不再持续显示误导性的红点。',
-    ],
-  ),
-  ReleaseNoteData(
-    version: '1.0.9',
-    date: '2026-08-24',
-    title: '上传兼容与草稿保护',
-    changes: <String>[
-      '兼容压缩包内不同大小写的 SKILL.md，并增强失败路径提示。',
-      '上传弹窗只能通过关闭按钮退出，避免误点遮罩丢失内容。',
-      '自动恢复上次未提交的上传内容，并重新设计删除按钮。',
-      '移除 OpenAI，新增 OpenCode 与 Claude Code 的检测和本机安装支持。',
     ],
   ),
 ];

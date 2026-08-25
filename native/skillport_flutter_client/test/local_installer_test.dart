@@ -37,6 +37,7 @@ void main() {
         'qoder',
         'opencode',
         'claude',
+        'cursor',
       ]);
       expect(
         tools.map((tool) => path.relative(tool.directory, from: home.path)),
@@ -45,6 +46,7 @@ void main() {
           path.join('.qoder', 'skills'),
           path.join('.config', 'opencode', 'skills'),
           path.join('.claude', 'skills'),
+          path.join('.cursor', 'skills'),
         ],
       );
       expect(
@@ -56,7 +58,13 @@ void main() {
     test('detects all supported command-line tools from PATH', () async {
       final binaries = await Directory(path.join(home.path, 'bin')).create();
       final suffix = Platform.isWindows ? '.cmd' : '';
-      for (final command in <String>['codex', 'qoder', 'opencode', 'claude']) {
+      for (final command in <String>[
+        'codex',
+        'qoder',
+        'opencode',
+        'claude',
+        'cursor',
+      ]) {
         await File(path.join(binaries.path, '$command$suffix'))
             .writeAsString('');
       }
@@ -72,7 +80,7 @@ void main() {
             .detectTools()
             .where((tool) => tool.detected)
             .map((tool) => tool.id),
-        <String>['codex', 'qoder', 'opencode', 'claude'],
+        <String>['codex', 'qoder', 'opencode', 'claude', 'cursor'],
       );
     });
 
@@ -98,7 +106,7 @@ void main() {
         await installer.install(
           skill: skill,
           content: content,
-          targets: const <String>['codex'],
+          targets: const <String>['codex', 'cursor'],
         );
 
         final installed = Directory(
@@ -113,15 +121,30 @@ void main() {
           isTrue,
         );
         expect(installer.isInstalled(skill, 'codex'), isTrue);
+        final cursorInstalled = Directory(
+          path.join(home.path, '.cursor', 'skills', 'sample-skill'),
+        );
+        expect(
+          File(path.join(cursorInstalled.path, 'SKILL.md')).existsSync(),
+          isTrue,
+        );
+        expect(installer.isInstalled(skill, 'cursor'), isTrue);
 
         final removed = await installer.uninstall(
           skill: skill,
-          targets: const <String>['codex'],
+          targets: const <String>['codex', 'cursor'],
         );
-        expect(removed, 1);
+        expect(removed, 2);
         expect(installed.existsSync(), isFalse);
+        expect(cursorInstalled.existsSync(), isFalse);
         expect(
           Directory(path.join(home.path, '.codex', 'skills'))
+              .listSync()
+              .whereType<Directory>(),
+          isEmpty,
+        );
+        expect(
+          Directory(path.join(home.path, '.cursor', 'skills'))
               .listSync()
               .whereType<Directory>(),
           isEmpty,

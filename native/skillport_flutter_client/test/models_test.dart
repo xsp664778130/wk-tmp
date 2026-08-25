@@ -5,7 +5,13 @@ void main() {
   test('uses the current tool set when compatibility is missing', () {
     final skill = SkillItem.fromPrivateJson(const <String, dynamic>{});
 
-    expect(skill.compatible, <String>['codex', 'qoder', 'opencode', 'claude']);
+    expect(skill.compatible, <String>[
+      'codex',
+      'qoder',
+      'opencode',
+      'claude',
+      'cursor',
+    ]);
   });
 
   test('migrates the retired OpenAI target in legacy responses', () {
@@ -13,6 +19,12 @@ void main() {
       'toolCompatibility': 'codex,qoder,openai',
     });
 
-    expect(skill.compatible, <String>['codex', 'qoder', 'opencode', 'claude']);
+    expect(skill.compatible, <String>[
+      'codex',
+      'qoder',
+      'opencode',
+      'claude',
+      'cursor',
+    ]);
   });
 }

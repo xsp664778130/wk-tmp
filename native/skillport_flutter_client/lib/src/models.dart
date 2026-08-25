@@ -8,6 +8,7 @@ const defaultToolCompatibility = <String>[
   'qoder',
   'opencode',
   'claude',
+  'cursor',
 ];
 
 class SkillPortUser {

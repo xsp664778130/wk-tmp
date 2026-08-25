@@ -12,6 +12,7 @@ const toolDirectories = <String, String>{
   'qoder': '.qoder/skills',
   'opencode': '.config/opencode/skills',
   'claude': '.claude/skills',
+  'cursor': '.cursor/skills',
 };
 
 const toolLabels = <String, String>{
@@ -19,6 +20,7 @@ const toolLabels = <String, String>{
   'qoder': 'Qoder',
   'opencode': 'OpenCode',
   'claude': 'Claude Code',
+  'cursor': 'Cursor',
 };
 
 const toolMarks = <String, String>{
@@ -26,6 +28,7 @@ const toolMarks = <String, String>{
   'qoder': 'Q',
   'opencode': 'OC',
   'claude': 'CC',
+  'cursor': 'CU',
 };
 
 class LocalInstaller {
@@ -85,6 +88,8 @@ class LocalInstaller {
         return _exists('.claude/local/claude') ||
             _exists('.claude.json') ||
             _exists('.claude/settings.json');
+      case 'cursor':
+        return _macAppExists('Cursor') || _windowsCursorExists();
       default:
         return false;
     }
@@ -116,6 +121,23 @@ class LocalInstaller {
           path.join(root, 'Programs', name, 'Qoder.exe'),
         ].any((candidate) => File(candidate).existsSync()),
       ),
+    );
+  }
+
+  bool _windowsCursorExists() {
+    if (!_isWindows) return false;
+    final roots = <String?>[
+      _environment['LOCALAPPDATA'],
+      _environment['PROGRAMFILES'],
+      _environment['PROGRAMFILES(X86)'],
+    ].whereType<String>();
+    return roots.any(
+      (root) => <String>[
+        path.join(root, 'Cursor', 'Cursor.exe'),
+        path.join(root, 'cursor', 'Cursor.exe'),
+        path.join(root, 'Programs', 'Cursor', 'Cursor.exe'),
+        path.join(root, 'Programs', 'cursor', 'Cursor.exe'),
+      ].any((candidate) => File(candidate).existsSync()),
     );
   }
 
