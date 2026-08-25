@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.18",
+    date: "2026-08-25",
+    title: "Skill 详情操作区焕新",
+    changes: [
+      "客户端 Skill 详情页重新划分主操作、次级操作与危险操作，按钮统一尺寸和对齐。",
+      "安装到本机作为唯一主按钮，卸载与公有池操作使用等宽次级按钮。",
+      "分类改为选择后自动保存，保存备注回归内容区域，删除操作降低视觉干扰。",
+    ],
+  },
+  {
     version: "1.0.17",
     date: "2026-08-25",
     title: "一键客户端自动更新",
@@ -340,11 +350,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.17",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.18",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.17",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.18",
   },
 };
 
