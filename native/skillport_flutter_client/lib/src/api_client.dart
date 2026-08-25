@@ -34,7 +34,7 @@ class SkillPortApi {
     'accept': 'application/json',
     'content-type': 'application/json; charset=utf-8',
     if (token != null) 'cookie': 'skillport_session=$token',
-    'user-agent': 'SkillPort-Flutter/1.0.12',
+    'user-agent': 'SkillPort-Flutter/1.0.13',
   };
 
   Map<String, String> get sessionHeaders => <String, String>{
@@ -170,6 +170,21 @@ class SkillPortApi {
     _ensureSuccess(response);
   }
 
+  Future<void> submitFeedback({
+    required String kind,
+    required String content,
+  }) async {
+    final response = await _http.post(
+      uri('/api/feedback'),
+      headers: _jsonHeaders,
+      body: jsonEncode(<String, String>{
+        'kind': kind.trim(),
+        'content': content.trim(),
+      }),
+    );
+    _ensureSuccess(response);
+  }
+
   Future<PullResult> pullSkill(String publicSkillId) async {
     final response = await _http.post(
       uri('/api/public-skills/${Uri.encodeComponent(publicSkillId)}/pull'),
@@ -188,7 +203,7 @@ class SkillPortApi {
       headers: <String, String>{
         ...sessionHeaders,
         'accept': 'application/octet-stream',
-        'user-agent': 'SkillPort-Flutter/1.0.12',
+        'user-agent': 'SkillPort-Flutter/1.0.13',
       },
     );
     _ensureSuccess(response);

@@ -106,4 +106,29 @@ void main() {
 
     await api.deleteSkill('s1');
   });
+
+  test('submits feedback through the account-isolated mailbox API', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(request.url.path, '/api/feedback');
+      expect(request.headers['cookie'], 'skillport_session=token-123');
+      expect(jsonDecode(request.body), <String, String>{
+        'kind': '功能建议',
+        'content': '希望支持批量安装 Skill',
+      });
+      return http.Response(
+        jsonEncode(<String, dynamic>{
+          'id': 'feedback-1',
+          'kind': '功能建议',
+          'status': 'NEW',
+          'createdAt': '2026-08-25T03:00:00Z',
+        }),
+        201,
+        headers: const <String, String>{'content-type': 'application/json'},
+      );
+    });
+    final api = SkillPortApi(httpClient: client)..token = 'token-123';
+
+    await api.submitFeedback(kind: '功能建议', content: '希望支持批量安装 Skill');
+  });
 }

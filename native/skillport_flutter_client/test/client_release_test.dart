@@ -17,17 +17,17 @@ void main() {
   test('loads the public latest-client manifest', () async {
     final client = MockClient((request) async {
       expect(request.url.path, '/bridge/client/latest.json');
-      expect(request.headers['user-agent'], 'SkillPort-Flutter/1.0.12');
+      expect(request.headers['user-agent'], 'SkillPort-Flutter/1.0.13');
       return http.Response(
         jsonEncode(<String, dynamic>{
-          'version': '1.0.12',
+          'version': '1.0.13',
           'date': '2026-08-26',
           'title': '下一版本',
           'changes': <String>['新增自动更新'],
           'macosUrl':
-              'https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.12',
+              'https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.13',
           'windowsUrl':
-              'https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.12',
+              'https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.13',
         }),
         200,
         headers: const <String, String>{'content-type': 'application/json'},
@@ -37,7 +37,7 @@ void main() {
 
     final release = await service.fetchLatest();
 
-    expect(release.version, '1.0.12');
+    expect(release.version, '1.0.13');
     expect(release.changes, <String>['新增自动更新']);
     expect(isNewerVersion(release.version, '1.0.10'), isTrue);
   });
@@ -46,7 +46,7 @@ void main() {
     final client = MockClient(
       (request) async => http.Response(
         jsonEncode(<String, dynamic>{
-          'version': '1.0.12',
+          'version': '1.0.13',
           'date': '2026-08-26',
           'title': '不安全更新',
           'changes': <String>[],

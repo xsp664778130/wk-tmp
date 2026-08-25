@@ -251,6 +251,12 @@ class AppController extends ChangeNotifier {
     }, successMessage: '云端 Skill 已删除');
   }
 
+  Future<bool> submitFeedback(String kind, String content) async {
+    return _perform('正在投递意见…', () async {
+      await _api.submitFeedback(kind: kind, content: content);
+    });
+  }
+
   Future<bool> install(SkillItem skill, List<String> targets) async {
     return _perform(
       '正在下载、校验并安装…',

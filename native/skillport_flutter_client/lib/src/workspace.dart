@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'app_controller.dart';
 import 'dialogs.dart';
+import 'feedback_mailbox.dart';
 import 'local_installer.dart';
 import 'models.dart';
 import 'release_notes.dart';
@@ -256,6 +257,35 @@ class Sidebar extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 10),
+          if (compact)
+            IconButton(
+              onPressed: controller.busy
+                  ? null
+                  : () => showFeedbackMailboxDialog(context, controller),
+              tooltip: '意见信箱',
+              icon: const Icon(Icons.mark_email_unread_outlined),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: controller.busy
+                    ? null
+                    : () => showFeedbackMailboxDialog(context, controller),
+                style: OutlinedButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  foregroundColor: purple,
+                  side: const BorderSide(color: Color(0xFFD9D1F0)),
+                  backgroundColor: Colors.white.withValues(alpha: .62),
+                ),
+                icon: const Icon(Icons.mark_email_unread_outlined, size: 18),
+                label: const Text(
+                  '意见信箱',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          const SizedBox(height: 5),
           IconButton(
             onPressed: controller.busy ? null : controller.logout,
             tooltip: '退出登录',

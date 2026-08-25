@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.12';
+const currentReleaseVersion = '1.0.13';
 const currentReleaseDate = '2026-08-25';
-const currentReleaseTitle = '最近 5 个版本记录';
+const currentReleaseTitle = '意见信箱与传真动画';
 const currentReleaseChanges = <String>[
-  '版本更新弹窗新增固定滚动区域和始终可见的滚动条。',
-  '按发布时间从新到旧展示最近 5 个版本的完整更新内容。',
-  '发现云端新版本时自动置顶，并保留最近历史记录。',
+  '网页与桌面客户端新增账号专属的意见信箱入口。',
+  '提交时播放纸张扫描、信号传输和送达回执的传真动画。',
+  '意见安全写入 MySQL，并与提交用户账号绑定。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.12',
+    date: '2026-08-25',
+    title: '最近 5 个版本记录',
+    changes: <String>[
+      '版本更新弹窗新增固定滚动区域和始终可见的滚动条。',
+      '按发布时间从新到旧展示最近 5 个版本的完整更新内容。',
+      '发现云端新版本时自动置顶，并保留最近历史记录。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.11',
@@ -63,16 +73,6 @@ const bundledReleaseNotes = <ReleaseNoteData>[
       '上传弹窗只能通过关闭按钮退出，避免误点遮罩丢失内容。',
       '自动恢复上次未提交的上传内容，并重新设计删除按钮。',
       '移除 OpenAI，新增 OpenCode 与 Claude Code 的检测和本机安装支持。',
-    ],
-  ),
-  ReleaseNoteData(
-    version: '1.0.8',
-    date: '2026-08-24',
-    title: '我的 Skill 快捷管理升级',
-    changes: <String>[
-      '我的 Skill 卡片新增删除按钮，无需先打开详情页。',
-      '删除成功后网页与客户端列表立即同步刷新。',
-      'macOS 与 Windows 客户端重新设计卡片和详情页按钮排布。',
     ],
   ),
 ];
