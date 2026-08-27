@@ -125,6 +125,44 @@ void main() {
     expect(skill.shared, isTrue);
   });
 
+  test('updates Skill details and usage steps through the synchronized API', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'PATCH');
+      expect(request.url.path, '/api/skills/s1');
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['detail'], '完整排查数据库连接和慢查询。');
+      expect(body['usageSteps'], <String>['选择数据库', '运行检查', '查看报告']);
+      return http.Response(
+        jsonEncode(<String, dynamic>{
+          'id': 's1',
+          'name': 'Audit Skill Pro',
+          'description': 'Checks infrastructure',
+          'detail': '完整排查数据库连接和慢查询。',
+          'usageSteps': <String>['选择数据库', '运行检查', '查看报告'],
+          'category': '排查技能',
+          'fileName': 'audit.zip',
+          'sizeBytes': 12,
+          'sha256': 'abc',
+          'toolCompatibility': 'codex,qoder',
+        }),
+        200,
+        headers: const <String, String>{'content-type': 'application/json'},
+      );
+    });
+    final api = SkillPortApi(httpClient: client)..token = 'token-123';
+
+    final skill = await api.updateDetails(
+      's1',
+      name: 'Audit Skill Pro',
+      description: 'Checks infrastructure',
+      detail: '完整排查数据库连接和慢查询。',
+      usageSteps: const <String>['选择数据库', '运行检查', '查看报告'],
+    );
+
+    expect(skill.name, 'Audit Skill Pro');
+    expect(skill.usageSteps, hasLength(3));
+  });
+
   test('deletes an owned Skill from the private workspace API', () async {
     final client = MockClient((request) async {
       expect(request.method, 'DELETE');

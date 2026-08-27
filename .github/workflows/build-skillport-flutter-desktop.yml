@@ -65,7 +65,7 @@ jobs:
           fi
       - run: |
           mkdir -p build/release
-          pkgbuild --component build/macos/Build/Products/Release/SkillPort.app --install-location /Applications --scripts packaging/macos --identifier com.skillport.desktop --version 1.0.18 build/release/SkillPort-Bridge.pkg
+          pkgbuild --component build/macos/Build/Products/Release/SkillPort.app --install-location /Applications --scripts packaging/macos --identifier com.skillport.desktop --version 1.0.21 build/release/SkillPort-Bridge.pkg
           shasum -a 256 build/release/SkillPort-Bridge.pkg
       - uses: actions/upload-artifact@v4
         with:
@@ -89,5 +89,5 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" release/SkillPort-Setup.exe release/SkillPort-Bridge.pkg --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$GITHUB_REF_NAME" release/SkillPort-Setup.exe release/SkillPort-Bridge.pkg --title "SkillPort v1.0.18" --generate-notes --latest --repo "$GITHUB_REPOSITORY"
+            gh release create "$GITHUB_REF_NAME" release/SkillPort-Setup.exe release/SkillPort-Bridge.pkg --title "SkillPort v1.0.21" --generate-notes --latest --repo "$GITHUB_REPOSITORY"
           fi

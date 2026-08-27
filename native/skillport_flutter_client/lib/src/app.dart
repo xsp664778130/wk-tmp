@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import 'app_controller.dart';
+import 'app_theme.dart';
 import 'release_notes.dart';
 import 'workspace.dart';
 
@@ -19,43 +18,19 @@ class SkillPortApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'SkillPort',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: purple,
-          brightness: Brightness.light,
-        ),
-        scaffoldBackgroundColor: canvas,
-        fontFamily: Platform.isWindows
-            ? 'Microsoft YaHei UI'
-            : '.AppleSystemUIFont',
-        inputDecorationTheme: const InputDecorationTheme(
-          filled: true,
-          fillColor: Color(0xFFF7F5F1),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide(color: line),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide(color: line),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide(color: purple, width: 1.4),
-          ),
-        ),
-      ),
-      home: AnimatedBuilder(
-        animation: controller,
-        builder: (context, _) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'SkillPort',
+        theme: buildSkillPortTheme(controller.themePreset),
+        home: Builder(
+          builder: (context) {
           if (controller.initializing) return const SplashScreen();
           if (!controller.signedIn) return AuthScreen(controller: controller);
           return Workspace(controller: controller);
-        },
+          },
+        ),
       ),
     );
   }
@@ -130,6 +105,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final palette = skillPortPalette(context);
     return Scaffold(
       body: Stack(
         children: <Widget>[
@@ -139,21 +116,21 @@ class _AuthScreenState extends State<AuthScreen> {
                 flex: 11,
                 child: Container(
                   padding: const EdgeInsets.all(64),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: <Color>[
-                        Color(0xFFEDE8FF),
-                        Color(0xFFF6F3FF),
-                        Color(0xFFF3F8D9),
+                        palette.sidebar,
+                        scheme.surface,
+                        Color.lerp(scheme.surface, scheme.primary, .08)!,
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                   ),
-                  child: const Column(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Row(
+                      const Row(
                         children: <Widget>[
                           BrandMark(),
                           SizedBox(width: 12),
@@ -166,8 +143,8 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                         ],
                       ),
-                      Spacer(),
-                      Text(
+                      const Spacer(),
+                      const Text(
                         '你的 AI Skill，\n真正装进这台电脑。',
                         style: TextStyle(
                           fontSize: 44,
@@ -176,8 +153,8 @@ class _AuthScreenState extends State<AuthScreen> {
                           letterSpacing: -1.8,
                         ),
                       ),
-                      SizedBox(height: 35),
-                      Wrap(
+                      const SizedBox(height: 35),
+                      const Wrap(
                         spacing: 10,
                         runSpacing: 10,
                         children: <Widget>[
@@ -195,10 +172,10 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                         ],
                       ),
-                      Spacer(),
+                      const Spacer(),
                       Text(
                         'SkillPort Desktop $currentReleaseVersion',
-                        style: TextStyle(color: muted),
+                        style: TextStyle(color: scheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -227,7 +204,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             _register
                                 ? '你的 Skill、备注和会话均按账户隔离。'
                                 : '登录后管理云端 Skill，并直接安装到本机。',
-                            style: const TextStyle(color: muted, fontSize: 14),
+                            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 14),
                           ),
                           const SizedBox(height: 30),
                           if (_register) ...<Widget>[
@@ -284,7 +261,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             onPressed: widget.controller.busy ? null : _submit,
                             style: FilledButton.styleFrom(
                               minimumSize: const Size.fromHeight(49),
-                              backgroundColor: purple,
+                              backgroundColor: scheme.primary,
                             ),
                             icon: widget.controller.busy
                                 ? const SizedBox.square(
@@ -321,6 +298,34 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ],
           ),
+          Positioned(
+            top: 18,
+            right: 180,
+            child: PopupMenuButton<SkillPortThemePreset>(
+              tooltip: '切换配色主题',
+              initialValue: widget.controller.themePreset,
+              onSelected: widget.controller.setThemePreset,
+              itemBuilder: (context) => SkillPortThemePreset.values
+                  .map(
+                    (preset) => PopupMenuItem<SkillPortThemePreset>(
+                      value: preset,
+                      child: Row(
+                        children: <Widget>[
+                          CircleAvatar(radius: 7, backgroundColor: preset.previewColor),
+                          const SizedBox(width: 10),
+                          Text(preset.label),
+                          if (widget.controller.themePreset == preset) ...<Widget>[
+                            const Spacer(),
+                            Icon(Icons.check_rounded, color: scheme.primary, size: 18),
+                          ],
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+              icon: Icon(Icons.palette_outlined, color: scheme.primary),
+            ),
+          ),
           const Positioned(top: 24, right: 24, child: VersionUpdateButton()),
         ],
       ),
@@ -338,14 +343,14 @@ class BrandMark extends StatelessWidget {
     width: size,
     height: size,
     decoration: BoxDecoration(
-      color: ink,
+      color: Theme.of(context).colorScheme.inverseSurface,
       borderRadius: BorderRadius.circular(size * .3),
     ),
     child: Center(
       child: Text(
         'S',
         style: TextStyle(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.onInverseSurface,
           fontSize: size * .36,
           fontWeight: FontWeight.w900,
         ),
@@ -364,13 +369,14 @@ class FeaturePill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .72),
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: .78),
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       borderRadius: BorderRadius.circular(12),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        Icon(icon, size: 18, color: purple),
+        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: 8),
         Text(text, style: const TextStyle(fontWeight: FontWeight.w700)),
       ],

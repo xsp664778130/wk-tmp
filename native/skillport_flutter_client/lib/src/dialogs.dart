@@ -34,6 +34,8 @@ class _UploadDraft {
   XFile? avatar;
   String name = '';
   String description = '';
+  String detail = '';
+  String usageSteps = '';
   String note = '';
   String category = '编程技能';
 
@@ -42,6 +44,8 @@ class _UploadDraft {
     avatar = null;
     name = '';
     description = '';
+    detail = '';
+    usageSteps = '';
     note = '';
     category = '编程技能';
   }
@@ -73,6 +77,7 @@ class SkillDetailDialog extends StatefulWidget {
 }
 
 class _SkillDetailDialogState extends State<SkillDetailDialog> {
+  late SkillItem _skill = widget.skill;
   late final TextEditingController _note = TextEditingController(
     text: widget.skill.note,
   );
@@ -85,16 +90,153 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
       _category = category;
       _categorySaving = true;
     });
-    final saved = await widget.controller.updateCategory(widget.skill, category);
+    final saved = await widget.controller.updateCategory(_skill, category);
     if (!mounted) return;
     setState(() {
       _categorySaving = false;
       if (saved) {
         _savedCategory = category;
+        _skill = _skill.copyWith(category: category);
       } else {
         _category = _savedCategory;
       }
     });
+  }
+
+  Future<void> _editDetails() async {
+    final name = TextEditingController(text: _skill.name);
+    final description = TextEditingController(text: _skill.description);
+    final detail = TextEditingController(
+      text: _skill.detail.isEmpty ? _skill.description : _skill.detail,
+    );
+    final steps = TextEditingController(text: _skill.usageSteps.join('\n'));
+    String? error;
+    bool saving = false;
+    final saved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          constraints: const BoxConstraints(maxWidth: 590),
+          title: const Text('编辑 Skill 详情'),
+          content: SizedBox(
+            width: 540,
+            child: SingleChildScrollView(
+              child: Column(
+                children: <Widget>[
+                  TextField(
+                    controller: name,
+                    maxLength: 160,
+                    decoration: const InputDecoration(labelText: 'Skill 名称'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: description,
+                    minLines: 2,
+                    maxLines: 4,
+                    maxLength: 2000,
+                    decoration: const InputDecoration(
+                      labelText: '简短描述',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: detail,
+                    minLines: 4,
+                    maxLines: 8,
+                    maxLength: 10000,
+                    decoration: const InputDecoration(
+                      labelText: '详细说明',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: steps,
+                    minLines: 4,
+                    maxLines: 8,
+                    decoration: const InputDecoration(
+                      labelText: '使用步骤',
+                      helperText: '每行填写一步，最多 20 步',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  if (error != null) ...<Widget>[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(error!, style: const TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: saving ? null : () async {
+                final usageSteps = steps.text
+                    .split('\n')
+                    .map((step) => step.trim())
+                    .where((step) => step.isNotEmpty)
+                    .toList(growable: false);
+                if (name.text.trim().isEmpty ||
+                    description.text.trim().isEmpty ||
+                    detail.text.trim().isEmpty ||
+                    usageSteps.isEmpty) {
+                  setDialogState(() => error = '请完整填写内容，并至少添加一个使用步骤。');
+                  return;
+                }
+                if (usageSteps.length > 20) {
+                  setDialogState(() => error = '使用步骤最多 20 步。');
+                  return;
+                }
+                if (usageSteps.any((step) => step.length > 500)) {
+                  setDialogState(() => error = '每个使用步骤最多 500 字。');
+                  return;
+                }
+                setDialogState(() {
+                  saving = true;
+                  error = null;
+                });
+                final success = await widget.controller.updateDetails(
+                  _skill,
+                  name: name.text.trim(),
+                  description: description.text.trim(),
+                  detail: detail.text.trim(),
+                  usageSteps: usageSteps,
+                );
+                if (success && dialogContext.mounted) {
+                  _skill = _skill.copyWith(
+                    name: name.text.trim(),
+                    description: description.text.trim(),
+                    detail: detail.text.trim(),
+                    usageSteps: usageSteps,
+                  );
+                  Navigator.pop(dialogContext, true);
+                } else if (dialogContext.mounted) {
+                  setDialogState(() {
+                    saving = false;
+                    error = widget.controller.feedback?.message ?? '保存失败';
+                  });
+                }
+              },
+              child: Text(saving ? '保存中…' : '保存详情'),
+            ),
+          ],
+        ),
+      ),
+    );
+    name.dispose();
+    description.dispose();
+    detail.dispose();
+    steps.dispose();
+    if (saved == true && mounted) setState(() {});
   }
 
   @override
@@ -105,7 +247,7 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final skill = widget.skill;
+    final skill = _skill;
     return AlertDialog(
       constraints: const BoxConstraints(maxWidth: 610),
       titlePadding: const EdgeInsets.fromLTRB(28, 26, 18, 0),
@@ -149,6 +291,69 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
               Text(
                 skill.description.isEmpty ? '暂无描述' : skill.description,
                 style: const TextStyle(color: muted, height: 1.6),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        const Expanded(
+                          child: Text(
+                            '详细说明',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                        if (!skill.isPublic)
+                          TextButton.icon(
+                            onPressed: widget.controller.busy ? null : _editDetails,
+                            icon: const Icon(Icons.edit_outlined, size: 16),
+                            label: const Text('编辑详情'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      skill.detail.isEmpty ? skill.description : skill.detail,
+                      style: const TextStyle(height: 1.65),
+                    ),
+                    const Divider(height: 28),
+                    Text(
+                      '使用步骤 · ${skill.usageSteps.length}',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 9),
+                    if (skill.usageSteps.isEmpty)
+                      const Text('发布者尚未补充具体步骤。', style: TextStyle(color: muted))
+                    else
+                      ...skill.usageSteps.asMap().entries.map(
+                        (entry) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              CircleAvatar(
+                                radius: 11,
+                                backgroundColor: purple,
+                                foregroundColor: Colors.white,
+                                child: Text('${entry.key + 1}', style: const TextStyle(fontSize: 10)),
+                              ),
+                              const SizedBox(width: 9),
+                              Expanded(child: Text(entry.value, style: const TextStyle(height: 1.5))),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(height: 18),
               Wrap(
@@ -416,6 +621,8 @@ class _UploadDialogState extends State<UploadDialog> {
   String _category = '编程技能';
   final _name = TextEditingController();
   final _description = TextEditingController();
+  final _detail = TextEditingController();
+  final _usageSteps = TextEditingController();
   final _note = TextEditingController();
   bool _dragging = false;
   bool _uploaded = false;
@@ -431,6 +638,8 @@ class _UploadDialogState extends State<UploadDialog> {
         ? _uploadDraft.name
         : _nameFromFile(_file);
     _description.text = _uploadDraft.description;
+    _detail.text = _uploadDraft.detail;
+    _usageSteps.text = _uploadDraft.usageSteps;
     _note.text = _uploadDraft.note;
     _saveDraft();
   }
@@ -440,6 +649,8 @@ class _UploadDialogState extends State<UploadDialog> {
     if (!_uploaded) _saveDraft();
     _name.dispose();
     _description.dispose();
+    _detail.dispose();
+    _usageSteps.dispose();
     _note.dispose();
     super.dispose();
   }
@@ -450,6 +661,8 @@ class _UploadDialogState extends State<UploadDialog> {
       ..avatar = _avatar
       ..name = _name.text
       ..description = _description.text
+      ..detail = _detail.text
+      ..usageSteps = _usageSteps.text
       ..note = _note.text
       ..category = _category;
   }
@@ -496,14 +709,32 @@ class _UploadDialogState extends State<UploadDialog> {
       setState(() => _error = '仅支持 .zip、.skill 或 SKILL.md。');
       return;
     }
-    if (_name.text.trim().isEmpty || _description.text.trim().isEmpty) {
-      setState(() => _error = '请填写 Skill 名称和描述后再上传。');
+    final usageSteps = _usageSteps.text
+        .split('\n')
+        .map((step) => step.trim())
+        .where((step) => step.isNotEmpty)
+        .toList(growable: false);
+    if (_name.text.trim().isEmpty ||
+        _description.text.trim().isEmpty ||
+        _detail.text.trim().isEmpty ||
+        usageSteps.isEmpty) {
+      setState(() => _error = '请填写名称、描述、详细说明，并至少添加一个使用步骤。');
+      return;
+    }
+    if (usageSteps.length > 20) {
+      setState(() => _error = '使用步骤最多 20 步，请合并后再上传。');
+      return;
+    }
+    if (usageSteps.any((step) => step.length > 500)) {
+      setState(() => _error = '每个使用步骤最多 500 字，请精简后再上传。');
       return;
     }
     final success = await widget.controller.upload(
       filePath: _file!.path,
       name: _name.text.trim(),
       description: _description.text.trim(),
+      detail: _detail.text.trim(),
+      usageSteps: usageSteps,
       category: _category,
       note: _note.text,
       avatarPath: _avatar?.path,
@@ -531,7 +762,7 @@ class _UploadDialogState extends State<UploadDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             const Text(
-              '名称、描述和分类由你设置；服务器仍会检查目录和 SKILL.md。',
+              '名称、描述、详细说明、使用步骤和分类由你设置；服务器仍会检查目录和 SKILL.md。',
               style: TextStyle(color: muted),
             ),
             const SizedBox(height: 15),
@@ -611,6 +842,38 @@ class _UploadDialogState extends State<UploadDialog> {
               decoration: const InputDecoration(
                 labelText: 'Skill 描述（必填）',
                 helperText: '分享到公有池时同步使用此描述',
+                alignLabelWithHint: true,
+              ),
+              onChanged: (_) => setState(() {
+                _saveDraft();
+                _error = null;
+              }),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _detail,
+              minLines: 4,
+              maxLines: 8,
+              maxLength: 10000,
+              decoration: const InputDecoration(
+                labelText: '详细说明（必填）',
+                helperText: '卡片显示摘要，详情页展示完整内容',
+                alignLabelWithHint: true,
+              ),
+              onChanged: (_) => setState(() {
+                _saveDraft();
+                _error = null;
+              }),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _usageSteps,
+              minLines: 4,
+              maxLines: 8,
+              decoration: const InputDecoration(
+                labelText: '使用步骤（必填）',
+                helperText: '每行填写一步，最多 20 步',
+                hintText: '打开目标项目\n选择需要处理的文件\n运行 Skill 并检查结果',
                 alignLabelWithHint: true,
               ),
               onChanged: (_) => setState(() {

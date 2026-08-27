@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'app_controller.dart';
+import 'app_theme.dart';
 import 'dialogs.dart';
 import 'feedback_mailbox.dart';
 import 'local_installer.dart';
@@ -23,6 +24,7 @@ class _WorkspaceState extends State<Workspace> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final event = widget.controller.feedback;
     if (event != null && event.id != _feedbackId) {
       _feedbackId = event.id;
@@ -31,7 +33,7 @@ class _WorkspaceState extends State<Workspace> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(event.message),
-            backgroundColor: event.error ? const Color(0xFF9E3E31) : ink,
+            backgroundColor: event.error ? scheme.error : scheme.inverseSurface,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -63,6 +65,8 @@ class Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final palette = skillPortPalette(context);
     final width = compact ? 82.0 : 238.0;
     Widget navButton({
       required IconData icon,
@@ -74,7 +78,7 @@ class Sidebar extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Material(
-          color: selected ? Colors.white : Colors.transparent,
+          color: selected ? scheme.surface : Colors.transparent,
           borderRadius: BorderRadius.circular(11),
           child: InkWell(
             onTap: onTap,
@@ -90,7 +94,7 @@ class Sidebar extends StatelessWidget {
                   Icon(
                     icon,
                     size: 20,
-                    color: selected ? purple : const Color(0xFF696370),
+                    color: selected ? scheme.primary : scheme.onSurfaceVariant,
                   ),
                   if (!compact) ...<Widget>[
                     const SizedBox(width: 11),
@@ -101,7 +105,7 @@ class Sidebar extends StatelessWidget {
                           fontWeight: selected
                               ? FontWeight.w800
                               : FontWeight.w600,
-                          color: selected ? purple : const Color(0xFF5F5967),
+                          color: selected ? scheme.primary : scheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -112,14 +116,14 @@ class Sidebar extends StatelessWidget {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE5DFFF),
+                          color: scheme.primaryContainer,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           '$count',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: purple,
+                            color: scheme.onPrimaryContainer,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -136,7 +140,7 @@ class Sidebar extends StatelessWidget {
 
     return Container(
       width: width,
-      color: const Color(0xFFF0ECFA),
+      color: palette.sidebar,
       padding: EdgeInsets.fromLTRB(
         compact ? 10 : 17,
         24,
@@ -163,12 +167,12 @@ class Sidebar extends StatelessWidget {
           ),
           const SizedBox(height: 30),
           if (!compact)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(left: 11, bottom: 6),
               child: Text(
                 '探索',
                 style: TextStyle(
-                  color: Color(0xFF8C8497),
+                  color: scheme.onSurfaceVariant,
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.2,
@@ -201,12 +205,12 @@ class Sidebar extends StatelessWidget {
                   ),
                 ),
           if (!compact)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(left: 11, top: 24, bottom: 6),
               child: Text(
                 '个人空间',
                 style: TextStyle(
-                  color: Color(0xFF8C8497),
+                  color: scheme.onSurfaceVariant,
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.2,
@@ -225,18 +229,18 @@ class Sidebar extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(13),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .62),
+                color: scheme.surface.withValues(alpha: .72),
                 borderRadius: BorderRadius.circular(13),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Row(
+                  Row(
                     children: <Widget>[
                       Icon(
                         Icons.desktop_windows_rounded,
                         size: 18,
-                        color: purple,
+                        color: scheme.primary,
                       ),
                       SizedBox(width: 8),
                       Text(
@@ -251,7 +255,7 @@ class Sidebar extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     '${controller.tools.where((tool) => tool.detected).length} 个 AI 工具已识别',
-                    style: const TextStyle(color: muted, fontSize: 11),
+                    style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
                   ),
                 ],
               ),
@@ -274,14 +278,75 @@ class Sidebar extends StatelessWidget {
                     : () => showFeedbackMailboxDialog(context, controller),
                 style: OutlinedButton.styleFrom(
                   alignment: Alignment.centerLeft,
-                  foregroundColor: purple,
-                  side: const BorderSide(color: Color(0xFFD9D1F0)),
-                  backgroundColor: Colors.white.withValues(alpha: .62),
+                  foregroundColor: scheme.primary,
+                  side: BorderSide(color: scheme.outlineVariant),
+                  backgroundColor: scheme.surface.withValues(alpha: .72),
                 ),
                 icon: const Icon(Icons.mark_email_unread_outlined, size: 18),
                 label: const Text(
                   '意见信箱',
                   style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          const SizedBox(height: 5),
+          if (compact)
+            PopupMenuButton<SkillPortThemePreset>(
+              tooltip: '切换配色主题',
+              initialValue: controller.themePreset,
+              onSelected: controller.setThemePreset,
+              icon: Icon(Icons.palette_outlined, color: scheme.primary),
+              itemBuilder: (context) => SkillPortThemePreset.values
+                  .map(
+                    (preset) => PopupMenuItem<SkillPortThemePreset>(
+                      value: preset,
+                      child: Text(preset.label),
+                    ),
+                  )
+                  .toList(),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: PopupMenuButton<SkillPortThemePreset>(
+                initialValue: controller.themePreset,
+                onSelected: controller.setThemePreset,
+                position: PopupMenuPosition.over,
+                itemBuilder: (context) => SkillPortThemePreset.values
+                    .map(
+                      (preset) => PopupMenuItem<SkillPortThemePreset>(
+                        value: preset,
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(
+                            radius: 12,
+                            backgroundColor: preset.previewColor,
+                          ),
+                          title: Text(preset.label, style: const TextStyle(fontWeight: FontWeight.w800)),
+                          subtitle: Text(preset.description),
+                          trailing: controller.themePreset == preset
+                              ? Icon(Icons.check_rounded, color: scheme.primary)
+                              : null,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                child: Container(
+                  height: 39,
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                  decoration: BoxDecoration(
+                    color: scheme.surface.withValues(alpha: .72),
+                    border: Border.all(color: scheme.outlineVariant),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      Icon(Icons.palette_outlined, size: 18, color: scheme.primary),
+                      const SizedBox(width: 9),
+                      Expanded(child: Text('配色 · ${controller.themePreset.label}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800))),
+                      const Icon(Icons.expand_less_rounded, size: 17),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -305,14 +370,15 @@ class Library extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final public = controller.mode == LibraryMode.publicPool;
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       children: <Widget>[
         Container(
           height: 74,
           padding: const EdgeInsets.symmetric(horizontal: 28),
-          decoration: const BoxDecoration(
-            color: Color(0xF8FFFFFF),
-            border: Border(bottom: BorderSide(color: line)),
+          decoration: BoxDecoration(
+            color: scheme.surface.withValues(alpha: .96),
+            border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
           ),
           child: Row(
             children: <Widget>[
@@ -336,8 +402,8 @@ class Library extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               CircleAvatar(
-                backgroundColor: ink,
-                foregroundColor: Colors.white,
+                backgroundColor: scheme.inverseSurface,
+                foregroundColor: scheme.onInverseSurface,
                 child: Text(
                   controller.user!.displayName.characters.first.toUpperCase(),
                 ),
@@ -354,9 +420,9 @@ class Library extends StatelessWidget {
                       fontSize: 13,
                     ),
                   ),
-                  const Text(
+                  Text(
                     '独立桌面客户端',
-                    style: TextStyle(fontSize: 10, color: muted),
+                    style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -399,7 +465,7 @@ class Library extends StatelessWidget {
                               public
                                   ? '按分类发现社区 Skill，拉取后生成你的独立副本。'
                                   : '在客户端内上传、备注、分享并直接安装到本机。',
-                              style: const TextStyle(color: muted),
+                              style: TextStyle(color: scheme.onSurfaceVariant),
                             ),
                           ],
                         ),
@@ -443,7 +509,7 @@ class Library extends StatelessWidget {
                     gridDelegate:
                         const SliverGridDelegateWithMaxCrossAxisExtent(
                           maxCrossAxisExtent: 340,
-                          mainAxisExtent: 292,
+                          mainAxisExtent: 370,
                           mainAxisSpacing: 14,
                           crossAxisSpacing: 14,
                         ),
@@ -492,13 +558,24 @@ class _QuickDropState extends State<QuickDrop> {
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 18),
       decoration: BoxDecoration(
-        color: _dragging ? const Color(0xFFEDE7FF) : Colors.white,
-        border: Border.all(color: _dragging ? purple : line),
+        color: _dragging
+            ? Theme.of(context).colorScheme.primaryContainer
+            : Theme.of(context).colorScheme.surface,
+        border: Border.all(
+          color: _dragging
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.outlineVariant,
+        ),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: <Widget>[
-          Icon(Icons.file_upload_outlined, color: _dragging ? purple : muted),
+          Icon(
+            Icons.file_upload_outlined,
+            color: _dragging
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: 11),
           const Expanded(
             child: Text(
@@ -524,12 +601,14 @@ class SkillCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final palette = skillPortPalette(context);
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: scheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(17),
-        side: const BorderSide(color: line),
+        side: BorderSide(color: scheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -549,14 +628,14 @@ class SkillCard extends StatelessWidget {
                       vertical: 5,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2F0EC),
+                      color: palette.soft,
                       borderRadius: BorderRadius.circular(7),
                     ),
                     child: Text(
                       skill.category,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        color: muted,
+                        color: scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -578,7 +657,58 @@ class SkillCard extends StatelessWidget {
                 skill.description.isEmpty ? '暂无描述' : skill.description,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, height: 1.5, color: muted),
+                style: TextStyle(fontSize: 13, height: 1.5, color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: palette.soft,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      '详情',
+                      style: TextStyle(
+                        color: scheme.primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      skill.detail.isEmpty ? skill.description : skill.detail,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 12,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 7),
+              Row(
+                children: <Widget>[
+                  Icon(Icons.format_list_numbered_rounded, size: 15, color: scheme.primary),
+                  const SizedBox(width: 5),
+                  Text(
+                    skill.usageSteps.isEmpty
+                        ? '查看完整使用说明'
+                        : '${skill.usageSteps.length} 个使用步骤',
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
               if (!skill.isPublic && skill.note.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 9),
@@ -613,7 +743,7 @@ class SkillCard extends StatelessWidget {
                           : skill.shared
                           ? '已分享到公有池'
                           : '私人 Skill',
-                      style: const TextStyle(color: muted, fontSize: 11),
+                      style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -675,7 +805,7 @@ class SkillCard extends StatelessWidget {
                                 skill,
                                 LocalAction.install,
                               ),
-                        style: FilledButton.styleFrom(backgroundColor: purple),
+                        style: FilledButton.styleFrom(backgroundColor: scheme.primary),
                         icon: const Icon(Icons.download_done_rounded, size: 17),
                         label: const Text('安装到本机'),
                       ),
@@ -696,14 +826,17 @@ class LocalRail extends StatelessWidget {
   final AppController controller;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: 286,
-    padding: const EdgeInsets.fromLTRB(20, 27, 20, 20),
-    decoration: const BoxDecoration(
-      color: Color(0xFFFBFAF7),
-      border: Border(left: BorderSide(color: line)),
-    ),
-    child: Column(
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final palette = skillPortPalette(context);
+    return Container(
+      width: 286,
+      padding: const EdgeInsets.fromLTRB(20, 27, 20, 20),
+      decoration: BoxDecoration(
+        color: palette.rail,
+        border: Border(left: BorderSide(color: scheme.outlineVariant)),
+      ),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         const Text(
@@ -711,9 +844,9 @@ class LocalRail extends StatelessWidget {
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'Flutter 客户端直接读写本机目录',
-          style: TextStyle(fontSize: 11, color: muted),
+          style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: 16),
         ...controller.tools.map(
@@ -721,20 +854,16 @@ class LocalRail extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 9),
             padding: const EdgeInsets.all(11),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: line),
+              color: scheme.surface,
+              border: Border.all(color: scheme.outlineVariant),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: <Widget>[
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor: tool.detected
-                      ? const Color(0xFFE6F8CE)
-                      : const Color(0xFFF0EEEA),
-                  foregroundColor: tool.detected
-                      ? const Color(0xFF4F7E2B)
-                      : muted,
+                  backgroundColor: tool.detected ? palette.successSurface : palette.soft,
+                  foregroundColor: tool.detected ? palette.success : scheme.onSurfaceVariant,
                   child: Text(
                     toolMarks[tool.id] ?? '?',
                     style: const TextStyle(
@@ -759,9 +888,7 @@ class LocalRail extends StatelessWidget {
                         tool.detected ? '已识别' : '未检测到',
                         style: TextStyle(
                           fontSize: 10,
-                          color: tool.detected
-                              ? const Color(0xFF5B9138)
-                              : muted,
+                              color: tool.detected ? palette.success : scheme.onSurfaceVariant,
                         ),
                       ),
                       if (tool.detected) ...<Widget>[
@@ -775,15 +902,15 @@ class LocalRail extends StatelessWidget {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF6F4FA),
+                              color: palette.soft,
                               borderRadius: BorderRadius.circular(7),
                             ),
                             child: Row(
                               children: <Widget>[
-                                const Icon(
+                                Icon(
                                   Icons.folder_open_rounded,
                                   size: 13,
-                                  color: purple,
+                                  color: scheme.primary,
                                 ),
                                 const SizedBox(width: 5),
                                 Expanded(
@@ -791,10 +918,10 @@ class LocalRail extends StatelessWidget {
                                     tool.directory,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 9,
                                       height: 1.35,
-                                      color: Color(0xFF686270),
+                                      color: scheme.onSurfaceVariant,
                                       fontFamily: 'monospace',
                                     ),
                                   ),
@@ -851,9 +978,10 @@ class LocalRail extends StatelessWidget {
                   ),
                 ),
               ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class SkillAvatar extends StatelessWidget {

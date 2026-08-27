@@ -34,7 +34,7 @@ class SkillPortApi {
     'accept': 'application/json',
     'content-type': 'application/json; charset=utf-8',
     if (token != null) 'cookie': 'skillport_session=$token',
-    'user-agent': 'SkillPort-Flutter/1.0.18',
+    'user-agent': 'SkillPort-Flutter/1.0.21',
   };
 
   Map<String, String> get sessionHeaders => <String, String>{
@@ -117,6 +117,8 @@ class SkillPortApi {
     required String filePath,
     required String name,
     required String description,
+    required String detail,
+    required List<String> usageSteps,
     required String category,
     String? avatarPath,
   }) async {
@@ -124,6 +126,8 @@ class SkillPortApi {
       ..headers.addAll(sessionHeaders)
       ..fields['name'] = name.trim()
       ..fields['description'] = description.trim()
+      ..fields['detail'] = detail.trim()
+      ..fields['usageSteps'] = usageSteps.join('\n')
       ..fields['category'] = category
       ..files.add(await http.MultipartFile.fromPath('file', filePath));
     if (avatarPath != null && avatarPath.isNotEmpty) {
@@ -150,6 +154,26 @@ class SkillPortApi {
       uri('/api/skills/${Uri.encodeComponent(skillId)}'),
       headers: _jsonHeaders,
       body: jsonEncode(<String, String>{'category': category}),
+    );
+    return SkillItem.fromPrivateJson(_decodeObject(response));
+  }
+
+  Future<SkillItem> updateDetails(
+    String skillId, {
+    required String name,
+    required String description,
+    required String detail,
+    required List<String> usageSteps,
+  }) async {
+    final response = await _http.patch(
+      uri('/api/skills/${Uri.encodeComponent(skillId)}'),
+      headers: _jsonHeaders,
+      body: jsonEncode(<String, dynamic>{
+        'name': name.trim(),
+        'description': description.trim(),
+        'detail': detail.trim(),
+        'usageSteps': usageSteps,
+      }),
     );
     return SkillItem.fromPrivateJson(_decodeObject(response));
   }
@@ -220,7 +244,7 @@ class SkillPortApi {
       headers: <String, String>{
         ...sessionHeaders,
         'accept': 'application/octet-stream',
-        'user-agent': 'SkillPort-Flutter/1.0.18',
+        'user-agent': 'SkillPort-Flutter/1.0.21',
       },
     );
     _ensureSuccess(response);

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
+import 'app_theme.dart';
 import 'local_installer.dart';
 import 'models.dart';
 import 'session_store.dart';
@@ -38,6 +39,7 @@ class AppController extends ChangeNotifier {
   bool busy = false;
   String busyLabel = '';
   FeedbackEvent? feedback;
+  SkillPortThemePreset themePreset = SkillPortThemePreset.midnight;
   int _feedbackId = 0;
 
   bool get signedIn => user != null;
@@ -53,7 +55,7 @@ class AppController extends ChangeNotifier {
           activeCategory == '全部技能' || skill.category == activeCategory;
       final searchMatches =
           normalized.isEmpty ||
-          '${skill.name} ${skill.description} ${skill.category} ${skill.note}'
+          '${skill.name} ${skill.description} ${skill.detail} ${skill.usageSteps.join(' ')} ${skill.category} ${skill.note}'
               .toLowerCase()
               .contains(normalized);
       return categoryMatches && searchMatches;
@@ -62,6 +64,8 @@ class AppController extends ChangeNotifier {
 
   Future<void> initialize() async {
     try {
+      themePreset = await ThemePreferenceStore.read();
+      notifyListeners();
       tools = _installer.detectTools();
       final token = await _sessionStore.readToken();
       if (token != null && token.isNotEmpty) {
@@ -84,6 +88,13 @@ class AppController extends ChangeNotifier {
       initializing = false;
       notifyListeners();
     }
+  }
+
+  Future<void> setThemePreset(SkillPortThemePreset value) async {
+    if (themePreset == value) return;
+    themePreset = value;
+    notifyListeners();
+    await ThemePreferenceStore.write(value);
   }
 
   Future<bool> login(String email, String password) async =>
@@ -172,6 +183,8 @@ class AppController extends ChangeNotifier {
     required String filePath,
     required String name,
     required String description,
+    required String detail,
+    required List<String> usageSteps,
     required String category,
     required String note,
     String? avatarPath,
@@ -181,6 +194,8 @@ class AppController extends ChangeNotifier {
         filePath: filePath,
         name: name,
         description: description,
+        detail: detail,
+        usageSteps: usageSteps,
         category: category,
         avatarPath: avatarPath,
       );
@@ -217,6 +232,37 @@ class AppController extends ChangeNotifier {
               : item)
           .toList();
     }, successMessage: skill.shared ? '分类已保存，并同步到 Skill 公有池' : 'Skill 分类已保存');
+  }
+
+  Future<bool> updateDetails(
+    SkillItem skill, {
+    required String name,
+    required String description,
+    required String detail,
+    required List<String> usageSteps,
+  }) async {
+    return _perform('正在保存 Skill 详情…', () async {
+      final updated = await _api.updateDetails(
+        skill.id,
+        name: name,
+        description: description,
+        detail: detail,
+        usageSteps: usageSteps,
+      );
+      privateSkills = privateSkills
+          .map((item) => item.id == updated.id ? updated : item)
+          .toList();
+      publicSkills = publicSkills
+          .map((item) => item.sourceSkillId == skill.id
+              ? item.copyWith(
+                  name: updated.name,
+                  description: updated.description,
+                  detail: updated.detail,
+                  usageSteps: updated.usageSteps,
+                )
+              : item)
+          .toList();
+    }, successMessage: skill.shared ? '详情已保存，并同步到 Skill 公有池' : 'Skill 详情已保存');
   }
 
   Future<bool> pull(SkillItem skill) async {

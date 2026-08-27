@@ -34,6 +34,8 @@ class SkillItem {
     required this.id,
     required this.name,
     required this.description,
+    this.detail = '',
+    this.usageSteps = const <String>[],
     required this.category,
     required this.fileName,
     required this.sizeBytes,
@@ -53,6 +55,8 @@ class SkillItem {
   final String id;
   final String name;
   final String description;
+  final String detail;
+  final List<String> usageSteps;
   final String category;
   final String fileName;
   final int sizeBytes;
@@ -72,6 +76,8 @@ class SkillItem {
     id: json['id']?.toString() ?? '',
     name: json['name']?.toString() ?? '未命名 Skill',
     description: json['description']?.toString() ?? '',
+    detail: json['detail']?.toString() ?? json['description']?.toString() ?? '',
+    usageSteps: _stringList(json['usageSteps']),
     category: normalizeCategory(json['category']),
     fileName: json['fileName']?.toString() ?? 'skill.zip',
     sizeBytes: _asInt(json['sizeBytes']),
@@ -86,6 +92,8 @@ class SkillItem {
     id: json['id']?.toString() ?? '',
     name: json['name']?.toString() ?? '未命名 Skill',
     description: json['description']?.toString() ?? '',
+    detail: json['detail']?.toString() ?? json['description']?.toString() ?? '',
+    usageSteps: _stringList(json['usageSteps']),
     category: normalizeCategory(json['category']),
     fileName: json['fileName']?.toString() ?? 'skill.zip',
     sizeBytes: _asInt(json['sizeBytes']),
@@ -101,6 +109,10 @@ class SkillItem {
   );
 
   SkillItem copyWith({
+    String? name,
+    String? description,
+    String? detail,
+    List<String>? usageSteps,
     String? category,
     String? note,
     bool? shared,
@@ -108,8 +120,10 @@ class SkillItem {
     int? pullCount,
   }) => SkillItem(
     id: id,
-    name: name,
-    description: description,
+    name: name ?? this.name,
+    description: description ?? this.description,
+    detail: detail ?? this.detail,
+    usageSteps: usageSteps ?? this.usageSteps,
     category: category ?? this.category,
     fileName: fileName,
     sizeBytes: sizeBytes,
@@ -233,6 +247,13 @@ String? _nullableString(dynamic value) {
   final text = value?.toString();
   return text == null || text.isEmpty ? null : text;
 }
+
+List<String> _stringList(dynamic value) => value is List
+    ? value
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false)
+    : const <String>[];
 
 List<String> _compatibility(dynamic value) {
   final values = value is List

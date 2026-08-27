@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.18';
-const currentReleaseDate = '2026-08-25';
-const currentReleaseTitle = 'Skill 详情操作区焕新';
+const currentReleaseVersion = '1.0.21';
+const currentReleaseDate = '2026-08-27';
+const currentReleaseTitle = 'Skill 分类保存修复';
 const currentReleaseChanges = <String>[
-  '客户端 Skill 详情页重新划分主操作、次级操作与危险操作，按钮统一尺寸和对齐。',
-  '安装到本机作为唯一主按钮，卸载与公有池操作使用等宽次级按钮。',
-  '分类改为选择后自动保存，保存备注回归内容区域，删除操作降低视觉干扰。',
+  '我的 Skill 分类改为选择后立即自动保存，不再需要额外点击保存按钮。',
+  '分类保存过程会显示明确状态，失败时自动恢复原分类。',
+  '已分享 Skill 的分类保存成功后同步刷新公有池记录。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,36 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.20',
+    date: '2026-08-27',
+    title: 'Skill 详情与使用步骤',
+    changes: <String>[
+      '上传和编辑 Skill 时可维护完整详细说明与最多 20 个使用步骤。',
+      'Skill 卡片新增详情摘要和步骤数量，点击后按编号查看完整使用方法。',
+      '已分享 Skill 的名称、描述、详细说明和使用步骤会自动同步到公有池。',
+    ],
+  ),
+  ReleaseNoteData(
+    version: '1.0.19',
+    date: '2026-08-27',
+    title: '多主题配色',
+    changes: <String>[
+      '新增深夜紫、曜石黑、海湾蓝与晨雾白 4 套界面配色，可随时切换。',
+      '默认采用参考图风格的深夜紫暗色界面，核心卡片、输入框与侧栏统一适配。',
+      '主题选择保存在当前设备，客户端重启后仍会自动恢复。',
+    ],
+  ),
+  ReleaseNoteData(
+    version: '1.0.18',
+    date: '2026-08-25',
+    title: 'Skill 详情操作区焕新',
+    changes: <String>[
+      '客户端 Skill 详情页重新划分主操作、次级操作与危险操作，按钮统一尺寸和对齐。',
+      '安装到本机作为唯一主按钮，卸载与公有池操作使用等宽次级按钮。',
+      '分类改为选择后自动保存，保存备注回归内容区域，删除操作降低视觉干扰。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.17',
@@ -156,6 +186,7 @@ class _VersionUpdateButtonState extends State<VersionUpdateButton> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final label = _updateAvailable
         ? '发现新版本  v${_release!.version}'
         : '版本更新  v$currentReleaseVersion';
@@ -167,9 +198,9 @@ class _VersionUpdateButtonState extends State<VersionUpdateButton> {
           child: OutlinedButton.icon(
             onPressed: _showDetails,
             style: OutlinedButton.styleFrom(
-              foregroundColor: _updateAvailable ? purple : ink,
-              side: BorderSide(color: _updateAvailable ? purple : line),
-              backgroundColor: Colors.white,
+              foregroundColor: _updateAvailable ? scheme.primary : scheme.onSurface,
+              side: BorderSide(color: _updateAvailable ? scheme.primary : scheme.outlineVariant),
+              backgroundColor: scheme.surface,
               minimumSize: widget.compact
                   ? const Size(44, 40)
                   : const Size(154, 40),
@@ -291,6 +322,7 @@ class _ReleaseNotesDialogState extends State<ReleaseNotesDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final contentHeight = (MediaQuery.sizeOf(context).height * 0.58)
         .clamp(300.0, 520.0)
         .toDouble();
@@ -306,14 +338,14 @@ class _ReleaseNotesDialogState extends State<ReleaseNotesDialog> {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: const Color(0xFFECE7FF),
+              color: scheme.primaryContainer,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               widget.updateAvailable
                   ? Icons.system_update_alt_rounded
                   : Icons.auto_awesome_rounded,
-              color: purple,
+              color: scheme.primary,
             ),
           ),
           const SizedBox(width: 14),
@@ -323,9 +355,9 @@ class _ReleaseNotesDialogState extends State<ReleaseNotesDialog> {
               children: <Widget>[
                 Text(
                   widget.updateAvailable ? 'UPDATE AVAILABLE' : 'LATEST UPDATE',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
-                    color: purple,
+                    color: scheme.primary,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.4,
                   ),
@@ -395,7 +427,7 @@ class _ReleaseNotesDialogState extends State<ReleaseNotesDialog> {
         if (widget.updateAvailable && widget.onUpdate != null)
           FilledButton.icon(
             onPressed: _updating ? null : _runUpdate,
-            style: FilledButton.styleFrom(backgroundColor: purple),
+            style: FilledButton.styleFrom(backgroundColor: scheme.primary),
             icon: _updating
                 ? const SizedBox(
                     width: 16,
@@ -415,7 +447,7 @@ class _ReleaseNotesDialogState extends State<ReleaseNotesDialog> {
         else
           FilledButton(
             onPressed: () => Navigator.pop(context),
-            style: FilledButton.styleFrom(backgroundColor: purple),
+            style: FilledButton.styleFrom(backgroundColor: scheme.primary),
             child: const Text('我知道了'),
           ),
       ],
@@ -436,11 +468,12 @@ class _ReleaseNoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: highlighted ? const Color(0xFFF8F6FF) : Colors.white,
-        border: Border.all(color: highlighted ? const Color(0xFFD8CFFF) : line),
+        color: highlighted ? scheme.primaryContainer.withValues(alpha: .28) : scheme.surface,
+        border: Border.all(color: highlighted ? scheme.primary.withValues(alpha: .55) : scheme.outlineVariant),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -458,12 +491,12 @@ class _ReleaseNoteCard extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 labelStyle: TextStyle(
                   fontSize: 11,
-                  color: status == '历史版本' ? muted : purple,
+                  color: status == '历史版本' ? scheme.onSurfaceVariant : scheme.primary,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const Spacer(),
-              Text(release.date, style: const TextStyle(fontSize: 12, color: muted)),
+              Text(release.date, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
             ],
           ),
           const SizedBox(height: 10),
@@ -478,15 +511,15 @@ class _ReleaseNoteCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Padding(
-                    padding: EdgeInsets.only(top: 7),
-                    child: Icon(Icons.circle, size: 6, color: purple),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 7),
+                    child: Icon(Icons.circle, size: 6, color: scheme.primary),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       change,
-                      style: const TextStyle(height: 1.45, color: muted),
+                      style: TextStyle(height: 1.45, color: scheme.onSurfaceVariant),
                     ),
                   ),
                 ],
@@ -510,11 +543,12 @@ class _ReleaseStatusNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: checkFailed ? const Color(0xFFFFF5E7) : const Color(0xFFF6F3FF),
+        color: checkFailed ? scheme.errorContainer : scheme.primaryContainer.withValues(alpha: .32),
         borderRadius: BorderRadius.circular(11),
       ),
       child: Text(
@@ -523,7 +557,7 @@ class _ReleaseStatusNotice extends StatelessWidget {
             : updateAvailable
             ? '点击“立即更新”会下载适合这台电脑的安装包并自动启动；macOS 会显示系统安装确认。'
             : '当前已是最新版本；向下滚动可查看最近 5 个版本。',
-        style: const TextStyle(fontSize: 12, color: muted),
+        style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
       ),
     );
   }

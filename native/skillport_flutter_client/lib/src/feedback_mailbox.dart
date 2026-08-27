@@ -121,6 +121,7 @@ class _FeedbackMailboxDialogState extends State<FeedbackMailboxDialog>
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
       constraints: const BoxConstraints(maxWidth: 640),
       titlePadding: const EdgeInsets.fromLTRB(28, 25, 18, 0),
@@ -132,13 +133,13 @@ class _FeedbackMailboxDialogState extends State<FeedbackMailboxDialog>
             width: 43,
             height: 43,
             decoration: BoxDecoration(
-              color: const Color(0xFFECE7FF),
+              color: scheme.primaryContainer,
               borderRadius: BorderRadius.circular(13),
             ),
-            child: const Icon(Icons.mark_email_unread_outlined, color: purple),
+            child: Icon(Icons.mark_email_unread_outlined, color: scheme.primary),
           ),
           const SizedBox(width: 13),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
@@ -146,7 +147,7 @@ class _FeedbackMailboxDialogState extends State<FeedbackMailboxDialog>
                   'FEEDBACK MAILBOX',
                   style: TextStyle(
                     fontSize: 10,
-                    color: purple,
+                    color: scheme.primary,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.35,
                   ),
@@ -183,19 +184,20 @@ class _FeedbackMailboxDialogState extends State<FeedbackMailboxDialog>
   }
 
   Widget _buildWriting() {
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       key: const ValueKey<String>('feedback-writing'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const Text(
+        Text(
           '每个人都能浏览真实建议；登录后可以像发传真一样提交新意见。',
-          style: TextStyle(color: muted, height: 1.5),
+          style: TextStyle(color: scheme.onSurfaceVariant, height: 1.5),
         ),
         const SizedBox(height: 14),
         Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: const Color(0xFFEEEAF6),
+            color: scheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(13),
           ),
           child: Row(
@@ -215,11 +217,12 @@ class _FeedbackMailboxDialogState extends State<FeedbackMailboxDialog>
 
   Widget _viewButton(_FeedbackView value, String label) {
     final active = _view == value;
+    final scheme = Theme.of(context).colorScheme;
     return TextButton(
       onPressed: () => setState(() => _view = value),
       style: TextButton.styleFrom(
-        backgroundColor: active ? Colors.white : Colors.transparent,
-        foregroundColor: active ? purple : muted,
+        backgroundColor: active ? scheme.surface : Colors.transparent,
+        foregroundColor: active ? scheme.primary : scheme.onSurfaceVariant,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
       ),
       child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -368,11 +371,12 @@ class _FeedbackCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .86),
-        border: Border.all(color: const Color(0xFFE2DDEB)),
+        color: scheme.surface.withValues(alpha: .9),
+        border: Border.all(color: scheme.outlineVariant),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -382,11 +386,11 @@ class _FeedbackCard extends StatelessWidget {
             children: <Widget>[
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: const Color(0xFFEEE8FF), borderRadius: BorderRadius.circular(7)),
-                child: Text(item.kind, style: const TextStyle(color: Color(0xFF6249C5), fontSize: 11, fontWeight: FontWeight.w800)),
+                decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(7)),
+                child: Text(item.kind, style: TextStyle(color: scheme.onPrimaryContainer, fontSize: 11, fontWeight: FontWeight.w800)),
               ),
               const Spacer(),
-              Text(_formatTime(item.createdAt), style: const TextStyle(color: muted, fontSize: 11)),
+              Text(_formatTime(item.createdAt), style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11)),
             ],
           ),
           const SizedBox(height: 10),
@@ -400,7 +404,7 @@ class _FeedbackCard extends StatelessWidget {
                 child: Text(item.submitter.isEmpty ? 'S' : item.submitter.substring(0, 1), style: const TextStyle(color: Color(0xFF50752F), fontSize: 10, fontWeight: FontWeight.w900)),
               ),
               const SizedBox(width: 7),
-              Text(item.submitter.isEmpty ? 'SkillPort 用户' : item.submitter, style: const TextStyle(color: muted, fontSize: 12, fontWeight: FontWeight.w700)),
+              Text(item.submitter.isEmpty ? 'SkillPort 用户' : item.submitter, style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w700)),
             ],
           ),
         ],
