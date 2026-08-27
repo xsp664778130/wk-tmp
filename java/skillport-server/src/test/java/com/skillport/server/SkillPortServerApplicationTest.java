@@ -2,7 +2,9 @@ package com.skillport.server;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.skillport.server.domain.SkillEntity;
 import com.skillport.server.domain.UserEntity;
+import com.skillport.server.repository.SkillRepository;
 import com.skillport.server.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +17,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,6 +36,8 @@ class SkillPortServerApplicationTest {
     private ObjectMapper objectMapper;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private SkillRepository skillRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
 
@@ -125,6 +131,48 @@ class SkillPortServerApplicationTest {
         assertEquals(401, afterLogout.statusCode());
     }
 
+    @Test
+    void updatesCategoryAndDetailsThroughTheWebClientPatchRoute() throws Exception {
+        String email = "patch-" + UUID.randomUUID() + "@example.com";
+        HttpClient client = HttpClient.newHttpClient();
+        HttpResponse<String> register = client.send(HttpRequest.newBuilder(api("/api/auth/register"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(new Registration(
+                                email, "Patch Owner", "StrongPass-2026"))))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(201, register.statusCode());
+
+        JsonNode registered = objectMapper.readTree(register.body());
+        String ownerId = registered.path("user").path("id").asText();
+        String cookie = register.headers().firstValue("set-cookie").orElseThrow().split(";", 2)[0];
+        String skillId = UUID.randomUUID().toString();
+        skillRepository.save(new SkillEntity(
+                skillId, ownerId, "Before", "Before description", "编程技能", "sample.zip",
+                ownerId + "/" + skillId + "/sample.zip", "application/zip", 1L, "0".repeat(64),
+                Instant.now()));
+
+        HttpResponse<String> category = client.send(HttpRequest.newBuilder(api("/api/skills/" + skillId))
+                        .header("Cookie", cookie)
+                        .header("Content-Type", "application/json")
+                        .method("PATCH", HttpRequest.BodyPublishers.ofString(
+                                objectMapper.writeValueAsString(new CategoryPatch("排查技能"))))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, category.statusCode());
+        assertEquals("排查技能", objectMapper.readTree(category.body()).path("category").asText());
+
+        HttpResponse<String> details = client.send(HttpRequest.newBuilder(api("/api/skills/" + skillId))
+                        .header("Cookie", cookie)
+                        .header("Content-Type", "application/json")
+                        .method("PATCH", HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(
+                                new DetailPatch("After", "After description", "Full detail", List.of("第一步")))))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, details.statusCode());
+        JsonNode updated = objectMapper.readTree(details.body());
+        assertEquals("After", updated.path("name").asText());
+        assertEquals("Full detail", updated.path("detail").asText());
+        assertEquals("第一步", updated.path("usageSteps").get(0).asText());
+    }
+
     private URI api(String path) {
         return URI.create("http://127.0.0.1:" + port + path);
     }
@@ -136,5 +184,11 @@ class SkillPortServerApplicationTest {
     }
 
     private record Registration(String email, String displayName, String password) {
+    }
+
+    private record CategoryPatch(String category) {
+    }
+
+    private record DetailPatch(String name, String description, String detail, List<String> usageSteps) {
     }
 }

@@ -188,11 +188,13 @@ public class BrowserController {
             @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
             @RequestParam(defaultValue = "") String name,
             @RequestParam(defaultValue = "") String description,
+            @RequestParam(defaultValue = "") String detail,
+            @RequestParam(defaultValue = "") String usageSteps,
             @RequestParam(defaultValue = "编程技能") String category,
             @RequestPart MultipartFile file,
             @RequestPart(required = false) MultipartFile avatar) {
         return SkillController.SkillResponse.from(
-                skillService.upload(user.userId(), name, description, category, file, avatar));
+                skillService.upload(user.userId(), name, description, detail, usageSteps, category, file, avatar));
     }
 
     @PatchMapping("/skills")
@@ -208,6 +210,30 @@ public class BrowserController {
             @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
             @PathVariable String skillId,
             @Valid @RequestBody SkillController.CategoryRequest request) {
+        var result = skillService.updateCategory(user.userId(), skillId, request.category());
+        return SkillController.SkillResponse.from(result.skill(), result.publicPoolSynchronized());
+    }
+
+    @PatchMapping("/skills/{skillId}")
+    public SkillController.SkillResponse updateSkill(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String skillId,
+            @Valid @RequestBody BrowserSkillPatchRequest request) {
+        if (request.detailsRequested()) {
+            if (request.name() == null || request.name().isBlank()
+                    || request.description() == null || request.description().isBlank()
+                    || request.detail() == null || request.detail().isBlank()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "请完整填写 Skill 名称、描述和详细说明。");
+            }
+            var result = skillService.updateDetails(
+                    user.userId(), skillId, request.name(), request.description(), request.detail(),
+                    request.usageSteps() == null ? List.of() : request.usageSteps());
+            return SkillController.SkillResponse.from(result.skill(), result.publicPoolSynchronized());
+        }
+        if (request.category() == null || request.category().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请选择 Skill 分类。");
+        }
         var result = skillService.updateCategory(user.userId(), skillId, request.category());
         return SkillController.SkillResponse.from(result.skill(), result.publicPoolSynchronized());
     }
@@ -444,5 +470,16 @@ public class BrowserController {
     }
 
     public record BrowserNoteRequest(@NotBlank String id, @Size(max = 2000) String note) {
+    }
+
+    public record BrowserSkillPatchRequest(
+            @Size(max = 64) String category,
+            @Size(max = 160) String name,
+            @Size(max = 2000) String description,
+            @Size(max = 10000) String detail,
+            @Size(max = 20) List<@NotBlank @Size(max = 500) String> usageSteps) {
+        boolean detailsRequested() {
+            return name != null || description != null || detail != null || usageSteps != null;
+        }
     }
 }
