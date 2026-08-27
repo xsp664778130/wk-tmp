@@ -3,6 +3,11 @@ name: Build SkillPort Flutter Desktop
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-skillport-flutter-desktop.yml"
+      - "native/skillport_flutter_client/**"
     tags:
       - "flutter-client-v*"
 
