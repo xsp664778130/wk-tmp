@@ -16,6 +16,36 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.21",
+    date: "2026-08-27",
+    title: "Skill 分类保存修复",
+    changes: [
+      "我的 Skill 分类改为选择后立即自动保存，不再需要额外点击保存按钮。",
+      "分类保存过程会显示明确状态，失败时自动恢复原分类。",
+      "已分享 Skill 的分类保存成功后同步刷新公有池记录。",
+    ],
+  },
+  {
+    version: "1.0.20",
+    date: "2026-08-27",
+    title: "Skill 详情与使用步骤",
+    changes: [
+      "上传和编辑 Skill 时可维护完整详细说明与最多 20 个使用步骤。",
+      "Skill 卡片新增详情摘要和步骤数量，点击后按编号查看完整使用方法。",
+      "已分享 Skill 的名称、描述、详细说明和使用步骤会自动同步到公有池。",
+    ],
+  },
+  {
+    version: "1.0.19",
+    date: "2026-08-27",
+    title: "多主题配色",
+    changes: [
+      "新增深夜紫、曜石黑、海湾蓝与晨雾白 4 套界面配色，可在顶部随时切换。",
+      "默认采用参考图风格的深夜紫暗色界面，卡片、弹窗、输入框和侧栏统一适配。",
+      "主题选择保存在当前设备，关闭网页或重启客户端后仍会自动恢复。",
+    ],
+  },
+  {
     version: "1.0.18",
     date: "2026-08-25",
     title: "Skill 详情操作区焕新",
@@ -154,12 +184,28 @@ const currentRelease = releaseNotes[0];
 const releaseHistoryLimit = 5;
 const releaseSeenStorageKey = "skillport.release-seen";
 const uploadDraftStorageKey = "skillport.upload-draft.v1";
+const themeStorageKey = "skillport.ui-theme.v1";
+
+const themeOptions = [
+  { id: "midnight", name: "深夜紫", description: "参考图同款暗色", colors: ["#090c13", "#8168ff", "#b9ff6a"] },
+  { id: "graphite", name: "曜石黑", description: "中性克制的黑灰", colors: ["#141517", "#d69a6a", "#dce6ef"] },
+  { id: "ocean", name: "海湾蓝", description: "沉静的蓝青配色", colors: ["#07141c", "#35b8d8", "#71e5c1"] },
+  { id: "daylight", name: "晨雾白", description: "明亮柔和的浅色", colors: ["#f6f5f1", "#7457e8", "#c9f55f"] },
+] as const;
+
+type UiTheme = (typeof themeOptions)[number]["id"];
+
+function isUiTheme(value: string | null): value is UiTheme {
+  return themeOptions.some((option) => option.id === value);
+}
 
 type SkillCategory = (typeof skillCategories)[number];
 
 type SkillUploadMetadata = {
   name: string;
   description: string;
+  detail: string;
+  usageSteps: string[];
   category: SkillCategory;
 };
 
@@ -167,6 +213,8 @@ type Skill = {
   id: string;
   name: string;
   description: string;
+  detail: string;
+  usageSteps: string[];
   category: SkillCategory;
   accent: string;
   icon: string;
@@ -288,6 +336,8 @@ function privateSkillFromApi(skill: Record<string, unknown>, index: number): Ski
     id: String(skill.id),
     name: String(skill.name),
     description: String(skill.description || ""),
+    detail: String(skill.detail || skill.description || ""),
+    usageSteps: Array.isArray(skill.usageSteps) ? skill.usageSteps.map(String).filter(Boolean) : [],
     category: normalizeSkillCategory(skill.category),
     accent: accents[index % accents.length],
     icon: skill.sourcePublicSkillId ? "↓" : "↑",
@@ -309,6 +359,8 @@ function publicSkillFromApi(skill: Record<string, unknown>, index: number): Skil
     id: String(skill.id),
     name: String(skill.name),
     description: String(skill.description || ""),
+    detail: String(skill.detail || skill.description || ""),
+    usageSteps: Array.isArray(skill.usageSteps) ? skill.usageSteps.map(String).filter(Boolean) : [],
     category: normalizeSkillCategory(skill.category),
     accent: accents[index % accents.length],
     icon: "↗",
@@ -350,11 +402,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.18",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.21",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.18",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.21",
   },
 };
 
@@ -431,6 +483,8 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   const [releaseOpen, setReleaseOpen] = useState(false);
+  const [theme, setTheme] = useState<UiTheme>("midnight");
+  const [themeOpen, setThemeOpen] = useState(false);
   const [releaseSeen, setReleaseSeen] = useState(true);
   const [pairOpen, setPairOpen] = useState(false);
   const [clientPlatform, setClientPlatform] = useState<ClientPlatform | null>(null);
@@ -450,12 +504,27 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const automaticToolScanAt = useRef(new Map<string, number>());
 
   useEffect(() => {
-    try {
-      setReleaseSeen(window.localStorage.getItem(releaseSeenStorageKey) === currentRelease.version);
-    } catch {
-      setReleaseSeen(false);
-    }
+    const timer = window.setTimeout(() => {
+      try {
+        setReleaseSeen(window.localStorage.getItem(releaseSeenStorageKey) === currentRelease.version);
+        const savedTheme = window.localStorage.getItem(themeStorageKey);
+        if (isUiTheme(savedTheme)) setTheme(savedTheme);
+      } catch {
+        setReleaseSeen(false);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.skillportTheme = theme;
+    try {
+      window.localStorage.setItem(themeStorageKey, theme);
+    } catch {
+      // 浏览器禁止本地存储时，本次会话内仍然可以切换主题。
+    }
+    return () => { delete document.documentElement.dataset.skillportTheme; };
+  }, [theme]);
 
   useEffect(() => {
     if (!releaseOpen) return;
@@ -616,7 +685,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     const skills = libraryMode === "public" ? publicSkills : privateSkills;
     return skills.filter((skill) => {
       const categoryMatch = activeCategory === "全部技能" || skill.category === activeCategory;
-      const searchMatch = !normalized || `${skill.name} ${skill.description} ${skill.category}`.toLowerCase().includes(normalized);
+      const searchMatch = !normalized || `${skill.name} ${skill.description} ${skill.detail} ${skill.usageSteps.join(" ")} ${skill.category}`.toLowerCase().includes(normalized);
       return categoryMatch && searchMatch;
     });
   }, [activeCategory, libraryMode, privateSkills, publicSkills, query]);
@@ -757,6 +826,8 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     form.append("file", file);
     form.append("name", metadata.name.trim());
     form.append("description", metadata.description.trim());
+    form.append("detail", metadata.detail.trim());
+    form.append("usageSteps", metadata.usageSteps.join("\n"));
     form.append("category", metadata.category);
     if (avatar) form.append("avatar", avatar);
     const response = await fetch("/api/skills", { method: "POST", body: form });
@@ -865,6 +936,32 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     }
   }
 
+  async function updateSkillDetails(skill: Skill, values: { name: string; description: string; detail: string; usageSteps: string[] }) {
+    try {
+      const response = await fetch(`/api/skills/${encodeURIComponent(skill.id)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.detail || data?.error || "详情修改没有完成"));
+      const next = {
+        name: String(data?.name || values.name),
+        description: String(data?.description || values.description),
+        detail: String(data?.detail || values.detail),
+        usageSteps: Array.isArray(data?.usageSteps) ? data.usageSteps.map(String) : values.usageSteps,
+      };
+      setPrivateSkills((current) => current.map((item) => item.id === skill.id ? { ...item, ...next } : item));
+      setPublicSkills((current) => current.map((item) => item.sourceSkillId === skill.id ? { ...item, ...next } : item));
+      setSelected((current) => current?.id === skill.id ? { ...current, ...next } : current);
+      setToast(skill.shared ? "Skill 详情已保存，并同步到公有池" : "Skill 详情已保存");
+      return true;
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "详情修改没有完成，请稍后再试");
+      return false;
+    }
+  }
+
   async function confirmSkillAction() {
     if (!actionCandidate || !user) return;
     const { skill, action } = actionCandidate;
@@ -909,7 +1006,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const scanningTools = onlineDevice?.id === scanningDeviceId;
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-theme={theme}>
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark">S</span><span>skillport<span className="brand-dot">.</span></span></div>
         <nav className="side-nav" aria-label="技能分类">
@@ -935,7 +1032,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             <div className="mini-tools"><span>CX</span><span>Q</span><span>AI</span></div>
           </div>
           <button className="settings-row feedback-entry" onClick={() => setFeedbackOpen(true)}><span>✉</span> 公开意见墙 <span>›</span></button>
-          <button className="settings-row"><span>⚙</span> 设置与帮助 <span>›</span></button>
+          <button className="settings-row" onClick={() => setThemeOpen((open) => !open)}><span>◐</span> 配色主题 <span>›</span></button>
         </div>
       </aside>
 
@@ -945,6 +1042,26 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             <span className="search-icon">⌕</span>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索技能、分类或用途..." aria-label="搜索技能" />
             <kbd>⌘ K</kbd>
+          </div>
+          <div className="theme-switcher">
+            <button className="theme-trigger" aria-label="切换界面配色" aria-expanded={themeOpen} onClick={() => setThemeOpen((open) => !open)}>
+              <span className={`theme-orb ${theme}`}/><span>主题</span><b>{themeOptions.find((option) => option.id === theme)?.name}</b>
+            </button>
+            {themeOpen && (
+              <section className="theme-panel" aria-label="选择界面配色">
+                <div className="theme-panel-head"><div><span>APPEARANCE</span><h2>配色主题</h2></div><button onClick={() => setThemeOpen(false)} aria-label="关闭主题选择">×</button></div>
+                <div className="theme-options">
+                  {themeOptions.map((option) => (
+                    <button key={option.id} className={theme === option.id ? "theme-option active" : "theme-option"} onClick={() => { setTheme(option.id); setThemeOpen(false); }}>
+                      <span className="theme-swatches">{option.colors.map((color) => <i key={color} style={{ backgroundColor: color }}/>)}</span>
+                      <span><b>{option.name}</b><small>{option.description}</small></span>
+                      <em>{theme === option.id ? "✓" : ""}</em>
+                    </button>
+                  ))}
+                </div>
+                <p>主题只保存在当前设备，不影响账户数据。</p>
+              </section>
+            )}
           </div>
           <div className="release-update">
             <button className="version-update-button" aria-label={`查看 ${currentRelease.version} 版本更新`} aria-expanded={releaseOpen} onClick={toggleReleaseNotes}>
@@ -1015,6 +1132,11 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
                   <span className="category-pill">{skill.category}</span>
                   <h3>{skill.name}</h3>
                   <p className="skill-description">{skill.description}</p>
+                  <div className="skill-detail-preview">
+                    <span>详情</span>
+                    <p>{skill.detail || skill.description}</p>
+                  </div>
+                  <div className="skill-step-summary"><span>☷</span>{skill.usageSteps.length ? `${skill.usageSteps.length} 个使用步骤` : "查看完整使用说明"}</div>
                   {skill.note && <p className="note-preview"><span>✎</span>{skill.note}</p>}
                   <div className="card-footer">
                     <span className="author-avatar">{skill.author.slice(0, 1)}</span><span className="author-name">{skill.author}</span>
@@ -1085,7 +1207,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         </section>
       </aside>
 
-      {selected && <DetailModal skill={selected} pulling={pullingId === selected.id} onClose={() => setSelected(null)} onInstall={() => { setInstaller(selected); setSelected(null); }} onUninstall={() => { setUninstaller(selected); setSelected(null); }} onPull={() => void pullSkill(selected)} onShare={() => setShareCandidate(selected)} onDelete={() => setActionCandidate({ skill: selected, action: "delete" })} onUnpublish={() => setActionCandidate({ skill: selected, action: "unpublish" })} onSaveCategory={(category) => updateSkillCategory(selected, category)} onSaveNote={(note) => {
+      {selected && <DetailModal skill={selected} pulling={pullingId === selected.id} onClose={() => setSelected(null)} onInstall={() => { setInstaller(selected); setSelected(null); }} onUninstall={() => { setUninstaller(selected); setSelected(null); }} onPull={() => void pullSkill(selected)} onShare={() => setShareCandidate(selected)} onDelete={() => setActionCandidate({ skill: selected, action: "delete" })} onUnpublish={() => setActionCandidate({ skill: selected, action: "unpublish" })} onSaveCategory={(category) => updateSkillCategory(selected, category)} onSaveDetails={(values) => updateSkillDetails(selected, values)} onSaveNote={(note) => {
         setPrivateSkills((current) => current.map((skill) => skill.id === selected.id ? { ...skill, note } : skill));
         setSelected((current) => current ? { ...current, note } : current);
         if (selected.uploaded && user) fetch("/api/skills", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: selected.id, note }) }).catch(() => undefined);
@@ -1145,8 +1267,12 @@ function FeedbackMailboxModal({ signedIn, onClose, onRequireSignIn, onSubmitted 
   useEffect(() => {
     if (view !== "wall") return;
     const controller = new AbortController();
-    setLoading(true);
-    setListError("");
+    const resetTimer = window.setTimeout(() => {
+      if (!controller.signal.aborted) {
+        setLoading(true);
+        setListError("");
+      }
+    }, 0);
     fetch(`/api/feedback?page=${page}&size=6`, { signal: controller.signal })
       .then(async (response) => {
         const data = await response.json().catch(() => ({}));
@@ -1158,7 +1284,7 @@ function FeedbackMailboxModal({ signedIn, onClose, onRequireSignIn, onSubmitted 
         if ((loadError as Error).name !== "AbortError") setListError(loadError instanceof Error ? loadError.message : "暂时无法读取公开意见");
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
+    return () => { window.clearTimeout(resetTimer); controller.abort(); };
   }, [page, refreshKey, view]);
 
   async function submitFeedback() {
@@ -1286,7 +1412,7 @@ function ClientDownloadModal({ onClose, onDownload }: { onClose: () => void; onD
   );
 }
 
-function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, onShare, onDelete, onUnpublish, onSaveCategory, onSaveNote }: {
+function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, onShare, onDelete, onUnpublish, onSaveCategory, onSaveDetails, onSaveNote }: {
   skill: Skill;
   pulling: boolean;
   onClose: () => void;
@@ -1297,17 +1423,68 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
   onDelete: () => void;
   onUnpublish: () => void;
   onSaveCategory: (category: SkillCategory) => Promise<boolean>;
+  onSaveDetails: (values: { name: string; description: string; detail: string; usageSteps: string[] }) => Promise<boolean>;
   onSaveNote: (note: string) => void;
 }) {
   const [note, setNote] = useState(skill.note || "");
   const [category, setCategory] = useState<SkillCategory>(skill.category);
+  const [savedCategory, setSavedCategory] = useState<SkillCategory>(skill.category);
   const [categorySaving, setCategorySaving] = useState(false);
+  const [categoryStatus, setCategoryStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [detailsSaving, setDetailsSaving] = useState(false);
+  const [detailError, setDetailError] = useState("");
+  const [draftName, setDraftName] = useState(skill.name);
+  const [draftDescription, setDraftDescription] = useState(skill.description);
+  const [draftDetail, setDraftDetail] = useState(skill.detail || skill.description);
+  const [draftSteps, setDraftSteps] = useState<string[]>(skill.usageSteps.length ? skill.usageSteps : [""]);
   const isPublic = skill.scope === "public";
 
-  async function saveCategory() {
+  async function saveCategory(nextCategory: SkillCategory) {
+    const previousCategory = savedCategory;
+    setCategory(nextCategory);
+    setCategoryStatus("idle");
     setCategorySaving(true);
-    await onSaveCategory(category);
+    const saved = await onSaveCategory(nextCategory);
     setCategorySaving(false);
+    if (saved) {
+      setSavedCategory(nextCategory);
+      setCategoryStatus("saved");
+      return;
+    }
+    setCategory(previousCategory);
+    setCategoryStatus("error");
+  }
+
+  function resetDetailDraft() {
+    setDraftName(skill.name);
+    setDraftDescription(skill.description);
+    setDraftDetail(skill.detail || skill.description);
+    setDraftSteps(skill.usageSteps.length ? skill.usageSteps : [""]);
+    setDetailError("");
+    setEditingDetails(false);
+  }
+
+  function updateDraftStep(index: number, value: string) {
+    setDraftSteps((current) => current.map((step, stepIndex) => stepIndex === index ? value : step));
+    setDetailError("");
+  }
+
+  async function saveDetails() {
+    const usageSteps = draftSteps.map((step) => step.trim()).filter(Boolean);
+    if (!draftName.trim() || !draftDescription.trim() || !draftDetail.trim() || !usageSteps.length) {
+      setDetailError("请完整填写名称、描述、详细说明，并至少添加一个使用步骤。");
+      return;
+    }
+    setDetailsSaving(true);
+    const saved = await onSaveDetails({
+      name: draftName.trim(),
+      description: draftDescription.trim(),
+      detail: draftDetail.trim(),
+      usageSteps,
+    });
+    setDetailsSaving(false);
+    if (saved) setEditingDetails(false);
   }
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
@@ -1315,6 +1492,28 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
         <button className="close-button" onClick={onClose}>×</button>
         <div className="detail-hero"><SkillAvatar skill={skill} large/><div><span className="category-pill">{isPublic ? skill.category : category}</span><h2>{skill.name}</h2><p>by {skill.author} · {skill.uses}</p></div></div>
         <p className="detail-description">{skill.description}</p>
+        {editingDetails ? (
+          <section className="skill-detail-editor" aria-label="编辑 Skill 详情">
+            <div className="detail-section-heading"><div><span>EDIT DETAILS</span><h3>编辑 Skill 详情</h3></div><small>{skill.shared ? "保存后同步公有池" : "私人空间信息"}</small></div>
+            <label><span>Skill 名称</span><input value={draftName} maxLength={160} disabled={detailsSaving} onChange={(event) => { setDraftName(event.target.value); setDetailError(""); }}/></label>
+            <label><span>简短描述</span><textarea value={draftDescription} maxLength={2000} rows={2} disabled={detailsSaving} onChange={(event) => { setDraftDescription(event.target.value); setDetailError(""); }}/><small>{draftDescription.length}/2000</small></label>
+            <label><span>详细说明</span><textarea value={draftDetail} maxLength={10000} rows={5} disabled={detailsSaving} onChange={(event) => { setDraftDetail(event.target.value); setDetailError(""); }}/><small>{draftDetail.length}/10000</small></label>
+            <div className="usage-step-editor">
+              <div className="usage-step-editor-head"><span>使用步骤</span><button type="button" disabled={detailsSaving || draftSteps.length >= 20} onClick={() => setDraftSteps((current) => [...current, ""])}>＋ 添加步骤</button></div>
+              {draftSteps.map((step, index) => (
+                <div className="usage-step-input" key={index}><b>{index + 1}</b><input value={step} maxLength={500} disabled={detailsSaving} placeholder={`第 ${index + 1} 步`} onChange={(event) => updateDraftStep(index, event.target.value)}/><button type="button" aria-label={`删除第 ${index + 1} 步`} disabled={detailsSaving || draftSteps.length === 1} onClick={() => setDraftSteps((current) => current.filter((_, stepIndex) => stepIndex !== index))}>×</button></div>
+              ))}
+            </div>
+            {detailError && <p className="detail-editor-error" role="alert">{detailError}</p>}
+            <div className="detail-editor-actions"><button className="secondary-button" disabled={detailsSaving} onClick={resetDetailDraft}>取消</button><button className="primary-button" disabled={detailsSaving} onClick={() => void saveDetails()}>{detailsSaving ? "保存中…" : "保存详情"}</button></div>
+          </section>
+        ) : (
+          <section className="skill-detail-content">
+            <div className="detail-section-heading"><div><span>SKILL DETAILS</span><h3>详细说明</h3></div>{!isPublic && <button onClick={() => setEditingDetails(true)}>编辑详情</button>}</div>
+            <p>{skill.detail || skill.description}</p>
+            <div className="usage-steps-view"><h3>使用步骤 <span>{skill.usageSteps.length}</span></h3>{skill.usageSteps.length ? <ol>{skill.usageSteps.map((step, index) => <li key={`${index}-${step}`}><b>{index + 1}</b><span>{step}</span></li>)}</ol> : <p className="empty-usage-steps">发布者尚未补充具体步骤。</p>}</div>
+          </section>
+        )}
         <div className="compatibility"><b>兼容工具</b><div>{skill.compatible.map((id) => <span key={id}>{toolMeta[id as keyof typeof toolMeta]?.name}</span>)}</div></div>
         {isPublic ? (
           <>
@@ -1323,9 +1522,9 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
           </>
         ) : (
           <>
-            <label className="category-edit-field"><span><b>Skill 分类</b><small>{skill.shared ? "保存后自动同步公有池" : "与公有池使用同一套分类"}</small></span><div><select value={category} disabled={categorySaving} onChange={(event) => setCategory(event.target.value as SkillCategory)}>{skillCategories.map((item) => <option key={item} value={item}>{item}</option>)}</select><button disabled={categorySaving || category === skill.category} onClick={() => void saveCategory()}>{categorySaving ? "保存中…" : "保存分类"}</button></div></label>
+            <label className="category-edit-field"><span><b>Skill 分类</b><small>{skill.shared ? "选择后自动保存并同步公有池" : "选择后立即保存"}</small></span><div><select value={category} disabled={categorySaving} onChange={(event) => void saveCategory(event.target.value as SkillCategory)}>{skillCategories.map((item) => <option key={item} value={item}>{item}</option>)}</select><span className={`category-save-status ${categoryStatus}`} aria-live="polite">{categorySaving ? "保存中…" : categoryStatus === "saved" ? "✓ 已保存" : categoryStatus === "error" ? "保存失败" : "自动保存"}</span></div></label>
             <label className="note-field"><span><b>我的备注</b><small>仅你自己可见</small></span><textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="记录使用方法、适用项目或注意事项…" maxLength={1000}/><em>{note.length}/1000</em></label>
-            <div className="share-inline"><span>◎</span><p><b>{skill.shared ? "已分享到公有池" : "分享给社区"}</b><small>{skill.shared ? "其他用户可以拉取公开副本，备注仍保持私有。" : "只公开名称、描述、分类、头像和 Skill 文件，不公开个人备注。"}</small></p><button className={skill.shared ? "unpublish-inline" : ""} onClick={skill.shared ? onUnpublish : onShare}>{skill.shared ? "下架" : "分享"}</button></div>
+            <div className="share-inline"><span>◎</span><p><b>{skill.shared ? "已分享到公有池" : "分享给社区"}</b><small>{skill.shared ? "名称、详细说明和使用步骤会保持同步，个人备注仍然私有。" : "公开名称、描述、详细说明、使用步骤、分类、头像和文件，不公开个人备注。"}</small></p><button className={skill.shared ? "unpublish-inline" : ""} onClick={skill.shared ? onUnpublish : onShare}>{skill.shared ? "下架" : "分享"}</button></div>
             <div className="modal-actions"><button className="danger-button" onClick={onDelete}>删除云端 Skill</button><button className="secondary-button uninstall-detail-button" onClick={onUninstall}>从本机卸载</button><button className="secondary-button" onClick={() => onSaveNote(note)}>保存备注</button><button className="primary-button" onClick={onInstall}>加载到本机 <span>→</span></button></div>
           </>
         )}
@@ -1341,7 +1540,7 @@ function ShareConfirmModal({ skill, busy, onClose, onConfirm }: { skill: Skill; 
         <button className="close-button" disabled={busy} onClick={onClose}>×</button>
         <span className="step-label">SHARE TO PUBLIC POOL</span><h2>确认分享 {skill.name}？</h2>
         <p className="install-lead">分享后，其他已登录用户可以查看公开信息，并把 Skill 文件复制到自己的私人空间。</p>
-        <div className="share-fields"><b>将公开</b><span>名称与描述</span><span>分类与兼容工具</span><span>Skill 文件内容</span></div>
+        <div className="share-fields"><b>将公开</b><span>名称、描述与详情</span><span>使用步骤与分类</span><span>兼容工具与文件</span></div>
         <div className="share-private"><b>保持私有</b><span>你的个人备注</span><span>账户邮箱与其他 Skill</span></div>
         <div className="modal-actions"><button className="secondary-button" disabled={busy} onClick={onClose}>取消</button><button className="primary-button" disabled={busy} onClick={onConfirm}>{busy ? "正在分享…" : "确认分享到公有池"} <span>→</span></button></div>
       </div>
@@ -1618,7 +1817,7 @@ function readUploadDraft() {
   if (typeof window === "undefined") return null;
   try {
     return JSON.parse(window.localStorage.getItem(uploadDraftStorageKey) || "null") as Partial<{
-      name: string; description: string; category: SkillCategory;
+      name: string; description: string; detail: string; usageSteps: string[]; category: SkillCategory;
     }> | null;
   } catch {
     return null;
@@ -1630,12 +1829,14 @@ function UploadModal({ initialFile, onClose, onUpload }: {
   onClose: () => void;
   onUpload: (file: File, metadata: SkillUploadMetadata, avatar?: File) => Promise<void>;
 }) {
-  const savedDraft = useRef(readUploadDraft()).current;
+  const [savedDraft] = useState(readUploadDraft);
   const [file, setFile] = useState<File | null>(initialFile);
   const [name, setName] = useState(() => typeof savedDraft?.name === "string" && savedDraft.name.trim()
     ? savedDraft.name
     : uploadNameFromFile(initialFile));
   const [description, setDescription] = useState(() => typeof savedDraft?.description === "string" ? savedDraft.description : "");
+  const [detail, setDetail] = useState(() => typeof savedDraft?.detail === "string" ? savedDraft.detail : "");
+  const [usageStepsText, setUsageStepsText] = useState(() => Array.isArray(savedDraft?.usageSteps) ? savedDraft.usageSteps.join("\n") : "");
   const [category, setCategory] = useState<SkillCategory>(() => savedDraft?.category && skillCategories.includes(savedDraft.category)
     ? savedDraft.category
     : "编程技能");
@@ -1646,11 +1847,11 @@ function UploadModal({ initialFile, onClose, onUpload }: {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(uploadDraftStorageKey, JSON.stringify({ name, description, category }));
+      window.localStorage.setItem(uploadDraftStorageKey, JSON.stringify({ name, description, detail, usageSteps: usageStepsText.split("\n"), category }));
     } catch {
       // 浏览器禁用本地存储时仍可正常上传。
     }
-  }, [name, description, category]);
+  }, [name, description, detail, usageStepsText, category]);
 
   useEffect(() => () => {
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
@@ -1670,14 +1871,23 @@ function UploadModal({ initialFile, onClose, onUpload }: {
 
   async function submit() {
     if (!file || busy) return;
-    if (!name.trim() || !description.trim()) {
-      setError("请填写 Skill 名称和描述后再上传。");
+    const usageSteps = usageStepsText.split("\n").map((step) => step.trim()).filter(Boolean);
+    if (!name.trim() || !description.trim() || !detail.trim() || !usageSteps.length) {
+      setError("请填写 Skill 名称、描述、详细说明，并至少添加一个使用步骤。");
+      return;
+    }
+    if (usageSteps.length > 20) {
+      setError("使用步骤最多 20 步，请合并后再上传。");
+      return;
+    }
+    if (usageSteps.some((step) => step.length > 500)) {
+      setError("每个使用步骤最多 500 字，请精简后再上传。");
       return;
     }
     setBusy(true);
     setError("");
     try {
-      await onUpload(file, { name: name.trim(), description: description.trim(), category }, avatar || undefined);
+      await onUpload(file, { name: name.trim(), description: description.trim(), detail: detail.trim(), usageSteps, category }, avatar || undefined);
       try { window.localStorage.removeItem(uploadDraftStorageKey); } catch { /* 上传本身已经成功。 */ }
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "上传没有完成，请稍后再试");
@@ -1688,11 +1898,13 @@ function UploadModal({ initialFile, onClose, onUpload }: {
   return (
     <div className="modal-backdrop">
       <div className="modal upload-modal" role="dialog" aria-modal="true" aria-label="上传 Skill">
-        <button className="close-button" disabled={busy} onClick={onClose}>×</button><span className="step-label">PRIVATE UPLOAD</span><h2>上传你的 Skill</h2><p className="install-lead">名称、描述和分类由你设置；服务器仍会检查目录和 SKILL.md，不符合标准的文件不会保存。</p>
+        <button className="close-button" disabled={busy} onClick={onClose}>×</button><span className="step-label">PRIVATE UPLOAD</span><h2>上传你的 Skill</h2><p className="install-lead">名称、描述、详细说明、使用步骤和分类都由你设置；服务器仍会检查目录和 SKILL.md，不符合标准的文件不会保存。</p>
         <label className={file ? "large-upload selected" : "large-upload"}><input type="file" disabled={busy} accept=".zip,.skill,.md" onChange={(event) => { const next = event.target.files?.[0] || null; setFile(next); if (!name.trim()) setName(uploadNameFromFile(next)); setError(""); }}/><span>{file ? "✓" : "↑"}</span><b>{file ? file.name : "选择 Skill 文件"}</b><small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · 上传后保留原文件` : ".zip、.skill 或 SKILL.md，最大 25MB"}</small></label>
         <div className="upload-fields">
           <label><span>Skill 名称</span><input value={name} disabled={busy} maxLength={160} placeholder="例如：发布前检查助手" onChange={(event) => { setName(event.target.value); setError(""); }}/><small>显示在个人空间；分享到公有池时同步使用此名称。</small></label>
           <label><span>Skill 描述</span><textarea value={description} disabled={busy} maxLength={2000} rows={3} placeholder="说明这个 Skill 能解决什么问题" onChange={(event) => { setDescription(event.target.value); setError(""); }}/><small>{description.length}/2000 · 分享时会同步到公有池。</small></label>
+          <label><span>详细说明</span><textarea value={detail} disabled={busy} maxLength={10000} rows={5} placeholder="详细说明适用场景、工作原理、输入输出和注意事项" onChange={(event) => { setDetail(event.target.value); setError(""); }}/><small>{detail.length}/10000 · 卡片显示摘要，点击后查看完整内容。</small></label>
+          <label><span>使用步骤</span><textarea value={usageStepsText} disabled={busy} rows={5} placeholder={"每行填写一步，例如：\n打开需要处理的项目\n选择目标文件并运行 Skill\n检查生成结果"} onChange={(event) => { setUsageStepsText(event.target.value); setError(""); }}/><small>{usageStepsText.split("\n").map((step) => step.trim()).filter(Boolean).length}/20 步 · 每行一步，分享时同步到公有池。</small></label>
           <label><span>分类</span><select value={category} disabled={busy} onChange={(event) => setCategory(event.target.value as SkillCategory)}>{skillCategories.map((item) => <option key={item} value={item}>{item}</option>)}</select><small>个人空间与公有池使用同一分类。</small></label>
         </div>
         <div className="skill-standard">
@@ -1702,7 +1914,7 @@ function UploadModal({ initialFile, onClose, onUpload }: {
         </div>
         <label className="avatar-upload"><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => chooseAvatar(event.target.files?.[0])}/><span className="avatar-preview">{avatarPreview ? <img src={avatarPreview} alt="头像预览"/> : "＋"}</span><p><b>{avatar ? "更换 Skill 头像" : "添加 Skill 头像（可选）"}</b><small>{avatar ? avatar.name : "PNG、JPEG、WebP 或 GIF，最大 2MB"}</small></p><em>选择图片</em></label>
         {error && <div className="upload-error" role="alert"><b>无法上传</b><span>{error}</span><a href="/examples/skillport-standard-sample.zip" download>下载正确样例重新打包</a></div>}
-        <button className="full-primary" disabled={!file || !name.trim() || !description.trim() || busy} onClick={() => void submit()}>{busy ? "正在检查结构…" : "检查并保存到我的 Skill"} <span>→</span></button>
+        <button className="full-primary" disabled={!file || !name.trim() || !description.trim() || !detail.trim() || !usageStepsText.trim() || busy} onClick={() => void submit()}>{busy ? "正在检查结构…" : "检查并保存到我的 Skill"} <span>→</span></button>
       </div>
     </div>
   );
