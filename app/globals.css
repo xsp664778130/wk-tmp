@@ -236,6 +236,10 @@ button { color: inherit; }
   --surface: #121620;
   --surface-raised: #181d29;
   --sidebar-surface: #0c1018;
+  --sidebar-text: #d6d8e3;
+  --sidebar-muted: #8e95a8;
+  --rail-surface: #0d111a;
+  --tool-surface: #151a25;
   --field: #10141e;
   --soft: #1c2030;
   --purple: #8168ff;
@@ -255,6 +259,10 @@ button { color: inherit; }
   --surface: #1f2022;
   --surface-raised: #27282b;
   --sidebar-surface: #191a1c;
+  --sidebar-text: #dededb;
+  --sidebar-muted: #9b9b98;
+  --rail-surface: #18191b;
+  --tool-surface: #242527;
   --field: #1c1d1f;
   --soft: #2b2c2f;
   --purple: #d69a6a;
@@ -273,6 +281,10 @@ button { color: inherit; }
   --surface: #0e2028;
   --surface-raised: #142b35;
   --sidebar-surface: #091921;
+  --sidebar-text: #d5eef3;
+  --sidebar-muted: #87aab4;
+  --rail-surface: #08171e;
+  --tool-surface: #112832;
   --field: #0b1b23;
   --soft: #16313b;
   --purple: #35b8d8;
@@ -287,16 +299,25 @@ button { color: inherit; }
   --surface: #ffffff;
   --surface-raised: #ffffff;
   --sidebar-surface: #eeebfa;
+  --sidebar-text: #3f3b48;
+  --sidebar-muted: #7e7988;
+  --rail-surface: #fbfaf7;
+  --tool-surface: #ffffff;
   --field: #ffffff;
   --soft: #f2f0ec;
   --shadow: rgba(39, 36, 29, .09);
 }
 
-.app-shell[data-theme] { transition: color .22s ease, background-color .22s ease; }
+.app-shell[data-theme] { color: var(--ink); transition: color .22s ease, background-color .22s ease; }
 .app-shell[data-theme] .workspace { background: transparent; }
 .app-shell[data-theme] .sidebar { background: var(--sidebar-surface); border-color: var(--line); }
+.app-shell[data-theme] .brand,
+.app-shell[data-theme] .nav-item:not(.active),
+.app-shell[data-theme] .bridge-top { color: var(--sidebar-text); }
+.app-shell[data-theme] .nav-label { color: var(--sidebar-muted); }
+.app-shell[data-theme] .nav-item:not(.active) { font-weight: 650; }
 .app-shell[data-theme] .topbar { background: color-mix(in srgb, var(--canvas) 89%, transparent); border-color: var(--line); }
-.app-shell[data-theme] .right-rail { background: color-mix(in srgb, var(--sidebar-surface) 78%, var(--canvas)); border-color: var(--line); }
+.app-shell[data-theme] .right-rail { background: var(--rail-surface); border-color: var(--line); scrollbar-color: color-mix(in srgb, var(--purple) 38%, var(--line)) transparent; }
 .app-shell[data-theme] .search-wrap input,
 .app-shell[data-theme] .search-wrap kbd,
 .app-shell[data-theme] .version-update-button,
@@ -307,6 +328,8 @@ button { color: inherit; }
 .app-shell[data-theme] .skill-card,
 .app-shell[data-theme] .view-actions button,
 .app-shell[data-theme] .tool-item,
+.app-shell[data-theme] .tool-row,
+.app-shell[data-theme] .device-picker,
 .app-shell[data-theme] .device-picker button,
 .app-shell[data-theme] .mini-tools span,
 .app-shell[data-theme] .bridge-card,
@@ -320,6 +343,47 @@ button { color: inherit; }
   color: var(--ink);
   box-shadow: 0 14px 38px var(--shadow);
 }
+.app-shell[data-theme] .right-rail .rail-section { border-color: var(--line); }
+.app-shell[data-theme] .right-rail .rail-title h2 { color: var(--ink); }
+.app-shell[data-theme] .right-rail .rail-title p,
+.app-shell[data-theme] .right-rail .device-picker small,
+.app-shell[data-theme] .right-rail .tool-row small,
+.app-shell[data-theme] .right-rail .timeline small { color: var(--muted); }
+.app-shell[data-theme] .right-rail .device-picker {
+  background: color-mix(in srgb, var(--purple) 5%, var(--surface));
+  border-color: var(--line);
+  box-shadow: none;
+}
+.app-shell[data-theme] .right-rail .device-picker > span { color: var(--sidebar-text); }
+.app-shell[data-theme] .right-rail .device-picker select {
+  background: var(--field);
+  border-color: color-mix(in srgb, var(--purple) 26%, var(--line));
+  color: var(--ink);
+}
+.app-shell[data-theme] .right-rail .tool-row {
+  background: linear-gradient(135deg, var(--tool-surface), color-mix(in srgb, var(--tool-surface) 86%, var(--purple)));
+  border-color: var(--line);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--shadow) 58%, transparent);
+}
+.app-shell[data-theme] .right-rail .tool-row b { color: var(--ink); }
+.app-shell[data-theme] .right-rail .drop-zone {
+  background: color-mix(in srgb, var(--purple) 5%, var(--surface));
+  border-color: color-mix(in srgb, var(--purple) 35%, var(--line));
+  box-shadow: none;
+}
+.app-shell[data-theme] .right-rail .drop-zone:hover,
+.app-shell[data-theme] .right-rail .drop-zone.dragging { background: color-mix(in srgb, var(--purple) 11%, var(--surface)); }
+.app-shell[data-theme] .right-rail .drop-zone p,
+.app-shell[data-theme] .right-rail .drop-zone small { color: var(--muted); }
+.app-shell[data-theme] .right-rail .upload-mark { background: color-mix(in srgb, var(--purple) 18%, var(--surface-raised)); }
+.app-shell[data-theme] .right-rail .live-pill { background: color-mix(in srgb, #65b94b 16%, var(--surface)); }
+.app-shell[data-theme] .right-rail .live-pill.offline { background: var(--soft); color: var(--muted); }
+.app-shell[data-theme] .right-rail .refresh-tools {
+  background: color-mix(in srgb, var(--purple) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--purple) 30%, var(--line));
+}
+.app-shell[data-theme] .right-rail .refresh-tools:disabled { background: var(--soft); border-color: var(--line); color: var(--muted); }
+.app-shell[data-theme] .right-rail .timeline > div:not(:last-child)::after { background: var(--line); }
 .app-shell[data-theme] input,
 .app-shell[data-theme] textarea,
 .app-shell[data-theme] select { color: var(--ink); }
