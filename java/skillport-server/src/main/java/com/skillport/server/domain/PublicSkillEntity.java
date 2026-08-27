@@ -31,6 +31,10 @@ public class PublicSkillEntity {
     private String name;
     @Column(nullable = false, length = 2000)
     private String description;
+    @Column(name = "detail_text", nullable = false, columnDefinition = "TEXT")
+    private String detail;
+    @Column(name = "usage_steps", nullable = false, columnDefinition = "TEXT")
+    private String usageSteps;
     @Column(nullable = false, length = 64)
     private String category;
     @Column(name = "file_name", nullable = false, length = 255)
@@ -60,12 +64,14 @@ public class PublicSkillEntity {
         this.publisherDisplayName = publisherDisplayName;
         this.name = source.getName();
         this.description = source.getDescription();
+        this.detail = source.getDetail();
+        this.usageSteps = source.getUsageSteps();
         this.category = source.getCategory();
         this.fileName = source.getFileName();
         this.contentType = source.getContentType();
         this.sizeBytes = source.getSizeBytes();
         this.sha256 = source.getSha256();
-        this.toolCompatibility = "codex,qoder,openai";
+        this.toolCompatibility = "codex,qoder,opencode,claude,cursor";
         this.pullCount = 0;
         this.publishedAt = now;
         this.updatedAt = now;
@@ -76,12 +82,27 @@ public class PublicSkillEntity {
         this.updatedAt = now;
     }
 
+    public void updateCategory(String category, Instant now) {
+        this.category = category;
+        this.updatedAt = now;
+    }
+
+    public void updateDetails(String name, String description, String detail, String usageSteps, Instant now) {
+        this.name = name;
+        this.description = description;
+        this.detail = detail;
+        this.usageSteps = usageSteps;
+        this.updatedAt = now;
+    }
+
     public String getPublicId() { return publicId; }
     public String getSourceSkillPublicId() { return sourceSkillPublicId; }
     public String getPublisherOwnerId() { return publisherOwnerId; }
     public String getPublisherDisplayName() { return publisherDisplayName; }
     public String getName() { return name; }
     public String getDescription() { return description; }
+    public String getDetail() { return detail; }
+    public String getUsageSteps() { return usageSteps; }
     public String getCategory() { return category; }
     public String getFileName() { return fileName; }
     public String getContentType() { return contentType; }

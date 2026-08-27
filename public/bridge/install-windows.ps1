@@ -21,42 +21,113 @@ function Write-Step([int]$Number, [string]$Message) {
 }
 
 function Get-JavaMajorVersion([string]$JavaPath) {
+    $script:LastJavaDiagnostic = ""
     try {
-        $VersionText = (& $JavaPath -version 2>&1 | Out-String)
+        $StartInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $StartInfo.FileName = $JavaPath
+        $StartInfo.Arguments = "-version"
+        $StartInfo.UseShellExecute = $false
+        $StartInfo.CreateNoWindow = $true
+        $StartInfo.RedirectStandardOutput = $true
+        $StartInfo.RedirectStandardError = $true
+        $Process = New-Object System.Diagnostics.Process
+        $Process.StartInfo = $StartInfo
+        [void]$Process.Start()
+        $VersionText = $Process.StandardOutput.ReadToEnd() + [Environment]::NewLine + $Process.StandardError.ReadToEnd()
+        $Process.WaitForExit()
+        $script:LastJavaDiagnostic = $VersionText.Trim()
+        if ($Process.ExitCode -ne 0) { return 0 }
         if ($VersionText -match 'version "(?:1\.)?(\d+)') { return [int]$Matches[1] }
+    } catch {
+        $script:LastJavaDiagnostic = $_.Exception.Message
+        return 0
+    }
+    return 0
+}
+
+function Get-JavaReleaseMajorVersion([string]$ReleasePath) {
+    try {
+        $ReleaseText = [IO.File]::ReadAllText($ReleasePath)
+        if ($ReleaseText -match '(?m)^JAVA_VERSION="(?:1\.)?(\d+)') { return [int]$Matches[1] }
     } catch { return 0 }
     return 0
 }
 
+function Invoke-SkillPortDownload([string]$Uri, [string]$OutFile) {
+    $CurlCommand = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if ($CurlCommand) {
+        & $CurlCommand.Source -fL --retry 3 --connect-timeout 15 -A "Mozilla/5.0 SkillPort-Installer" $Uri -o $OutFile
+        if ($LASTEXITCODE -ne 0) { throw "下载失败：$Uri" }
+        return
+    }
+
+    $Client = New-Object Net.WebClient
+    try {
+        $Client.Headers["User-Agent"] = "Mozilla/5.0 SkillPort-Installer"
+        $Client.DownloadFile($Uri, $OutFile)
+    } finally {
+        $Client.Dispose()
+    }
+}
+
 function Install-PortableJava {
-    $Architecture = switch ($env:PROCESSOR_ARCHITECTURE) {
-        "ARM64" { "aarch64" }
-        "AMD64" { "x64" }
+    $RuntimeArtifact = switch ($env:PROCESSOR_ARCHITECTURE) {
+        "ARM64" { "temurin-jre21-windows-aarch64.zip" }
+        "AMD64" { "temurin-jre21-windows-x64.zip" }
         default { throw "暂不支持此 Windows 架构：$env:PROCESSOR_ARCHITECTURE" }
     }
     $TempDir = Join-Path ([IO.Path]::GetTempPath()) ("skillport-java-" + [Guid]::NewGuid().ToString("N"))
     $Archive = Join-Path $TempDir "temurin-jre.zip"
+    $ChecksumFile = Join-Path $TempDir "temurin-jre.zip.sha256"
     New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
     try {
-        $ApiUrl = "https://api.adoptium.net/v3/binary/latest/21/ga/windows/$Architecture/jre/hotspot/normal/eclipse"
-        try {
-            $RedirectResponse = Invoke-WebRequest -Uri $ApiUrl -MaximumRedirection 0 -UseBasicParsing
-            $DownloadUrl = $RedirectResponse.Headers.Location
-        } catch {
-            $DownloadUrl = $_.Exception.Response.Headers.Location
+        $DownloadUrl = "$ApiBaseUrl/bridge/runtime/$RuntimeArtifact"
+        Invoke-SkillPortDownload "$DownloadUrl.sha256" $ChecksumFile
+        $ExpectedHash = (([IO.File]::ReadAllText($ChecksumFile) -split "\s+")[0]).Trim().ToUpperInvariant()
+        if ($ExpectedHash -notmatch '^[A-F0-9]{64}$') { throw "Java 校验值格式无效。" }
+
+        Write-Host "正在从 SkillPort 主站下载专用 Java 21（只保存到 .skillport）…"
+        $Verified = $false
+        $ActualHash = ""
+        for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
+            Remove-Item -Path $Archive -Force -ErrorAction SilentlyContinue
+            try {
+                Invoke-SkillPortDownload $DownloadUrl $Archive
+                $ActualHash = (Get-FileHash -Path $Archive -Algorithm SHA256).Hash
+                if ($ExpectedHash -eq $ActualHash) {
+                    $Verified = $true
+                    break
+                }
+            } catch {
+                if ($Attempt -eq 3) { throw }
+            }
+            Write-Host "Java 下载不完整，正在重试（$Attempt/3）…" -ForegroundColor Yellow
+            Start-Sleep -Seconds 2
         }
-        if (-not $DownloadUrl) { throw "无法获取 Java 下载地址。" }
+        if (-not $Verified) {
+            throw "Java 下载校验失败，已重试 3 次。期望：$ExpectedHash，实际：$ActualHash"
+        }
 
-        Write-Host "正在下载 SkillPort 专用 Java 21（只保存到 .skillport）…"
-        Invoke-WebRequest -Uri $DownloadUrl -OutFile $Archive -UseBasicParsing
-        $ExpectedHash = ((Invoke-WebRequest -Uri "$DownloadUrl.sha256.txt" -UseBasicParsing).Content -split "\s+")[0]
-        $ActualHash = (Get-FileHash -Path $Archive -Algorithm SHA256).Hash
-        if ($ExpectedHash -ne $ActualHash) { throw "Java 下载校验失败，已停止安装。" }
-
+        Remove-Item -Path $RuntimeDir -Recurse -Force -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $RuntimeDir -Force | Out-Null
         Expand-Archive -Path $Archive -DestinationPath $RuntimeDir -Force
-        $Java = Get-ChildItem -Path $RuntimeDir -Filter "java.exe" -Recurse | Select-Object -First 1
-        if (-not $Java -or (Get-JavaMajorVersion $Java.FullName) -lt 21) { throw "Java 21 解压后无法运行。" }
+        $Java = Get-ChildItem -Path $RuntimeDir -Filter "java.exe" -Recurse |
+            Where-Object { $_.Directory.Name -eq "bin" } |
+            Select-Object -First 1
+        if (-not $Java) { throw "Java 21 压缩包中没有找到 bin\java.exe。" }
+
+        $JavaHome = Split-Path (Split-Path $Java.FullName -Parent) -Parent
+        $ReleaseFile = Join-Path $JavaHome "release"
+        if (-not (Test-Path $ReleaseFile) -or (Get-JavaReleaseMajorVersion $ReleaseFile) -lt 21) {
+            throw "Java 21 解压后的 release 文件不完整。"
+        }
+
+        $JavaMajorVersion = Get-JavaMajorVersion $Java.FullName
+        if ($JavaMajorVersion -lt 21) {
+            $Diagnostic = $script:LastJavaDiagnostic
+            if (-not $Diagnostic) { $Diagnostic = "进程没有返回版本信息，请检查安全软件是否拦截 java.exe。" }
+            throw "Java 21 已正确解压，但启动失败。路径：$($Java.FullName)。诊断：$Diagnostic"
+        }
         return $Java.FullName
     } finally {
         Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -78,14 +149,25 @@ if ($JavaCommand -and (Get-JavaMajorVersion $JavaCommand.Source) -ge 21) {
 }
 
 Write-Step 2 "下载并校验 SkillPort Bridge"
-Invoke-WebRequest -Uri "$ApiBaseUrl/bridge/skillport-bridge.jar" -OutFile $BridgeJar -UseBasicParsing
-$ExpectedBridgeHash = ((Invoke-WebRequest -Uri "$ApiBaseUrl/bridge/skillport-bridge.jar.sha256" -UseBasicParsing).Content -split "\s+")[0]
+$BridgeChecksumFile = "$BridgeJar.sha256"
+Invoke-SkillPortDownload "$ApiBaseUrl/bridge/skillport-bridge.jar" $BridgeJar
+Invoke-SkillPortDownload "$ApiBaseUrl/bridge/skillport-bridge.jar.sha256" $BridgeChecksumFile
+$ExpectedBridgeHash = (([IO.File]::ReadAllText($BridgeChecksumFile) -split "\s+")[0]).Trim().ToUpperInvariant()
 $ActualBridgeHash = (Get-FileHash -Path $BridgeJar -Algorithm SHA256).Hash
 if ($ExpectedBridgeHash -ne $ActualBridgeHash) { throw "Bridge 下载校验失败，已停止安装。" }
 
 Write-Step 3 "绑定当前 SkillPort 账户"
 $DeviceName = $env:COMPUTERNAME
-& $JavaExe -jar $BridgeJar pair $ApiBaseUrl $NettyUrl $PairingCode $DeviceName
+$PairApiBaseUrl = $ApiBaseUrl
+try {
+    if (([Uri]$ApiBaseUrl).DnsSafeHost -eq "skillport-ai-workspace.mcbbss.chatgpt.site") {
+        $PairApiBaseUrl = "https://www.jmuyuer.com"
+        Write-Host "正在通过 SkillPort 主站安全入口完成配对…"
+    }
+} catch {
+    throw "配对地址格式无效，请回到网站重新复制安装命令。"
+}
+& $JavaExe -jar $BridgeJar pair $PairApiBaseUrl $NettyUrl $PairingCode $DeviceName
 if ($LASTEXITCODE -ne 0) { throw "设备配对失败，请回到网站刷新配对码后重试。" }
 
 Write-Step 4 "设置登录后自动连接"

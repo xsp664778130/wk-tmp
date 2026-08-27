@@ -1,0 +1,43 @@
+#!/bin/bash
+
+set -euo pipefail
+
+readonly app_path="/Applications/SkillPort.app"
+console_user="$(/usr/bin/stat -f '%Su' /dev/console)"
+
+if [[ -z "${console_user}" || "${console_user}" == "root" || "${console_user}" == "loginwindow" ]]; then
+  console_user="$(/usr/sbin/scutil <<< 'show State:/Users/ConsoleUser' | /usr/bin/awk '/Name :/ { print $3; exit }' || true)"
+fi
+
+if [[ -z "${console_user}" || "${console_user}" == "root" || "${console_user}" == "loginwindow" || "${console_user}" == "_mbsetupuser" ]]; then
+  exit 0
+fi
+
+user_home="$(/usr/bin/dscl . -read "/Users/${console_user}" NFSHomeDirectory 2>/dev/null | /usr/bin/awk '{print $2}' || true)"
+if [[ -z "${user_home}" || ! -d "${user_home}" ]]; then
+  user_home="/Users/${console_user}"
+fi
+
+[[ -d "${user_home}" ]] || exit 0
+
+user_group="$(/usr/bin/id -gn "${console_user}")"
+user_uid="$(/usr/bin/id -u "${console_user}")"
+desktop_dir="${user_home}/Desktop"
+shortcut_path="${desktop_dir}/SkillPort.app"
+
+/bin/mkdir -p "${desktop_dir}"
+/usr/sbin/chown "${console_user}:${user_group}" "${desktop_dir}" || true
+
+if [[ -L "${shortcut_path}" && ! -e "${shortcut_path}" ]]; then
+  /bin/rm "${shortcut_path}"
+fi
+
+if [[ ! -e "${shortcut_path}" && ! -L "${shortcut_path}" ]]; then
+  /bin/ln -s "${app_path}" "${shortcut_path}"
+  /usr/sbin/chown -h "${console_user}:${user_group}" "${shortcut_path}" || true
+fi
+
+/usr/bin/touch "${desktop_dir}"
+/bin/launchctl asuser "${user_uid}" /usr/bin/open "${app_path}" >/dev/null 2>&1 || true
+
+exit 0

@@ -3,7 +3,9 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 export const installerTargetRoots = {
   codex: ".codex/skills",
   qoder: ".qoder/skills",
-  openai: ".openai/skills",
+  opencode: ".config/opencode/skills",
+  claude: ".claude/skills",
+  cursor: ".cursor/skills",
 } as const;
 
 export type InstallerTarget = keyof typeof installerTargetRoots;

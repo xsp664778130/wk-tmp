@@ -101,7 +101,8 @@ Bridge 根据当前用户主目录自动兼容 macOS 和 Windows：
 
 - Codex：`.codex/skills/<skill>`
 - Qoder：`.qoder/skills/<skill>`
-- OpenAI：`.openai/skills/<skill>`
+- OpenCode：`.config/opencode/skills/<skill>`
+- Claude Code：`.claude/skills/<skill>`
 
 ## 安全与运维
 

@@ -33,6 +33,7 @@ yarn-error.log*
 !.env.example
 /java/**/target/
 /java/data/
+/native/**/build/
 /deploy/.rendered/
 
 # vercel

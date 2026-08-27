@@ -19,7 +19,10 @@ class SkillInstallerTest {
     void resolvesAllSupportedToolDirectories() {
         assertEquals(tempDir.resolve(".codex/skills/demo"), ToolTargetPaths.resolve(tempDir, "codex", "demo"));
         assertEquals(tempDir.resolve(".qoder/skills/demo"), ToolTargetPaths.resolve(tempDir, "qoder", "demo"));
-        assertEquals(tempDir.resolve(".openai/skills/demo"), ToolTargetPaths.resolve(tempDir, "openai", "demo"));
+        assertEquals(tempDir.resolve(".config/opencode/skills/demo"),
+                ToolTargetPaths.resolve(tempDir, "opencode", "demo"));
+        assertEquals(tempDir.resolve(".claude/skills/demo"), ToolTargetPaths.resolve(tempDir, "claude", "demo"));
+        assertEquals(tempDir.resolve(".cursor/skills/demo"), ToolTargetPaths.resolve(tempDir, "cursor", "demo"));
     }
 
     @Test

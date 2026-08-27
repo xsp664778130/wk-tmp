@@ -4,8 +4,16 @@ type AuthAction = "login" | "register" | "logout" | "me";
 
 export async function GET(request: Request, context: { params: Promise<{ action: string }> }) {
   const { action } = await context.params;
+  if (action === "wecom") return startWeComLogin(request);
   if (action !== "me") return Response.json({ error: "不支持的操作。" }, { status: 405 });
   return authenticatedRequest(request, "me", "GET");
+}
+
+function startWeComLogin(request: Request) {
+  const requestedMode = new URL(request.url).searchParams.get("mode");
+  const target = new URL("/api/auth/wecom", "https://www.jmuyuer.com");
+  target.searchParams.set("mode", requestedMode === "auto" ? "auto" : "qr");
+  return Response.redirect(target, 307);
 }
 
 export async function POST(request: Request, context: { params: Promise<{ action: string }> }) {

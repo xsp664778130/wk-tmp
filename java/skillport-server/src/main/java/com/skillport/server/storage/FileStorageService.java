@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Comparator;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.DigestInputStream;
@@ -22,9 +23,8 @@ public class FileStorageService {
     }
 
     public StoredSkillFile store(String ownerId, String skillId, String originalFilename, InputStream source) {
-        String safeOwner = safeSegment(ownerId);
         String safeFilename = safeFilename(originalFilename);
-        Path target = storageRoot.resolve(safeOwner).resolve(skillId).resolve(safeFilename).normalize();
+        Path target = expectedPath(ownerId, skillId, safeFilename);
         if (!target.startsWith(storageRoot)) throw new IllegalArgumentException("Invalid storage path");
         try {
             Files.createDirectories(target.getParent());
@@ -38,6 +38,15 @@ public class FileStorageService {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
+    }
+
+    public Path expectedPath(String ownerId, String skillId, String originalFilename) {
+        String safeOwner = safeSegment(ownerId);
+        String safeSkillId = safeSegment(skillId);
+        String safeFile = safeFilename(originalFilename);
+        Path target = storageRoot.resolve(safeOwner).resolve(safeSkillId).resolve(safeFile).normalize();
+        if (!target.startsWith(storageRoot)) throw new IllegalArgumentException("Invalid storage path");
+        return target;
     }
 
     public Path resolve(String storagePath) {
@@ -54,6 +63,23 @@ public class FileStorageService {
             return store(ownerId, skillId, originalFilename, input);
         } catch (IOException exception) {
             throw new IllegalStateException("Unable to copy shared skill file", exception);
+        }
+    }
+
+    public void deleteSkillFiles(String storagePath) {
+        Path storedFile = Path.of(storagePath).toAbsolutePath().normalize();
+        Path skillDirectory = storedFile.getParent();
+        if (!storedFile.startsWith(storageRoot) || skillDirectory == null
+                || skillDirectory.equals(storageRoot) || !skillDirectory.startsWith(storageRoot)) {
+            throw new IllegalArgumentException("Invalid skill storage directory");
+        }
+        if (!Files.exists(skillDirectory)) return;
+        try (var paths = Files.walk(skillDirectory)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        } catch (IOException exception) {
+            throw new IllegalStateException("Unable to delete skill files", exception);
         }
     }
 

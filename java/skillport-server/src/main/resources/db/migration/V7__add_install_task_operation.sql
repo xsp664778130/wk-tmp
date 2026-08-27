@@ -1,0 +1,2 @@
+ALTER TABLE install_tasks
+    ADD COLUMN operation VARCHAR(16) NOT NULL DEFAULT 'INSTALL' AFTER targets;

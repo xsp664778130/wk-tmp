@@ -3,6 +3,7 @@ package com.skillport.server.netty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skillport.server.config.SkillPortProperties;
 import com.skillport.server.service.DeviceService;
+import com.skillport.server.service.DeviceToolScanService;
 import com.skillport.server.service.DownloadTicketService;
 import com.skillport.server.service.InstallTaskService;
 import io.netty.bootstrap.ServerBootstrap;
@@ -26,6 +27,7 @@ public class BridgeNettyServer implements SmartLifecycle {
     private final DeviceService deviceService;
     private final DownloadTicketService downloadTicketService;
     private final InstallTaskService installTaskService;
+    private final DeviceToolScanService toolScanService;
     private final BridgeSessionRegistry sessionRegistry;
     private final ObjectMapper objectMapper;
     private volatile boolean running;
@@ -36,11 +38,13 @@ public class BridgeNettyServer implements SmartLifecycle {
 
     public BridgeNettyServer(SkillPortProperties properties, DeviceService deviceService,
                              DownloadTicketService downloadTicketService, InstallTaskService installTaskService,
+                             DeviceToolScanService toolScanService,
                              BridgeSessionRegistry sessionRegistry, ObjectMapper objectMapper) {
         this.properties = properties;
         this.deviceService = deviceService;
         this.downloadTicketService = downloadTicketService;
         this.installTaskService = installTaskService;
+        this.toolScanService = toolScanService;
         this.sessionRegistry = sessionRegistry;
         this.objectMapper = objectMapper;
     }
@@ -52,7 +56,7 @@ public class BridgeNettyServer implements SmartLifecycle {
         workerGroup = new NioEventLoopGroup(properties.netty().workerThreads());
         blockingGroup = new DefaultEventExecutorGroup(Math.max(2, properties.netty().workerThreads()));
         SkillPortNettyHandler handler = new SkillPortNettyHandler(
-                deviceService, downloadTicketService, installTaskService, sessionRegistry, objectMapper);
+                deviceService, downloadTicketService, installTaskService, toolScanService, sessionRegistry, objectMapper);
         try {
             serverChannel = new ServerBootstrap()
                     .group(bossGroup, workerGroup)

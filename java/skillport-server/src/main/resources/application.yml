@@ -26,7 +26,7 @@ spring:
   servlet:
     multipart:
       max-file-size: 25MB
-      max-request-size: 26MB
+      max-request-size: 28MB
   flyway:
     enabled: true
 
@@ -43,6 +43,21 @@ skillport:
   bridge-artifact-root: ${SKILLPORT_BRIDGE_ARTIFACT_ROOT:./data/bridge}
   public-api-base-url: ${SKILLPORT_API_PUBLIC_URL:http://localhost:8080}
   public-netty-base-url: ${SKILLPORT_NETTY_PUBLIC_URL:http://localhost:9091}
+  client-release:
+    version: 1.0.21
+    date: 2026-08-27
+    title: Skill 分类保存修复
+    changes:
+      - 我的 Skill 分类改为选择后立即自动保存，不再需要额外点击保存按钮。
+      - 分类保存过程会显示明确状态，失败时自动恢复原分类。
+      - 已分享 Skill 的分类保存成功后同步刷新公有池记录。
+    download-base-url: ${SKILLPORT_CLIENT_DOWNLOAD_URL:https://www.jmuyuer.com}
+  wecom:
+    enabled: ${WECOM_ENABLED:false}
+    corp-id: ${WECOM_CORP_ID:}
+    agent-id: ${WECOM_AGENT_ID:}
+    secret: ${WECOM_SECRET:}
+    callback-url: ${WECOM_CALLBACK_URL:http://localhost:8080/api/auth/wecom/callback}
   netty:
     port: ${SKILLPORT_NETTY_PORT:9091}
     worker-threads: ${SKILLPORT_NETTY_WORKERS:4}

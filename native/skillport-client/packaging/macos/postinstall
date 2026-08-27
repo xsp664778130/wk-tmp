@@ -1,0 +1,9 @@
+#!/bin/bash
+set -euo pipefail
+
+console_user="$(stat -f '%Su' /dev/console)"
+if [ -n "$console_user" ] && [ "$console_user" != "root" ] && [ "$console_user" != "loginwindow" ]; then
+  console_uid="$(id -u "$console_user")"
+  launchctl asuser "$console_uid" sudo -u "$console_user" open -a "/Applications/SkillPort.app" || true
+fi
+exit 0

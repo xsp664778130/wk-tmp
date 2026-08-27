@@ -89,9 +89,33 @@ spec:
             - name: SKILLPORT_BRIDGE_ARTIFACT_ROOT
               value: /app/bridge
             - name: SKILLPORT_API_PUBLIC_URL
-              value: https://skillport-ai-workspace.mcbbss.chatgpt.site
+              value: https://www.jmuyuer.com
+            - name: SKILLPORT_CLIENT_DOWNLOAD_URL
+              value: https://www.jmuyuer.com
             - name: SKILLPORT_NETTY_PUBLIC_URL
               value: https://bridge.jmuyuer.com
+            - name: WECOM_ENABLED
+              value: "true"
+            - name: WECOM_CORP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: skillport-secrets
+                  key: wecom-corp-id
+                  optional: true
+            - name: WECOM_AGENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: skillport-secrets
+                  key: wecom-agent-id
+                  optional: true
+            - name: WECOM_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: skillport-secrets
+                  key: wecom-secret
+                  optional: true
+            - name: WECOM_CALLBACK_URL
+              value: https://www.jmuyuer.com/api/auth/wecom/callback
             - name: MYSQL_POOL_SIZE
               value: "10"
             - name: SKILLPORT_NETTY_WORKERS

@@ -21,6 +21,10 @@ public class SkillEntity {
     private String name;
     @Column(nullable = false, length = 2000)
     private String description;
+    @Column(name = "detail_text", nullable = false, columnDefinition = "TEXT")
+    private String detail;
+    @Column(name = "usage_steps", nullable = false, columnDefinition = "TEXT")
+    private String usageSteps;
     @Column(nullable = false, length = 64)
     private String category;
     @Column(name = "file_name", nullable = false, length = 255)
@@ -33,6 +37,16 @@ public class SkillEntity {
     private long sizeBytes;
     @Column(nullable = false, length = 64)
     private String sha256;
+    @Column(name = "avatar_file_name", length = 255)
+    private String avatarFileName;
+    @Column(name = "avatar_storage_path", length = 512)
+    private String avatarStoragePath;
+    @Column(name = "avatar_content_type", length = 120)
+    private String avatarContentType;
+    @Column(name = "avatar_size_bytes")
+    private Long avatarSizeBytes;
+    @Column(name = "avatar_sha256", length = 64)
+    private String avatarSha256;
     @Column(nullable = false, length = 2000)
     private String note;
     @Column(name = "source_public_skill_id", length = 36)
@@ -59,6 +73,8 @@ public class SkillEntity {
         this.ownerId = ownerId;
         this.name = name;
         this.description = description;
+        this.detail = description;
+        this.usageSteps = "";
         this.category = category;
         this.fileName = fileName;
         this.storagePath = storagePath;
@@ -76,16 +92,54 @@ public class SkillEntity {
         this.updatedAt = now;
     }
 
+    public void updateCategory(String category, Instant now) {
+        this.category = category;
+        this.updatedAt = now;
+    }
+
+    public void updateDetails(String name, String description, String detail, String usageSteps, Instant now) {
+        this.name = name;
+        this.description = description;
+        this.detail = detail;
+        this.usageSteps = usageSteps;
+        this.updatedAt = now;
+    }
+
+    public void initializeDetails(String detail, String usageSteps) {
+        this.detail = detail;
+        this.usageSteps = usageSteps;
+    }
+
+    public void attachAvatar(String fileName, String storagePath, String contentType,
+                             long sizeBytes, String sha256) {
+        this.avatarFileName = fileName;
+        this.avatarStoragePath = storagePath;
+        this.avatarContentType = contentType;
+        this.avatarSizeBytes = sizeBytes;
+        this.avatarSha256 = sha256;
+    }
+
+    public boolean hasAvatar() {
+        return avatarStoragePath != null && !avatarStoragePath.isBlank();
+    }
+
     public String getPublicId() { return publicId; }
     public String getOwnerId() { return ownerId; }
     public String getName() { return name; }
     public String getDescription() { return description; }
+    public String getDetail() { return detail; }
+    public String getUsageSteps() { return usageSteps; }
     public String getCategory() { return category; }
     public String getFileName() { return fileName; }
     public String getStoragePath() { return storagePath; }
     public String getContentType() { return contentType; }
     public long getSizeBytes() { return sizeBytes; }
     public String getSha256() { return sha256; }
+    public String getAvatarFileName() { return avatarFileName; }
+    public String getAvatarStoragePath() { return avatarStoragePath; }
+    public String getAvatarContentType() { return avatarContentType; }
+    public Long getAvatarSizeBytes() { return avatarSizeBytes; }
+    public String getAvatarSha256() { return avatarSha256; }
     public String getNote() { return note; }
     public String getSourcePublicSkillId() { return sourcePublicSkillId; }
     public Instant getCreatedAt() { return createdAt; }

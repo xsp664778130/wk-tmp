@@ -11,6 +11,9 @@ public interface PublicSkillRepository extends JpaRepository<PublicSkillEntity, 
     long countByPublisherOwnerId(String publisherOwnerId);
     Optional<PublicSkillEntity> findByPublicId(String publicId);
     Optional<PublicSkillEntity> findBySourceSkillPublicId(String sourceSkillPublicId);
+    Optional<PublicSkillEntity> findByPublicIdAndPublisherOwnerId(String publicId, String publisherOwnerId);
+    Optional<PublicSkillEntity> findBySourceSkillPublicIdAndPublisherOwnerId(
+            String sourceSkillPublicId, String publisherOwnerId);
     List<PublicSkillEntity> findAllByOrderByPublishedAtDesc(Pageable pageable);
     List<PublicSkillEntity> findAllByPublisherOwnerId(String publisherOwnerId);
 }

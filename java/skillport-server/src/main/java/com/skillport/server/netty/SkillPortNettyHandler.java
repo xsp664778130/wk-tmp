@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skillport.protocol.*;
 import com.skillport.server.domain.DeviceEntity;
 import com.skillport.server.service.DeviceService;
+import com.skillport.server.service.DeviceToolScanService;
 import com.skillport.server.service.DownloadTicketService;
 import com.skillport.server.service.InstallTaskService;
 import io.netty.channel.*;
@@ -32,15 +33,18 @@ public class SkillPortNettyHandler extends SimpleChannelInboundHandler<Object> {
     private final DeviceService deviceService;
     private final DownloadTicketService ticketService;
     private final InstallTaskService installTaskService;
+    private final DeviceToolScanService toolScanService;
     private final BridgeSessionRegistry sessionRegistry;
     private final ProtocolCodec protocolCodec;
 
     public SkillPortNettyHandler(DeviceService deviceService, DownloadTicketService ticketService,
-                                 InstallTaskService installTaskService, BridgeSessionRegistry sessionRegistry,
+                                 InstallTaskService installTaskService, DeviceToolScanService toolScanService,
+                                 BridgeSessionRegistry sessionRegistry,
                                  ObjectMapper objectMapper) {
         this.deviceService = deviceService;
         this.ticketService = ticketService;
         this.installTaskService = installTaskService;
+        this.toolScanService = toolScanService;
         this.sessionRegistry = sessionRegistry;
         this.protocolCodec = new ProtocolCodec(objectMapper);
     }
@@ -92,6 +96,7 @@ public class SkillPortNettyHandler extends SimpleChannelInboundHandler<Object> {
                 context.channel().attr(DEVICE_ID).set(deviceId);
                 sessionRegistry.register(deviceId, context.channel());
                 deviceService.markOnline(deviceId);
+                toolScanService.requestAfterConnect(deviceId);
                 log.info("Bridge connected deviceId={}", deviceId);
             }
         });
@@ -110,9 +115,16 @@ public class SkillPortNettyHandler extends SimpleChannelInboundHandler<Object> {
                 context.writeAndFlush(new TextWebSocketFrame(
                         protocolCodec.encode(MessageType.HEARTBEAT_ACK, envelope.requestId(), new HeartbeatPayload("ok"))));
             }
-            case INSTALL_PROGRESS, INSTALL_COMPLETED, INSTALL_FAILED -> {
+            case INSTALL_PROGRESS, INSTALL_COMPLETED, INSTALL_FAILED,
+                    UNINSTALL_PROGRESS, UNINSTALL_COMPLETED, UNINSTALL_FAILED -> {
                 InstallProgress progress = protocolCodec.payload(envelope, InstallProgress.class);
-                installTaskService.updateProgress(deviceId, progress, envelope.type() == MessageType.INSTALL_FAILED);
+                boolean failed = envelope.type() == MessageType.INSTALL_FAILED
+                        || envelope.type() == MessageType.UNINSTALL_FAILED;
+                installTaskService.updateProgress(deviceId, progress, failed);
+            }
+            case TOOL_SCAN_RESULT -> {
+                ToolScanResult result = protocolCodec.payload(envelope, ToolScanResult.class);
+                deviceService.updateInstalledTools(deviceId, result.tools(), result.detectedAt());
             }
             default -> log.warn("Ignored bridge message deviceId={} type={}", deviceId, envelope.type());
         }

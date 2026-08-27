@@ -5,6 +5,7 @@ import com.skillport.protocol.InstallCommand;
 import com.skillport.protocol.InstallProgress;
 import com.skillport.protocol.MessageType;
 import com.skillport.protocol.ProtocolCodec;
+import com.skillport.protocol.UninstallCommand;
 import com.skillport.server.domain.DeviceEntity;
 import com.skillport.server.domain.InstallTaskEntity;
 import com.skillport.server.domain.SkillEntity;
@@ -27,7 +28,8 @@ import java.util.UUID;
 
 @Service
 public class InstallTaskService {
-    private static final Set<String> ALLOWED_TARGETS = Set.of("codex", "qoder", "openai");
+    private static final Set<String> ALLOWED_TARGETS = Set.of(
+            "codex", "qoder", "opencode", "claude", "cursor");
     private final InstallTaskRepository taskRepository;
     private final SkillRepository skillRepository;
     private final DeviceRepository deviceRepository;
@@ -64,6 +66,34 @@ public class InstallTaskService {
         InstallCommand command = new InstallCommand(taskId, skillId, skill.getName(), skill.getFileName(),
                 ticket.downloadUrl(), skill.getSha256(), skill.getSizeBytes(), targets, ticket.expiresAt());
         String message = protocolCodec.encode(MessageType.INSTALL_SKILL, taskId, command);
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                if (sessionRegistry.send(device.getPublicId(), message)) markSent(taskId);
+            }
+        });
+        return task;
+    }
+
+    @Transactional
+    public InstallTaskEntity createUninstall(
+            String ownerId, String skillId, String deviceId, List<String> requestedTargets) {
+        List<String> targets = normalizeTargets(requestedTargets);
+        SkillEntity skill = skillRepository.findByPublicIdAndOwnerId(skillId, ownerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Skill 不存在"));
+        DeviceEntity device = resolveDevice(ownerId, deviceId);
+        if (!sessionRegistry.isOnline(device.getPublicId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "目标设备当前不在线，无法从本机卸载");
+        }
+
+        String taskId = UUID.randomUUID().toString();
+        Instant now = Instant.now();
+        InstallTaskEntity task = taskRepository.save(new InstallTaskEntity(taskId, ownerId, skillId,
+                device.getPublicId(), String.join(",", targets), "UNINSTALL", now));
+        UninstallCommand command = new UninstallCommand(
+                taskId, skillId, skill.getName(), targets);
+        String message = protocolCodec.encode(MessageType.UNINSTALL_SKILL, taskId, command);
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override

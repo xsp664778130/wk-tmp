@@ -23,6 +23,8 @@ public class InstallTaskEntity {
     private String devicePublicId;
     @Column(nullable = false, length = 255)
     private String targets;
+    @Column(nullable = false, length = 16)
+    private String operation;
     @Column(nullable = false, length = 24)
     private String status;
     @Column(nullable = false)
@@ -41,11 +43,17 @@ public class InstallTaskEntity {
 
     public InstallTaskEntity(String publicId, String ownerId, String skillPublicId, String devicePublicId,
                              String targets, Instant now) {
+        this(publicId, ownerId, skillPublicId, devicePublicId, targets, "INSTALL", now);
+    }
+
+    public InstallTaskEntity(String publicId, String ownerId, String skillPublicId, String devicePublicId,
+                             String targets, String operation, Instant now) {
         this.publicId = publicId;
         this.ownerId = ownerId;
         this.skillPublicId = skillPublicId;
         this.devicePublicId = devicePublicId;
         this.targets = targets;
+        this.operation = operation;
         this.status = "PENDING";
         this.progress = 0;
         this.stage = "QUEUED";
@@ -63,7 +71,8 @@ public class InstallTaskEntity {
     public void fail(String message, Instant now) {
         this.status = "FAILED";
         this.stage = "FAILED";
-        this.errorMessage = message == null ? "安装失败" : message.substring(0, Math.min(1000, message.length()));
+        this.errorMessage = message == null ? ("UNINSTALL".equals(operation) ? "卸载失败" : "安装失败")
+                : message.substring(0, Math.min(1000, message.length()));
         this.updatedAt = now;
     }
 
@@ -72,6 +81,7 @@ public class InstallTaskEntity {
     public String getSkillPublicId() { return skillPublicId; }
     public String getDevicePublicId() { return devicePublicId; }
     public String getTargets() { return targets; }
+    public String getOperation() { return operation; }
     public String getStatus() { return status; }
     public int getProgress() { return progress; }
     public String getStage() { return stage; }

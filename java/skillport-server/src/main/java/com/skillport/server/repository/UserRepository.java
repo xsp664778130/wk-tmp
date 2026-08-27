@@ -9,4 +9,5 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     boolean existsByEmailNormalized(String emailNormalized);
     Optional<UserEntity> findByEmailNormalized(String emailNormalized);
     Optional<UserEntity> findByPublicId(String publicId);
+    Optional<UserEntity> findByWeComCorpIdAndWeComUserId(String weComCorpId, String weComUserId);
 }

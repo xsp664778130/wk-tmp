@@ -1,0 +1,93 @@
+name: Build SkillPort Flutter Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "flutter-client-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: native/skillport_flutter_client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build windows --release
+      - run: choco install innosetup --no-progress -y
+      - shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build/release | Out-Null
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/jrsoftware/issrc/041e2c32fe293770ab0495c0d98eb0735aa40efa/Files/Languages/ChineseSimplified.isl" -OutFile packaging/windows/ChineseSimplified.isl
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" packaging/windows/SkillPort.iss
+          Get-FileHash build/release/SkillPort-Setup.exe -Algorithm SHA256 | Format-List
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SkillPort-Windows
+          path: native/skillport_flutter_client/build/release/SkillPort-Setup.exe
+
+  macos:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: native/skillport_flutter_client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build macos --release
+      - name: Re-sign release app without restricted debug entitlements
+        run: |
+          app_path="build/macos/Build/Products/Release/SkillPort.app"
+          codesign --force --deep --sign - --timestamp=none "${app_path}"
+          codesign --verify --deep --strict --verbose=4 "${app_path}"
+          if codesign -d --entitlements - "${app_path}" 2>&1 | grep -q "get-task-allow"; then
+            echo "Release app still contains the restricted get-task-allow entitlement" >&2
+            exit 1
+          fi
+      - run: |
+          mkdir -p build/release
+          pkgbuild --component build/macos/Build/Products/Release/SkillPort.app --install-location /Applications --scripts packaging/macos --identifier com.skillport.desktop --version 1.0.21 build/release/SkillPort-Bridge.pkg
+          shasum -a 256 build/release/SkillPort-Bridge.pkg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SkillPort-macOS
+          path: native/skillport_flutter_client/build/release/SkillPort-Bridge.pkg
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/flutter-client-v')
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: SkillPort-*
+          path: release
+          merge-multiple: true
+      - name: Publish installers to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release/SkillPort-Setup.exe release/SkillPort-Bridge.pkg --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$GITHUB_REF_NAME" release/SkillPort-Setup.exe release/SkillPort-Bridge.pkg --title "SkillPort v1.0.21" --generate-notes --latest --repo "$GITHUB_REPOSITORY"
+          fi

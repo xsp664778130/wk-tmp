@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -19,14 +20,22 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.io.IOException;
+import java.nio.file.Path;
+import com.skillport.server.domain.SkillEntity;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.ResponseEntity;
+import com.skillport.server.storage.FileStorageService;
 
 @RestController
 @RequestMapping("/api/v1/public-skills")
 public class PublicSkillController {
     private final PublicSkillService publicSkillService;
+    private final FileStorageService fileStorageService;
 
-    public PublicSkillController(PublicSkillService publicSkillService) {
+    public PublicSkillController(PublicSkillService publicSkillService, FileStorageService fileStorageService) {
         this.publicSkillService = publicSkillService;
+        this.fileStorageService = fileStorageService;
     }
 
     @GetMapping
@@ -42,8 +51,10 @@ public class PublicSkillController {
     public PublicSkillResponse share(
             @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
             @Valid @RequestBody ShareRequest request) {
-        return PublicSkillResponse.from(publicSkillService.share(
-                user.userId(), user.displayName(), request.skillId()), true);
+        PublicSkillEntity publication = publicSkillService.share(
+                user.userId(), user.displayName(), request.skillId());
+        return PublicSkillResponse.from(publication, true,
+                publicSkillService.publicAvatarAvailable(publication.getPublicId()));
     }
 
     @PostMapping("/{publicSkillId}/pull")
@@ -52,6 +63,27 @@ public class PublicSkillController {
             @PathVariable String publicSkillId) {
         PublicSkillService.PullResult result = publicSkillService.pull(user.userId(), publicSkillId);
         return new PullResponse(SkillController.SkillResponse.from(result.skill()), result.created());
+    }
+
+    @DeleteMapping("/{publicSkillId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unpublish(@RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+                          @PathVariable String publicSkillId) {
+        publicSkillService.unpublish(user.userId(), publicSkillId);
+    }
+
+    @DeleteMapping("/source/{skillId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unpublishBySource(@RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+                                  @PathVariable String skillId) {
+        publicSkillService.unpublishBySource(user.userId(), skillId);
+    }
+
+    @GetMapping("/{publicSkillId}/avatar")
+    public ResponseEntity<InputStreamResource> avatar(@PathVariable String publicSkillId) throws IOException {
+        SkillEntity source = publicSkillService.publicAvatarSource(publicSkillId);
+        Path file = fileStorageService.resolve(source.getAvatarStoragePath());
+        return SkillController.avatarResponse(source, file);
     }
 
     public record ShareRequest(@NotBlank String skillId) {
@@ -63,21 +95,37 @@ public class PublicSkillController {
     public record PullResponse(SkillController.SkillResponse skill, boolean created) {
     }
 
-    public record PublicSkillResponse(String id, String name, String description, String category,
+    public record PublicSkillResponse(String id, String name, String description, String detail,
+                                      List<String> usageSteps, String category,
                                       String fileName, long sizeBytes, String sha256,
                                       List<String> compatible, String author, long pullCount,
-                                      Instant publishedAt, boolean pulled) {
+                                      Instant publishedAt, boolean pulled, boolean ownedByCurrentUser,
+                                      String sourceSkillId, String avatarUrl) {
         static PublicSkillResponse from(PublicSkillService.PublicSkillView view) {
-            return from(view.publication(), view.pulled());
-        }
-
-        static PublicSkillResponse from(PublicSkillEntity publication, boolean pulled) {
+            PublicSkillEntity publication = view.publication();
             return new PublicSkillResponse(publication.getPublicId(), publication.getName(),
-                    publication.getDescription(), publication.getCategory(), publication.getFileName(),
+                    publication.getDescription(), publication.getDetail(),
+                    SkillController.usageStepList(publication.getUsageSteps()), publication.getCategory(),
+                    publication.getFileName(),
                     publication.getSizeBytes(), publication.getSha256(),
                     Arrays.stream(publication.getToolCompatibility().split(",")).toList(),
                     publication.getPublisherDisplayName(), publication.getPullCount(),
-                    publication.getPublishedAt(), pulled);
+                    publication.getPublishedAt(), view.pulled(), view.ownedByCurrentUser(),
+                    publication.getSourceSkillPublicId(),
+                    view.hasAvatar() ? "/api/public-skills/" + publication.getPublicId() + "/avatar" : null);
+        }
+
+        static PublicSkillResponse from(PublicSkillEntity publication, boolean pulled, boolean hasAvatar) {
+            return new PublicSkillResponse(publication.getPublicId(), publication.getName(),
+                    publication.getDescription(), publication.getDetail(),
+                    SkillController.usageStepList(publication.getUsageSteps()), publication.getCategory(),
+                    publication.getFileName(),
+                    publication.getSizeBytes(), publication.getSha256(),
+                    Arrays.stream(publication.getToolCompatibility().split(",")).toList(),
+                    publication.getPublisherDisplayName(), publication.getPullCount(),
+                    publication.getPublishedAt(), pulled, pulled,
+                    publication.getSourceSkillPublicId(),
+                    hasAvatar ? "/api/public-skills/" + publication.getPublicId() + "/avatar" : null);
         }
     }
 }

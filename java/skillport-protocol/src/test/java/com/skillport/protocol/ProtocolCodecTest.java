@@ -25,4 +25,19 @@ class ProtocolCodecTest {
         assertEquals(command.taskId(), decoded.taskId());
         assertEquals(command.targets(), decoded.targets());
     }
+
+    @Test
+    void roundTripsUninstallCommand() {
+        ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        ProtocolCodec codec = new ProtocolCodec(objectMapper);
+        UninstallCommand command = new UninstallCommand(
+                "task-2", "skill-2", "API Architect", List.of("codex", "qoder"));
+
+        BridgeEnvelope envelope = codec.decode(codec.encode(MessageType.UNINSTALL_SKILL, "task-2", command));
+        UninstallCommand decoded = codec.payload(envelope, UninstallCommand.class);
+
+        assertEquals(MessageType.UNINSTALL_SKILL, envelope.type());
+        assertEquals(command.skillName(), decoded.skillName());
+        assertEquals(command.targets(), decoded.targets());
+    }
 }

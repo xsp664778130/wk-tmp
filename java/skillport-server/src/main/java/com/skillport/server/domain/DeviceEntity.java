@@ -3,6 +3,8 @@ package com.skillport.server.domain;
 import jakarta.persistence.*;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 
 @Entity
 @Table(name = "devices", indexes = @Index(name = "idx_devices_owner_seen", columnList = "owner_id,last_seen_at"))
@@ -24,6 +26,10 @@ public class DeviceEntity {
     private String tokenHash;
     @Column(nullable = false, length = 24)
     private String status;
+    @Column(name = "installed_tools", nullable = false, length = 255)
+    private String installedTools;
+    @Column(name = "tools_detected_at")
+    private Instant toolsDetectedAt;
     @Column(name = "last_seen_at")
     private Instant lastSeenAt;
     @Column(name = "created_at", nullable = false)
@@ -41,11 +47,16 @@ public class DeviceEntity {
         this.arch = arch;
         this.tokenHash = tokenHash;
         this.status = "OFFLINE";
+        this.installedTools = "";
         this.createdAt = createdAt;
     }
 
     public void markOnline(Instant now) { this.status = "ONLINE"; this.lastSeenAt = now; }
     public void markOffline(Instant now) { this.status = "OFFLINE"; this.lastSeenAt = now; }
+    public void updateInstalledTools(List<String> tools, Instant detectedAt) {
+        this.installedTools = String.join(",", tools);
+        this.toolsDetectedAt = detectedAt;
+    }
 
     public String getPublicId() { return publicId; }
     public String getOwnerId() { return ownerId; }
@@ -54,6 +65,11 @@ public class DeviceEntity {
     public String getArch() { return arch; }
     public String getTokenHash() { return tokenHash; }
     public String getStatus() { return status; }
+    public List<String> getInstalledTools() {
+        if (installedTools == null || installedTools.isBlank()) return List.of();
+        return Arrays.stream(installedTools.split(",")).filter(value -> !value.isBlank()).toList();
+    }
+    public Instant getToolsDetectedAt() { return toolsDetectedAt; }
     public Instant getLastSeenAt() { return lastSeenAt; }
     public Instant getCreatedAt() { return createdAt; }
 }

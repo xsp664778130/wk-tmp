@@ -74,6 +74,34 @@ public class AuthService {
         return createSession(user, Instant.now());
     }
 
+    @Transactional
+    public SessionGrant loginWithWeCom(String corpId, String userId, String displayName) {
+        String normalizedCorpId = requiredIdentityPart(corpId, "企业 ID");
+        String normalizedUserId = requiredIdentityPart(userId, "企业成员 ID");
+        UserEntity existing = userRepository
+                .findByWeComCorpIdAndWeComUserId(normalizedCorpId, normalizedUserId)
+                .orElse(null);
+        if (existing != null) {
+            if (!"ACTIVE".equals(existing.getStatus())) throw unauthorized();
+            return createSession(existing, Instant.now());
+        }
+
+        Instant now = Instant.now();
+        String identityHash = tokenService.sha256(normalizedCorpId + "\n" + normalizedUserId);
+        String syntheticEmail = "wecom-" + identityHash.substring(0, 32) + "@accounts.skillport.local";
+        String safeDisplayName = displayName == null || displayName.isBlank() ? "企业微信成员" : displayName.trim();
+        if (safeDisplayName.length() > 120) safeDisplayName = safeDisplayName.substring(0, 120);
+        UserEntity user = new UserEntity(UUID.randomUUID().toString(), syntheticEmail, syntheticEmail,
+                safeDisplayName, passwordEncoder.encode(tokenService.randomToken(32)),
+                normalizedCorpId, normalizedUserId, now);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException exception) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "企业微信账户正在登录，请重试", exception);
+        }
+        return createSession(user, now);
+    }
+
     @Transactional(readOnly = true)
     public RequestUser authenticate(String rawToken) {
         AuthenticatedUser user = requireAuthenticatedUser(rawToken);
@@ -97,7 +125,7 @@ public class AuthService {
         Instant expiresAt = now.plus(sessionTtl);
         sessionRepository.save(new UserSessionEntity(tokenService.sha256(rawToken), user.getPublicId(), expiresAt, now));
         return new SessionGrant(rawToken, expiresAt,
-                new AuthenticatedUser(user.getPublicId(), user.getEmail(), user.getDisplayName()));
+                new AuthenticatedUser(user.getPublicId(), publicEmail(user), user.getDisplayName()));
     }
 
     private AuthenticatedUser requireAuthenticatedUser(String rawToken) {
@@ -109,11 +137,22 @@ public class AuthService {
         UserEntity user = userRepository.findByPublicId(session.getOwnerId())
                 .filter(value -> "ACTIVE".equals(value.getStatus()))
                 .orElseThrow(AuthService::unauthorized);
-        return new AuthenticatedUser(user.getPublicId(), user.getEmail(), user.getDisplayName());
+        return new AuthenticatedUser(user.getPublicId(), publicEmail(user), user.getDisplayName());
+    }
+
+    private static String publicEmail(UserEntity user) {
+        return user.getWeComUserId() == null ? user.getEmail() : "企业微信账户";
     }
 
     private static String normalizeEmail(String email) {
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String requiredIdentityPart(String value, String label) {
+        if (value == null || value.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, label + "不能为空");
+        }
+        return value.trim();
     }
 
     private static void validatePasswordBytes(String password) {

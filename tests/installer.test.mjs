@@ -39,10 +39,13 @@ test("reads the manifest name from a complete ZIP skill", () => {
 });
 
 test("includes every selected tool and creates backups before replacement", () => {
-  const paths = installPaths(["codex", "qoder"], "release-jdk21-infrastructure-audit");
+  const paths = installPaths(["codex", "qoder", "opencode", "claude", "cursor"], "release-jdk21-infrastructure-audit");
   assert.deepEqual(paths, [
     ".codex/skills/release-jdk21-infrastructure-audit",
     ".qoder/skills/release-jdk21-infrastructure-audit",
+    ".config/opencode/skills/release-jdk21-infrastructure-audit",
+    ".claude/skills/release-jdk21-infrastructure-audit",
+    ".cursor/skills/release-jdk21-infrastructure-audit",
   ]);
   const mac = createMacInstaller("cGF5bG9hZA==", "zip", paths);
   const windows = createWindowsInstaller("cGF5bG9hZA==", "zip", paths);
@@ -51,6 +54,9 @@ test("includes every selected tool and creates backups before replacement", () =
   assert.match(mac, /base64 -D/);
   assert.match(windows, /skillport-backup/);
   assert.match(windows, /\.qoder\\skills\\release-jdk21-infrastructure-audit/);
+  assert.match(windows, /\.config\\opencode\\skills\\release-jdk21-infrastructure-audit/);
+  assert.match(windows, /\.claude\\skills\\release-jdk21-infrastructure-audit/);
+  assert.match(windows, /\.cursor\\skills\\release-jdk21-infrastructure-audit/);
 });
 
 test("the macOS ZIP preserves executable mode and installs a complete skill to every target", async () => {

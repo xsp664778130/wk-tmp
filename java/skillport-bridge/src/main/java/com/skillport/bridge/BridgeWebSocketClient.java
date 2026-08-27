@@ -26,11 +26,19 @@ public class BridgeWebSocketClient {
     private final ProtocolCodec protocolCodec;
     private final ObjectMapper objectMapper;
     private final ExecutorService installExecutor = Executors.newFixedThreadPool(2, Thread.ofPlatform().name("skill-install-", 0).factory());
+    private final ExecutorService toolScanExecutor = Executors.newSingleThreadExecutor(
+            Thread.ofPlatform().name("skill-tool-scan-", 0).factory());
+    private final ToolDetector toolDetector;
 
     public BridgeWebSocketClient(BridgeConfig config, ObjectMapper objectMapper) {
+        this(config, objectMapper, new ToolDetector());
+    }
+
+    BridgeWebSocketClient(BridgeConfig config, ObjectMapper objectMapper, ToolDetector toolDetector) {
         this.config = config;
         this.objectMapper = objectMapper;
         this.protocolCodec = new ProtocolCodec(objectMapper);
+        this.toolDetector = toolDetector;
     }
 
     public void runForever() {
@@ -49,6 +57,7 @@ public class BridgeWebSocketClient {
             }
         } finally {
             installExecutor.shutdownNow();
+            toolScanExecutor.shutdownNow();
             group.shutdownGracefully().syncUninterruptibly();
         }
     }
@@ -116,10 +125,38 @@ public class BridgeWebSocketClient {
         });
     }
 
+    private void uninstall(Channel channel, UninstallCommand command) {
+        installExecutor.execute(() -> {
+            SkillUninstaller uninstaller = new SkillUninstaller((progress, stage, message) ->
+                    sendProgress(channel, command.taskId(), progress, stage, message, MessageType.UNINSTALL_PROGRESS));
+            try {
+                SkillUninstaller.UninstallResult result = uninstaller.uninstall(command);
+                String message = result.removedTargets() == 0
+                        ? "本机未找到对应 Skill，无需卸载"
+                        : "已从 " + result.removedTargets() + " 个工具彻底移除";
+                sendProgress(channel, command.taskId(), 100, "COMPLETED", message,
+                        MessageType.UNINSTALL_COMPLETED);
+            } catch (Exception exception) {
+                log.warn("Skill uninstall failed taskId={} error={}", command.taskId(), exception.getMessage());
+                sendProgress(channel, command.taskId(), 0, "FAILED", exception.getMessage(),
+                        MessageType.UNINSTALL_FAILED);
+            }
+        });
+    }
+
     private void sendProgress(Channel channel, String taskId, int progress, String stage, String message, MessageType type) {
         if (!channel.isActive()) return;
         String json = protocolCodec.encode(type, taskId, new InstallProgress(taskId, progress, stage, message));
         channel.writeAndFlush(new TextWebSocketFrame(json));
+    }
+
+    private void scanTools(Channel channel, String requestId) {
+        toolScanExecutor.execute(() -> {
+            ToolScanResult result = new ToolScanResult(toolDetector.detect(), java.time.Instant.now());
+            if (!channel.isActive()) return;
+            channel.writeAndFlush(new TextWebSocketFrame(
+                    protocolCodec.encode(MessageType.TOOL_SCAN_RESULT, requestId, result)));
+        });
     }
 
     private static void sleep(Duration duration) {
@@ -167,6 +204,10 @@ public class BridgeWebSocketClient {
                 BridgeEnvelope envelope = protocolCodec.decode(frame.text());
                 if (envelope.type() == MessageType.INSTALL_SKILL) {
                     install(context.channel(), protocolCodec.payload(envelope, InstallCommand.class));
+                } else if (envelope.type() == MessageType.UNINSTALL_SKILL) {
+                    uninstall(context.channel(), protocolCodec.payload(envelope, UninstallCommand.class));
+                } else if (envelope.type() == MessageType.SCAN_TOOLS) {
+                    scanTools(context.channel(), envelope.requestId());
                 }
             } else if (message instanceof PingWebSocketFrame frame) {
                 context.writeAndFlush(new PongWebSocketFrame(frame.content().retain()));

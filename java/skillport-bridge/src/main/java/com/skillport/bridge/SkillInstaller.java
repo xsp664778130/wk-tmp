@@ -34,7 +34,7 @@ public class SkillInstaller {
         progressListener.onProgress(92, "VERIFYING", "正在校验 SHA-256");
         verifySha256(completed, command.sha256());
         progressListener.onProgress(95, "INSTALLING", "正在写入工具目录");
-        String slug = slug(command.skillName());
+        String slug = ToolTargetPaths.slug(command.skillName());
         for (String target : command.targets()) {
             installToTarget(completed, command.fileName(), ToolTargetPaths.resolve(home, target, slug));
         }
@@ -88,12 +88,6 @@ public class SkillInstaller {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 不可用", exception);
         }
-    }
-
-    private static String slug(String value) {
-        String normalized = value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9\\p{IsHan}]+", "-")
-                .replaceAll("(^-+|-+$)", "");
-        return normalized.isBlank() ? "skillport-skill" : normalized;
     }
 
     private static String suffix(String fileName) {

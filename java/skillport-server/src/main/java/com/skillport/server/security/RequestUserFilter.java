@@ -50,7 +50,7 @@ public class RequestUserFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (isPublicAuthPath(path) || isPublicBrowserAuthPath(path)) {
+        if (isPublicAuthPath(path) || isPublicBrowserAuthPath(path) || isPublicFeedbackRead(request)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -79,7 +79,15 @@ public class RequestUserFilter extends OncePerRequestFilter {
     private static boolean isPublicBrowserAuthPath(String path) {
         return path.equals("/api/auth/register")
                 || path.equals("/api/auth/login")
-                || path.equals("/api/auth/logout");
+                || path.equals("/api/auth/logout")
+                || path.equals("/api/auth/wecom")
+                || path.equals("/api/auth/wecom/callback");
+    }
+
+    private static boolean isPublicFeedbackRead(HttpServletRequest request) {
+        if (!"GET".equalsIgnoreCase(request.getMethod())) return false;
+        String path = request.getRequestURI();
+        return path.equals("/api/feedback") || path.equals("/api/v1/feedback");
     }
 
     private static String bearerToken(String authorization) {
