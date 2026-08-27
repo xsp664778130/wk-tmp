@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.23",
+    date: "2026-08-27",
+    title: "Skill 保存接口修复",
+    changes: [
+      "修复 K3s 网页编辑 Skill 分类时返回 Method Not Allowed 的问题。",
+      "统一 K3s 与 Sites 的 Skill 分类、详细说明和使用步骤保存地址。",
+      "补齐网页上传时详细说明和使用步骤在服务端的接收与保存。",
+    ],
+  },
+  {
     version: "1.0.22",
     date: "2026-08-27",
     title: "暗色界面可读性优化",
