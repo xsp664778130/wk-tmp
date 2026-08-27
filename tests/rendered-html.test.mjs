@@ -91,6 +91,18 @@ test("defines the SkillPort workspace and product metadata", async () => {
   assert.doesNotMatch(`${page}${layout}${client}`, /codex-preview|Your site is taking shape/);
 });
 
+test("keeps dark theme navigation readable and the right rail theme-aware", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(css, /\.app-shell\[data-theme\] \{ color: var\(--ink\)/);
+  assert.match(css, /--sidebar-text: #d6d8e3/);
+  assert.match(css, /--sidebar-muted: #8e95a8/);
+  assert.match(css, /\.app-shell\[data-theme\] \.tool-row/);
+  assert.match(css, /\.app-shell\[data-theme\] \.device-picker/);
+  assert.match(css, /background: var\(--rail-surface\)/);
+  assert.match(css, /background: linear-gradient\(135deg, var\(--tool-surface\)/);
+});
+
 test("provides enterprise WeCom silent authorization and QR login", async () => {
   const [route, service, controller, migration] = await Promise.all([
     readFile(new URL("../app/api/auth/[action]/route.ts", import.meta.url), "utf8"),
