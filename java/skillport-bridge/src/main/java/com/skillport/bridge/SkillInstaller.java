@@ -5,12 +5,16 @@ import com.skillport.protocol.InstallCommand;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.stream.Stream;
 
 public class SkillInstaller {
     private final InstallProgressListener progressListener;
@@ -54,15 +58,138 @@ public class SkillInstaller {
 
     private static void installToTarget(Path source, String fileName, Path destination) {
         try {
-            Files.createDirectories(destination);
             String lowerName = fileName.toLowerCase(Locale.ROOT);
             if (lowerName.endsWith(".zip") || lowerName.endsWith(".skill")) {
-                unzipSafely(source, destination);
+                installArchive(source, destination);
             } else {
+                Files.createDirectories(destination);
                 Files.copy(source, destination.resolve("SKILL.md"), StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException exception) {
             throw new IllegalStateException("无法安装到目录 " + destination, exception);
+        }
+    }
+
+    static void installArchive(Path archive, Path destination) throws IOException {
+        Path extractionDirectory = Files.createTempDirectory("skillport-extract-");
+        Path destinationParent = destination.toAbsolutePath().normalize().getParent();
+        if (destinationParent == null) throw new IOException("Skill 安装目录无效");
+        Files.createDirectories(destinationParent);
+        Path stage = Files.createTempDirectory(destinationParent, ".skillport-stage-");
+        try {
+            unzipSafely(archive, extractionDirectory);
+            Path manifest = findSingleManifest(extractionDirectory);
+            copySkillRoot(manifest.getParent(), manifest, stage);
+            replaceDestination(stage, destination.toAbsolutePath().normalize());
+        } finally {
+            deleteTreeQuietly(stage);
+            deleteTreeQuietly(extractionDirectory);
+        }
+    }
+
+    private static Path findSingleManifest(Path extractionDirectory) throws IOException {
+        List<Path> manifests;
+        try (Stream<Path> paths = Files.walk(extractionDirectory)) {
+            manifests = paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().equalsIgnoreCase("SKILL.md"))
+                    .filter(path -> !isIgnoredMetadata(extractionDirectory.relativize(path)))
+                    .limit(2)
+                    .toList();
+        }
+        if (manifests.size() != 1) {
+            throw new IOException("Skill 压缩包必须且只能包含一个 SKILL.md");
+        }
+        return manifests.getFirst();
+    }
+
+    private static void copySkillRoot(Path sourceRoot, Path manifest, Path destination) throws IOException {
+        Files.walkFileTree(sourceRoot, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) throws IOException {
+                Path relative = sourceRoot.relativize(directory);
+                if (!relative.toString().isEmpty() && isIgnoredMetadata(relative)) {
+                    return FileVisitResult.SKIP_SUBTREE;
+                }
+                Files.createDirectories(destination.resolve(relative));
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
+                Path relative = sourceRoot.relativize(file);
+                if (isIgnoredMetadata(relative)) return FileVisitResult.CONTINUE;
+                Path targetRelative = file.equals(manifest)
+                        ? Path.of("SKILL.md")
+                        : relative;
+                Path target = destination.resolve(targetRelative).normalize();
+                if (!target.startsWith(destination)) throw new IOException("Skill 压缩包包含非法路径");
+                Files.createDirectories(target.getParent());
+                Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+
+    private static boolean isIgnoredMetadata(Path relative) {
+        for (Path part : relative) {
+            String name = part.toString();
+            if (name.equalsIgnoreCase("__MACOSX") || name.equals(".DS_Store") || name.startsWith("._")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void replaceDestination(Path stage, Path destination) throws IOException {
+        Path backup = destination.resolveSibling(destination.getFileName()
+                + ".skillport-backup-" + System.currentTimeMillis() + "-" + UUID.randomUUID());
+        boolean backedUp = false;
+        try {
+            if (Files.exists(destination)) {
+                Files.move(destination, backup);
+                backedUp = true;
+            }
+            moveDirectory(stage, destination);
+        } catch (IOException exception) {
+            if (backedUp && !Files.exists(destination)) {
+                try {
+                    Files.move(backup, destination);
+                } catch (IOException restoreException) {
+                    exception.addSuppressed(restoreException);
+                }
+            }
+            throw exception;
+        }
+    }
+
+    private static void moveDirectory(Path source, Path destination) throws IOException {
+        try {
+            Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException exception) {
+            Files.move(source, destination);
+        }
+    }
+
+    private static void deleteTreeQuietly(Path root) {
+        if (root == null || !Files.exists(root)) return;
+        try {
+            Files.walkFileTree(root, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
+                    Files.deleteIfExists(file);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path directory, IOException exception) throws IOException {
+                    if (exception != null) throw exception;
+                    Files.deleteIfExists(directory);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException ignored) {
+            // Temporary installation files are best-effort cleanup only.
         }
     }
 
