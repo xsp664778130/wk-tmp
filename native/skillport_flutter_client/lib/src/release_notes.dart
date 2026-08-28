@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.32';
+const currentReleaseVersion = '1.0.33';
 const currentReleaseDate = '2026-08-28';
-const currentReleaseTitle = 'Windows 工作区按钮优化';
+const currentReleaseTitle = '工作区卡片对齐优化';
 const currentReleaseChanges = <String>[
-  '个人工作区 Skill 卡片采用更合理的宽度，避免 Windows 下操作区过度拥挤。',
-  '“打开文件夹”和“从本机卸载”固定为单行显示，不再出现难看的文字换行。',
-  '两个操作按钮重新分配宽度并缩小图标和内边距，窄窗口下仍保持整齐。',
+  '所有个人工作区卡片统一预留来源标识区域，不再因标识有无改变按钮位置。',
+  '来自我的 Skill 与普通本机 Skill 的两个操作按钮保持在同一水平线上。',
+  '网页端和桌面客户端同步采用固定底部操作区，卡片排列更加整齐。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.32',
+    date: '2026-08-28',
+    title: 'Windows 工作区按钮优化',
+    changes: <String>[
+      '个人工作区 Skill 卡片采用更合理的宽度，避免 Windows 下操作区过度拥挤。',
+      '“打开文件夹”和“从本机卸载”固定为单行显示，不再出现难看的文字换行。',
+      '两个操作按钮重新分配宽度并缩小图标和内边距，窄窗口下仍保持整齐。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.31',

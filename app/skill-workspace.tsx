@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.33",
+    date: "2026-08-28",
+    title: "工作区卡片对齐优化",
+    changes: [
+      "所有个人工作区卡片统一预留来源标识区域，不再因标识有无改变按钮位置。",
+      "来自我的 Skill 与普通本机 Skill 的两个操作按钮保持在同一水平线上。",
+      "网页端和桌面客户端同步采用固定底部操作区，卡片排列更加整齐。",
+    ],
+  },
+  {
     version: "1.0.32",
     date: "2026-08-28",
     title: "Windows 工作区按钮优化",
@@ -519,11 +529,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.32",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.33",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.32",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.33",
   },
 };
 
@@ -1978,7 +1988,7 @@ function LocalWorkspaceSection({ workspace, loading, device, selectedTool, query
                         <button className="open-folder-button" disabled={!online || opening} onClick={() => onOpenFolder(skill)}><span>▱</span>{opening ? "正在打开…" : "打开本地文件夹"}</button>
                         <button className="local-remove-button" disabled={!online || busy} onClick={() => onUninstall(skill)}>{busy ? "正在卸载…" : "从本机卸载"}</button>
                       </div>
-                      {skill.fromMySkills && <div className="local-skill-origin-row"><span className="local-origin-badge" title="来自我的 Skill"><i>✓</i>来自我的 Skill</span></div>}
+                      <div className="local-skill-origin-row">{skill.fromMySkills && <span className="local-origin-badge" title="来自我的 Skill"><i>✓</i>来自我的 Skill</span>}</div>
                     </article>
                   );
                 })}

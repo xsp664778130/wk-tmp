@@ -28,6 +28,18 @@ test("keeps the dashboard overview focused on useful account metrics", async () 
   assert.match(client, /首页统计精简/);
 });
 
+test("keeps every local workspace action row vertically aligned", async () => {
+  const [styles, client, desktop] = await Promise.all([
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/skill-workspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../native/skillport_flutter_client/lib/src/workspace.dart", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(styles, /\.local-skill-origin-row \{ height: 29px;/);
+  assert.match(client, /<div className="local-skill-origin-row">\{skill\.fromMySkills &&/);
+  assert.match(desktop, /height: 27,[\s\S]*child: fromMySkills[\s\S]*\? Container/);
+});
+
 test("defines the SkillPort workspace and product metadata", async () => {
   const [page, layout, client] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),

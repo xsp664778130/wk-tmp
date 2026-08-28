@@ -44,13 +44,13 @@ skillport:
   public-api-base-url: ${SKILLPORT_API_PUBLIC_URL:http://localhost:8080}
   public-netty-base-url: ${SKILLPORT_NETTY_PUBLIC_URL:http://localhost:9091}
   client-release:
-    version: 1.0.32
+    version: 1.0.33
     date: 2026-08-28
-    title: Windows 工作区按钮优化
+    title: 工作区卡片对齐优化
     changes:
-      - 个人工作区 Skill 卡片采用更合理的宽度，避免 Windows 下操作区过度拥挤。
-      - 打开文件夹和从本机卸载固定为单行显示，不再出现难看的文字换行。
-      - 两个操作按钮重新分配宽度并缩小图标和内边距，窄窗口下仍保持整齐。
+      - 所有个人工作区卡片统一预留来源标识区域，不再因标识有无改变按钮位置。
+      - 来自我的 Skill 与普通本机 Skill 的两个操作按钮保持在同一水平线上。
+      - 网页端和桌面客户端同步采用固定底部操作区，卡片排列更加整齐。
     download-base-url: ${SKILLPORT_CLIENT_DOWNLOAD_URL:https://www.jmuyuer.com}
   wecom:
     enabled: ${WECOM_ENABLED:false}

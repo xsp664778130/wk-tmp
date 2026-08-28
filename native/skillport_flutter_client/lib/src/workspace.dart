@@ -717,10 +717,16 @@ class LocalSkillCard extends StatelessWidget {
             const SizedBox(width: 8),
             Flexible(flex: 6, child: SizedBox(width: double.infinity, child: OutlinedButton.icon(style: actionButtonStyle, onPressed: controller.busy ? null : () => _removeLocalSkill(context, fromMySkills, toolName), icon: const Icon(Icons.delete_outline_rounded, size: 16), label: const Text('从本机卸载', maxLines: 1, softWrap: false, overflow: TextOverflow.fade)))),
           ]),
-          if (fromMySkills) ...<Widget>[
-            const SizedBox(height: 7),
-            Align(alignment: Alignment.centerRight, child: Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6), decoration: BoxDecoration(color: palette.successSurface, borderRadius: BorderRadius.circular(999)), child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[Icon(Icons.verified_rounded, size: 14, color: palette.success), const SizedBox(width: 4), Text('来自我的 Skill', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: palette.success))]))),
-          ],
+          const SizedBox(height: 7),
+          SizedBox(
+            height: 27,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: fromMySkills
+                  ? Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6), decoration: BoxDecoration(color: palette.successSurface, borderRadius: BorderRadius.circular(999)), child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[Icon(Icons.verified_rounded, size: 14, color: palette.success), const SizedBox(width: 4), Text('来自我的 Skill', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: palette.success))]))
+                  : null,
+            ),
+          ),
         ]),
       ),
     );
