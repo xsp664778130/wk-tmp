@@ -2,6 +2,20 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
+test("keeps the upload editor visually aligned with every theme", async () => {
+  const [styles, client] = await Promise.all([
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/skill-workspace.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(styles, /\.app-shell\[data-theme\] \.upload-modal \.large-upload/);
+  assert.match(styles, /\.app-shell\[data-theme\] \.upload-modal \.upload-fields label > span/);
+  assert.match(styles, /color-mix\(in srgb, var\(--purple\)/);
+  assert.match(styles, /\.upload-modal \.full-primary:disabled/);
+  assert.match(client, /version: "1\.0\.24"/);
+  assert.match(client, /上传界面主题适配/);
+});
+
 test("defines the SkillPort workspace and product metadata", async () => {
   const [page, layout, client] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
