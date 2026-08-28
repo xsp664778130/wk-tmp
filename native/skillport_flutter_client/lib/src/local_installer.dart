@@ -210,7 +210,8 @@ class LocalInstaller {
       final root = Directory(_toolRoot(toolId));
       if (!root.existsSync()) continue;
       for (final entity in root.listSync(followLinks: false)) {
-        if (entity is! Directory || path.basename(entity.path).startsWith('.skillport-install-')) {
+        if (entity is! Directory ||
+            path.basename(entity.path).startsWith('.skillport-install-')) {
           continue;
         }
         final skillFile = _findSkillFile(entity, depth: 0);
@@ -234,7 +235,9 @@ class LocalInstaller {
     }
     result.sort((left, right) {
       final byTool = left.toolId.compareTo(right.toolId);
-      return byTool != 0 ? byTool : left.name.toLowerCase().compareTo(right.name.toLowerCase());
+      return byTool != 0
+          ? byTool
+          : left.name.toLowerCase().compareTo(right.name.toLowerCase());
     });
     return result;
   }
@@ -251,9 +254,13 @@ class LocalInstaller {
     final directory = _validatedLocalSkillDirectory(skill);
     try {
       if (_isMacOS) {
-        await Process.start('open', <String>[directory], mode: ProcessStartMode.detached);
+        await Process.start('open', <String>[
+          directory,
+        ], mode: ProcessStartMode.detached);
       } else if (_isWindows) {
-        await Process.start('explorer.exe', <String>[directory], mode: ProcessStartMode.detached);
+        await Process.start('explorer.exe', <String>[
+          directory,
+        ], mode: ProcessStartMode.detached);
       } else {
         throw const LocalInstallException('当前系统暂不支持打开本地文件夹');
       }
@@ -267,7 +274,9 @@ class LocalInstaller {
   Future<String> readLocalSkillManifest(LocalSkillItem skill) async {
     final directory = _validatedLocalSkillDirectory(skill);
     final manifest = _findSkillFile(Directory(directory), depth: 0);
-    if (manifest == null) throw const LocalInstallException('本机 Skill 中没有找到 SKILL.md');
+    if (manifest == null) {
+      throw const LocalInstallException('本机 Skill 中没有找到 SKILL.md');
+    }
     try {
       if (await manifest.length() > 512 * 1024) {
         throw const LocalInstallException('SKILL.md 超过 512KB，无法预览');
@@ -284,7 +293,8 @@ class LocalInstaller {
     final root = path.normalize(path.absolute(_toolRoot(skill.toolId)));
     final directory = path.normalize(path.absolute(skill.directory));
     final type = FileSystemEntity.typeSync(directory, followLinks: false);
-    if (!path.isWithin(root, directory) || path.dirname(directory) != root ||
+    if (!path.isWithin(root, directory) ||
+        path.dirname(directory) != root ||
         type != FileSystemEntityType.directory) {
       throw const LocalInstallException('本机 Skill 路径不安全，请重新识别');
     }
@@ -294,13 +304,16 @@ class LocalInstaller {
   String _toolRoot(String target) {
     final relative = toolDirectories[target];
     if (relative == null) throw LocalInstallException('不支持的 AI 工具：$target');
-    return path.normalize(path.absolute(path.joinAll(<String>[_home, ...relative.split('/')] )));
+    return path.normalize(
+      path.absolute(path.joinAll(<String>[_home, ...relative.split('/')])),
+    );
   }
 
   File? _findSkillFile(Directory directory, {required int depth}) {
     if (depth > 3) return null;
     for (final entity in directory.listSync(followLinks: false)) {
-      if (entity is File && path.basename(entity.path).toLowerCase() == 'skill.md') {
+      if (entity is File &&
+          path.basename(entity.path).toLowerCase() == 'skill.md') {
         return entity;
       }
     }
@@ -337,13 +350,17 @@ class LocalInstaller {
         (line) => line?.trimLeft().startsWith('# ') == true,
         orElse: () => null,
       );
-      name = heading?.trim().substring(2).trim() ?? path.basename(file.parent.path);
+      name =
+          heading?.trim().substring(2).trim() ??
+          path.basename(file.parent.path);
     }
     return (name, description.isEmpty ? '本机 Skill' : description);
   }
 
   String _unquote(String value) {
-    if (value.length >= 2 && ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))) {
+    if (value.length >= 2 &&
+        ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'")))) {
       return value.substring(1, value.length - 1);
     }
     return value;
@@ -411,9 +428,24 @@ class LocalInstaller {
     if (archive.length > 5000) {
       throw const LocalInstallException('Skill 压缩包文件数量过多');
     }
-    final rootPrefix = commonArchiveRoot(
-      archive.files.map((file) => file.name),
-    );
+    final manifests = archive.files.where((entry) {
+      if (entry.isDirectory) return false;
+      final normalized = entry.name
+          .replaceAll('\\', '/')
+          .replaceFirst(RegExp(r'^/+'), '');
+      return !_isIgnoredArchiveMetadata(normalized) &&
+          normalized.split('/').last.toLowerCase() == 'skill.md';
+    }).toList();
+    if (manifests.length != 1) {
+      throw const LocalInstallException('Skill 压缩包必须且只能包含一个 SKILL.md');
+    }
+    final manifestName = manifests.single.name
+        .replaceAll('\\', '/')
+        .replaceFirst(RegExp(r'^/+'), '');
+    final manifestSeparator = manifestName.lastIndexOf('/');
+    final rootPrefix = manifestSeparator < 0
+        ? ''
+        : manifestName.substring(0, manifestSeparator + 1);
     var totalSize = 0;
     for (final entry in archive.files) {
       final rawName = entry.name.replaceAll('\\', '/');
@@ -421,17 +453,19 @@ class LocalInstaller {
       if (entry.isSymbolicLink) {
         throw const LocalInstallException('Skill 压缩包不能包含符号链接');
       }
-      var relative = rawName;
-      if (rootPrefix.isNotEmpty && relative.startsWith(rootPrefix)) {
-        relative = relative.substring(rootPrefix.length);
-      }
-      relative = relative.replaceFirst(RegExp(r'^/+'), '');
-      if (relative.isEmpty) continue;
-
       totalSize += entry.size;
       if (totalSize > 100 * 1024 * 1024) {
         throw const LocalInstallException('Skill 解压后不能超过 100MB');
       }
+      var relative = rawName.replaceFirst(RegExp(r'^/+'), '');
+      if (_isIgnoredArchiveMetadata(relative)) continue;
+      if (rootPrefix.isNotEmpty) {
+        if (!relative.startsWith(rootPrefix)) continue;
+        relative = relative.substring(rootPrefix.length);
+      }
+      if (relative.isEmpty) continue;
+      if (relative.toLowerCase() == 'skill.md') relative = 'SKILL.md';
+
       final outputPath = path.normalize(
         path.absolute(
           path.joinAll(<String>[destination, ...relative.split('/')]),
@@ -464,6 +498,19 @@ class LocalInstaller {
       throw const LocalInstallException('Skill 文件 SHA-256 校验失败');
     }
   }
+}
+
+bool _isIgnoredArchiveMetadata(String value) {
+  final parts = value
+      .replaceAll('\\', '/')
+      .split('/')
+      .where((part) => part.isNotEmpty);
+  return parts.any(
+    (part) =>
+        part.toLowerCase() == '__macosx' ||
+        part == '.DS_Store' ||
+        part.startsWith('._'),
+  );
 }
 
 String skillSlug(String value) {

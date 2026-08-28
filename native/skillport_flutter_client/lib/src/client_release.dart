@@ -82,7 +82,7 @@ class ClientReleaseService {
           _baseUri.resolve('/bridge/client/latest.json'),
           headers: const <String, String>{
             'accept': 'application/json',
-            'user-agent': 'SkillPort-Flutter/1.0.33',
+            'user-agent': 'SkillPort-Flutter/1.0.34',
           },
         )
         .timeout(const Duration(seconds: 8));
@@ -118,7 +118,7 @@ class ClientReleaseService {
       ..followRedirects = false
       ..headers.addAll(const <String, String>{
         'accept': 'application/octet-stream',
-        'user-agent': 'SkillPort-Flutter-Updater/1.0.33',
+        'user-agent': 'SkillPort-Flutter-Updater/1.0.34',
       });
     final response = await _http
         .send(request)
@@ -128,7 +128,9 @@ class ClientReleaseService {
     }
 
     final directory = await _temporaryDirectoryFactory();
-    final installer = File('${directory.path}${Platform.pathSeparator}$fileName');
+    final installer = File(
+      '${directory.path}${Platform.pathSeparator}$fileName',
+    );
     final sink = installer.openWrite();
     var received = 0;
     final total = response.contentLength;
@@ -164,24 +166,18 @@ class ClientReleaseService {
 
   Future<void> _launchInstaller(String installerPath) async {
     if (_operatingSystem == 'macos') {
-      await Process.start(
-        '/usr/bin/open',
-        <String>[installerPath],
-        mode: ProcessStartMode.detached,
-      );
+      await Process.start('/usr/bin/open', <String>[
+        installerPath,
+      ], mode: ProcessStartMode.detached);
       return;
     }
     if (_operatingSystem == 'windows') {
-      await Process.start(
-        installerPath,
-        const <String>[
-          '/SILENT',
-          '/SUPPRESSMSGBOXES',
-          '/CLOSEAPPLICATIONS',
-          '/RESTARTAPPLICATIONS',
-        ],
-        mode: ProcessStartMode.detached,
-      );
+      await Process.start(installerPath, const <String>[
+        '/SILENT',
+        '/SUPPRESSMSGBOXES',
+        '/CLOSEAPPLICATIONS',
+        '/RESTARTAPPLICATIONS',
+      ], mode: ProcessStartMode.detached);
       return;
     }
     throw UnsupportedError('当前系统暂不支持自动更新');

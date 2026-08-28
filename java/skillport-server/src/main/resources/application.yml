@@ -44,13 +44,13 @@ skillport:
   public-api-base-url: ${SKILLPORT_API_PUBLIC_URL:http://localhost:8080}
   public-netty-base-url: ${SKILLPORT_NETTY_PUBLIC_URL:http://localhost:9091}
   client-release:
-    version: 1.0.33
+    version: 1.0.34
     date: 2026-08-28
-    title: 工作区卡片对齐优化
+    title: macOS 压缩包安装兼容修复
     changes:
-      - 所有个人工作区卡片统一预留来源标识区域，不再因标识有无改变按钮位置。
-      - 来自我的 Skill 与普通本机 Skill 的两个操作按钮保持在同一水平线上。
-      - 网页端和桌面客户端同步采用固定底部操作区，卡片排列更加整齐。
+      - 桌面客户端改为根据压缩包中唯一有效的 SKILL.md 识别 Skill 根目录。
+      - 自动忽略 __MACOSX、.DS_Store 与 AppleDouble 元数据，不再误报缺少 SKILL.md。
+      - 兼容外层目录和大小写不同的 skill.md，同时继续执行完整的安装安全校验。
     download-base-url: ${SKILLPORT_CLIENT_DOWNLOAD_URL:https://www.jmuyuer.com}
   wecom:
     enabled: ${WECOM_ENABLED:false}

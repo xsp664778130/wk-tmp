@@ -121,7 +121,8 @@ void main() {
           isTrue,
         );
         expect(
-          await File(path.join(installed.path, skillPortOriginFile)).readAsString(),
+          await File(path.join(installed.path, skillPortOriginFile))
+              .readAsString(),
           skill.id,
         );
         expect(installer.isInstalled(skill, 'codex'), isTrue);
@@ -156,6 +157,90 @@ void main() {
       },
     );
 
+    test(
+      'installs a wrapped macOS ZIP by locating its real SKILL.md',
+      () async {
+        final archive = Archive()
+          ..addFile(
+            ArchiveFile.string(
+              'internal-api-doc-sync/SKILL.md',
+              '---\nname: internal-api-doc-sync\ndescription: test\n---\n',
+            ),
+          )
+          ..addFile(
+            ArchiveFile.string(
+              'internal-api-doc-sync/scripts/sync.dart',
+              'void main() {}\n',
+            ),
+          )
+          ..addFile(
+            ArchiveFile.string(
+              '__MACOSX/internal-api-doc-sync/._SKILL.md',
+              'macOS metadata',
+            ),
+          )
+          ..addFile(
+            ArchiveFile.string(
+              '__MACOSX/internal-api-doc-sync/scripts/._sync.dart',
+              'macOS metadata',
+            ),
+          );
+        final content = Uint8List.fromList(ZipEncoder().encode(archive));
+        final skill = _skill(sha256.convert(content).toString());
+
+        await installer.install(
+          skill: skill,
+          content: content,
+          targets: const <String>['codex'],
+        );
+
+        final installed = Directory(
+          path.join(home.path, '.codex', 'skills', 'sample-skill'),
+        );
+        expect(
+          File(path.join(installed.path, 'SKILL.md')).existsSync(),
+          isTrue,
+        );
+        expect(
+          File(path.join(installed.path, 'scripts', 'sync.dart')).existsSync(),
+          isTrue,
+        );
+        expect(
+          Directory(path.join(installed.path, 'internal-api-doc-sync'))
+              .existsSync(),
+          isFalse,
+        );
+        expect(
+          Directory(path.join(installed.path, '__MACOSX')).existsSync(),
+          isFalse,
+        );
+      },
+    );
+
+    test('normalizes a lowercase root skill.md during installation', () async {
+      final archive = Archive()
+        ..addFile(
+          ArchiveFile.string(
+            'lowercase-skill/skill.md',
+            '---\nname: lowercase-skill\ndescription: test\n---\n',
+          ),
+        );
+      final content = Uint8List.fromList(ZipEncoder().encode(archive));
+
+      await installer.install(
+        skill: _skill(sha256.convert(content).toString()),
+        content: content,
+        targets: const <String>['codex'],
+      );
+
+      expect(
+        File(
+          path.join(home.path, '.codex', 'skills', 'sample-skill', 'SKILL.md'),
+        ).existsSync(),
+        isTrue,
+      );
+    });
+
     test('scans local Skill metadata and preserves its cloud origin', () async {
       final directory = await Directory(
         path.join(home.path, '.codex', 'skills', 'audit-helper'),
@@ -182,9 +267,8 @@ void main() {
       final directory = await Directory(
         path.join(home.path, '.codex', 'skills', 'external-skill'),
       ).create(recursive: true);
-      await File(path.join(directory.path, 'skill.md')).writeAsString(
-        '# External Skill\n',
-      );
+      await File(path.join(directory.path, 'skill.md'))
+          .writeAsString('# External Skill\n');
       final item = (await installer.scanLocalSkills(
         toolIds: const <String>['codex'],
       )).single;

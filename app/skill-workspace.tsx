@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.34",
+    date: "2026-08-28",
+    title: "macOS 压缩包安装兼容修复",
+    changes: [
+      "桌面客户端改为根据压缩包中唯一有效的 SKILL.md 识别 Skill 根目录。",
+      "自动忽略 __MACOSX、.DS_Store 与 AppleDouble 元数据，不再误报缺少 SKILL.md。",
+      "兼容外层目录和大小写不同的 skill.md，同时继续执行完整的安装安全校验。",
+    ],
+  },
+  {
     version: "1.0.33",
     date: "2026-08-28",
     title: "工作区卡片对齐优化",
@@ -529,11 +539,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.33",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.34",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.33",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.34",
   },
 };
 

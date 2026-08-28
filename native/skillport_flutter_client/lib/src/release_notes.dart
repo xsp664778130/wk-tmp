@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.33';
+const currentReleaseVersion = '1.0.34';
 const currentReleaseDate = '2026-08-28';
-const currentReleaseTitle = '工作区卡片对齐优化';
+const currentReleaseTitle = 'macOS 压缩包安装兼容修复';
 const currentReleaseChanges = <String>[
-  '所有个人工作区卡片统一预留来源标识区域，不再因标识有无改变按钮位置。',
-  '来自我的 Skill 与普通本机 Skill 的两个操作按钮保持在同一水平线上。',
-  '网页端和桌面客户端同步采用固定底部操作区，卡片排列更加整齐。',
+  '桌面客户端改为根据压缩包中唯一有效的 SKILL.md 识别 Skill 根目录。',
+  '自动忽略 __MACOSX、.DS_Store 与 AppleDouble 元数据，不再误报缺少 SKILL.md。',
+  '兼容外层目录和大小写不同的 skill.md，同时继续执行完整的安装安全校验。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.33',
+    date: '2026-08-28',
+    title: '工作区卡片对齐优化',
+    changes: <String>[
+      '所有个人工作区卡片统一预留来源标识区域，不再因标识有无改变按钮位置。',
+      '来自我的 Skill 与普通本机 Skill 的两个操作按钮保持在同一水平线上。',
+      '网页端和桌面客户端同步采用固定底部操作区，卡片排列更加整齐。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.32',
@@ -223,9 +233,8 @@ class _VersionUpdateButtonState extends State<VersionUpdateButton> {
   ) async {
     await _service.downloadAndLaunch(release, onProgress: onProgress);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('最新版安装程序已启动，请按系统提示完成更新。')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('最新版安装程序已启动，请按系统提示完成更新。')));
   }
 
   @override
@@ -248,8 +257,14 @@ class _VersionUpdateButtonState extends State<VersionUpdateButton> {
           child: OutlinedButton.icon(
             onPressed: _showDetails,
             style: OutlinedButton.styleFrom(
-              foregroundColor: _updateAvailable ? scheme.primary : scheme.onSurface,
-              side: BorderSide(color: _updateAvailable ? scheme.primary : scheme.outlineVariant),
+              foregroundColor: _updateAvailable
+                  ? scheme.primary
+                  : scheme.onSurface,
+              side: BorderSide(
+                color: _updateAvailable
+                    ? scheme.primary
+                    : scheme.outlineVariant,
+              ),
               backgroundColor: scheme.surface,
               minimumSize: widget.compact
                   ? const Size(44, 40)
@@ -356,9 +371,7 @@ class _ReleaseNotesDialogState extends State<ReleaseNotesDialog> {
     try {
       await update((progress) {
         if (!mounted) return;
-        setState(
-          () => _updateProgress = progress.clamp(0, 1).toDouble(),
-        );
+        setState(() => _updateProgress = progress.clamp(0, 1).toDouble());
       });
       if (mounted) Navigator.pop(context);
     } catch (_) {
@@ -522,8 +535,14 @@ class _ReleaseNoteCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: highlighted ? scheme.primaryContainer.withValues(alpha: .28) : scheme.surface,
-        border: Border.all(color: highlighted ? scheme.primary.withValues(alpha: .55) : scheme.outlineVariant),
+        color: highlighted
+            ? scheme.primaryContainer.withValues(alpha: .28)
+            : scheme.surface,
+        border: Border.all(
+          color: highlighted
+              ? scheme.primary.withValues(alpha: .55)
+              : scheme.outlineVariant,
+        ),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -533,7 +552,10 @@ class _ReleaseNoteCard extends StatelessWidget {
             children: <Widget>[
               Text(
                 'v${release.version}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               const SizedBox(width: 9),
               Chip(
@@ -541,12 +563,17 @@ class _ReleaseNoteCard extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 labelStyle: TextStyle(
                   fontSize: 11,
-                  color: status == '历史版本' ? scheme.onSurfaceVariant : scheme.primary,
+                  color: status == '历史版本'
+                      ? scheme.onSurfaceVariant
+                      : scheme.primary,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const Spacer(),
-              Text(release.date, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+              Text(
+                release.date,
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -569,7 +596,10 @@ class _ReleaseNoteCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       change,
-                      style: TextStyle(height: 1.45, color: scheme.onSurfaceVariant),
+                      style: TextStyle(
+                        height: 1.45,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -598,7 +628,9 @@ class _ReleaseStatusNotice extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: checkFailed ? scheme.errorContainer : scheme.primaryContainer.withValues(alpha: .32),
+        color: checkFailed
+            ? scheme.errorContainer
+            : scheme.primaryContainer.withValues(alpha: .32),
         borderRadius: BorderRadius.circular(11),
       ),
       child: Text(
