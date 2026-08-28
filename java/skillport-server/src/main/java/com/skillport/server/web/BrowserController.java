@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -336,6 +337,23 @@ public class BrowserController {
             @PathVariable String skillId) throws IOException {
         SkillEntity skill = skillService.ownedSkill(user.userId(), skillId);
         return SkillController.avatarResponse(skill, skillService.ownedAvatar(user.userId(), skillId));
+    }
+
+    @PutMapping(path = "/skills/{skillId}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public SkillController.SkillResponse updatePrivateAvatar(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String skillId,
+            @RequestPart MultipartFile avatar) {
+        var result = skillService.updateAvatar(user.userId(), skillId, avatar);
+        return SkillController.SkillResponse.from(result.skill(), result.publicPoolSynchronized());
+    }
+
+    @DeleteMapping("/skills/{skillId}/avatar")
+    public SkillController.SkillResponse removePrivateAvatar(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String skillId) {
+        var result = skillService.removeAvatar(user.userId(), skillId);
+        return SkillController.SkillResponse.from(result.skill(), result.publicPoolSynchronized());
     }
 
     @GetMapping("/public-skills/{publicSkillId}/avatar")

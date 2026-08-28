@@ -129,6 +129,7 @@ class PublicSkillServiceTest {
         SkillEntity source = skillService.upload(publisherId, "Avatar Skill", "Has an avatar", "编程技能",
                 new MockMultipartFile("file", "SKILL.md", "text/markdown", skillManifest("avatar-skill")),
                 new MockMultipartFile("avatar", "avatar.png", "image/png", png));
+        Path originalAvatar = fileStorageService.resolve(source.getAvatarStoragePath());
         PublicSkillEntity publication = publicSkillService.share(publisherId, "Publisher", source.getPublicId());
 
         PublicSkillService.PublicSkillView view = publicSkillService.list(readerId).stream()
@@ -142,6 +143,22 @@ class PublicSkillServiceTest {
         SkillEntity imported = publicSkillService.pull(readerId, publication.getPublicId()).skill();
         assertTrue(imported.hasAvatar());
         assertArrayEquals(png, Files.readAllBytes(fileStorageService.resolve(imported.getAvatarStoragePath())));
+
+        byte[] jpeg = new byte[]{(byte) 0xff, (byte) 0xd8, (byte) 0xff, 7, 8, 9};
+        SkillService.AvatarUpdateResult avatarUpdate = skillService.updateAvatar(
+                publisherId, source.getPublicId(),
+                new MockMultipartFile("avatar", "replacement.jpg", "image/jpeg", jpeg));
+        assertTrue(avatarUpdate.publicPoolSynchronized());
+        assertArrayEquals(jpeg, Files.readAllBytes(publicSkillService.publicAvatarFile(publication.getPublicId())));
+        assertFalse(Files.exists(originalAvatar));
+        assertArrayEquals(png, Files.readAllBytes(fileStorageService.resolve(imported.getAvatarStoragePath())));
+
+        Path replacementAvatar = publicSkillService.publicAvatarFile(publication.getPublicId());
+        SkillService.AvatarUpdateResult avatarRemoval = skillService.removeAvatar(publisherId, source.getPublicId());
+        assertTrue(avatarRemoval.publicPoolSynchronized());
+        assertFalse(avatarRemoval.skill().hasAvatar());
+        assertFalse(publicSkillService.publicAvatarAvailable(publication.getPublicId()));
+        assertFalse(Files.exists(replacementAvatar));
 
         publicSkillService.unpublish(publisherId, publication.getPublicId());
         assertTrue(publicSkillRepository.findByPublicId(publication.getPublicId()).isEmpty());

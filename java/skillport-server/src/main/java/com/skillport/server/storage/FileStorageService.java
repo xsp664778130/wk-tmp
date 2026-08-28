@@ -83,6 +83,18 @@ public class FileStorageService {
         }
     }
 
+    public void deleteFile(String storagePath) {
+        Path storedFile = Path.of(storagePath).toAbsolutePath().normalize();
+        if (!storedFile.startsWith(storageRoot) || storedFile.equals(storageRoot)) {
+            throw new IllegalArgumentException("Invalid stored file path");
+        }
+        try {
+            Files.deleteIfExists(storedFile);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Unable to delete stored file", exception);
+        }
+    }
+
     private static String safeSegment(String value) {
         return value.replaceAll("[^a-zA-Z0-9._-]", "_");
     }

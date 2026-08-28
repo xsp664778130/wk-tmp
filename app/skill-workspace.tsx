@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.27",
+    date: "2026-08-28",
+    title: "Skill 头像编辑",
+    changes: [
+      "我的 Skill 详情页新增头像编辑，可选择图片后预览并保存替换。",
+      "支持移除已有头像，并校验 PNG、JPEG、WebP、GIF 格式与 2MB 大小限制。",
+      "已分享 Skill 的头像会自动同步到公有池，私人备注和其他用户副本不受影响。",
+    ],
+  },
+  {
     version: "1.0.26",
     date: "2026-08-28",
     title: "重复设备记录修复",
@@ -1012,6 +1022,42 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     }
   }
 
+  async function updateSkillAvatar(skill: Skill, avatar: File | null) {
+    if (avatar && (!("image/png,image/jpeg,image/webp,image/gif".split(",").includes(avatar.type))
+        || avatar.size > 2 * 1024 * 1024)) {
+      setToast("头像仅支持 PNG、JPEG、WebP、GIF，且不能超过 2MB");
+      return false;
+    }
+    try {
+      const form = new FormData();
+      if (avatar) form.append("avatar", avatar);
+      const response = await fetch(`/api/skills/${encodeURIComponent(skill.id)}/avatar`, {
+        method: avatar ? "PUT" : "DELETE",
+        body: avatar ? form : undefined,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.detail || data?.error || "头像修改没有完成"));
+      const revision = Date.now();
+      const privateAvatarUrl = data?.avatarUrl ? `${String(data.avatarUrl)}?v=${revision}` : undefined;
+      setPrivateSkills((current) => current.map((item) => item.id === skill.id
+        ? { ...item, avatarUrl: privateAvatarUrl }
+        : item));
+      setPublicSkills((current) => current.map((item) => item.sourceSkillId === skill.id
+        ? { ...item, avatarUrl: avatar ? `/api/public-skills/${encodeURIComponent(item.id)}/avatar?v=${revision}` : undefined }
+        : item));
+      setSelected((current) => current?.id === skill.id
+        ? { ...current, avatarUrl: privateAvatarUrl }
+        : current);
+      setToast(avatar
+        ? skill.shared ? "Skill 头像已更新，并同步到公有池" : "Skill 头像已更新"
+        : skill.shared ? "Skill 头像已移除，并同步到公有池" : "Skill 头像已移除");
+      return true;
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "头像修改没有完成，请稍后再试");
+      return false;
+    }
+  }
+
   async function confirmSkillAction() {
     if (!actionCandidate || !user) return;
     const { skill, action } = actionCandidate;
@@ -1256,7 +1302,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         </section>
       </aside>
 
-      {selected && <DetailModal skill={selected} pulling={pullingId === selected.id} onClose={() => setSelected(null)} onInstall={() => { setInstaller(selected); setSelected(null); }} onUninstall={() => { setUninstaller(selected); setSelected(null); }} onPull={() => void pullSkill(selected)} onShare={() => setShareCandidate(selected)} onDelete={() => setActionCandidate({ skill: selected, action: "delete" })} onUnpublish={() => setActionCandidate({ skill: selected, action: "unpublish" })} onSaveCategory={(category) => updateSkillCategory(selected, category)} onSaveDetails={(values) => updateSkillDetails(selected, values)} onSaveNote={(note) => {
+      {selected && <DetailModal skill={selected} pulling={pullingId === selected.id} onClose={() => setSelected(null)} onInstall={() => { setInstaller(selected); setSelected(null); }} onUninstall={() => { setUninstaller(selected); setSelected(null); }} onPull={() => void pullSkill(selected)} onShare={() => setShareCandidate(selected)} onDelete={() => setActionCandidate({ skill: selected, action: "delete" })} onUnpublish={() => setActionCandidate({ skill: selected, action: "unpublish" })} onSaveCategory={(category) => updateSkillCategory(selected, category)} onSaveDetails={(values) => updateSkillDetails(selected, values)} onSaveAvatar={(avatar) => updateSkillAvatar(selected, avatar)} onSaveNote={(note) => {
         setPrivateSkills((current) => current.map((skill) => skill.id === selected.id ? { ...skill, note } : skill));
         setSelected((current) => current ? { ...current, note } : current);
         if (selected.uploaded && user) fetch("/api/skills", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: selected.id, note }) }).catch(() => undefined);
@@ -1461,7 +1507,7 @@ function ClientDownloadModal({ onClose, onDownload }: { onClose: () => void; onD
   );
 }
 
-function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, onShare, onDelete, onUnpublish, onSaveCategory, onSaveDetails, onSaveNote }: {
+function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, onShare, onDelete, onUnpublish, onSaveCategory, onSaveDetails, onSaveAvatar, onSaveNote }: {
   skill: Skill;
   pulling: boolean;
   onClose: () => void;
@@ -1473,6 +1519,7 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
   onUnpublish: () => void;
   onSaveCategory: (category: SkillCategory) => Promise<boolean>;
   onSaveDetails: (values: { name: string; description: string; detail: string; usageSteps: string[] }) => Promise<boolean>;
+  onSaveAvatar: (avatar: File | null) => Promise<boolean>;
   onSaveNote: (note: string) => void;
 }) {
   const [note, setNote] = useState(skill.note || "");
@@ -1487,7 +1534,42 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
   const [draftDescription, setDraftDescription] = useState(skill.description);
   const [draftDetail, setDraftDetail] = useState(skill.detail || skill.description);
   const [draftSteps, setDraftSteps] = useState<string[]>(skill.usageSteps.length ? skill.usageSteps : [""]);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
   const isPublic = skill.scope === "public";
+
+  useEffect(() => () => {
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+  }, [avatarPreview]);
+
+  function chooseAvatar(file?: File) {
+    if (!file) return;
+    if (!("image/png,image/jpeg,image/webp,image/gif".split(",").includes(file.type))
+        || file.size > 2 * 1024 * 1024) {
+      setAvatarError("仅支持 PNG、JPEG、WebP、GIF，且不能超过 2MB。");
+      return;
+    }
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+    setAvatarError("");
+  }
+
+  function cancelAvatarDraft() {
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setAvatarError("");
+  }
+
+  async function saveAvatar(avatar: File | null) {
+    setAvatarSaving(true);
+    const saved = await onSaveAvatar(avatar);
+    setAvatarSaving(false);
+    if (saved) cancelAvatarDraft();
+  }
 
   async function saveCategory(nextCategory: SkillCategory) {
     const previousCategory = savedCategory;
@@ -1539,7 +1621,8 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div className="modal detail-modal" role="dialog" aria-modal="true" aria-label={`${skill.name} 详情`} onMouseDown={(event) => event.stopPropagation()}>
         <button className="close-button" onClick={onClose}>×</button>
-        <div className="detail-hero"><SkillAvatar skill={skill} large/><div><span className="category-pill">{isPublic ? skill.category : category}</span><h2>{skill.name}</h2><p>by {skill.author} · {skill.uses}</p></div></div>
+        <div className="detail-hero"><SkillAvatar skill={avatarPreview ? { ...skill, avatarUrl: avatarPreview } : skill} large/><div><span className="category-pill">{isPublic ? skill.category : category}</span><h2>{skill.name}</h2><p>by {skill.author} · {skill.uses}</p></div></div>
+        {!isPublic && <section className="detail-avatar-editor" aria-label="编辑 Skill 头像"><div><b>Skill 头像</b><small>{avatarFile ? avatarFile.name : "PNG、JPEG、WebP 或 GIF，最大 2MB"}</small>{avatarError && <em role="alert">{avatarError}</em>}</div><div className="detail-avatar-actions"><label className="secondary-button"><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={avatarSaving} onChange={(event) => chooseAvatar(event.target.files?.[0])}/>{skill.avatarUrl || avatarFile ? "更换图片" : "选择图片"}</label>{avatarFile ? <><button className="secondary-button" disabled={avatarSaving} onClick={cancelAvatarDraft}>取消</button><button className="primary-button" disabled={avatarSaving} onClick={() => void saveAvatar(avatarFile)}>{avatarSaving ? "保存中…" : "保存头像"}</button></> : skill.avatarUrl ? <button className="avatar-remove-button" disabled={avatarSaving} onClick={() => void saveAvatar(null)}>{avatarSaving ? "处理中…" : "移除头像"}</button> : null}</div></section>}
         <p className="detail-description">{skill.description}</p>
         {editingDetails ? (
           <section className="skill-detail-editor" aria-label="编辑 Skill 详情">

@@ -105,6 +105,23 @@ public class SkillController {
         return avatarResponse(skill, file);
     }
 
+    @PutMapping(path = "/{skillId}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public SkillResponse updateAvatar(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String skillId,
+            @RequestPart MultipartFile avatar) {
+        var result = skillService.updateAvatar(user.userId(), skillId, avatar);
+        return SkillResponse.from(result.skill(), result.publicPoolSynchronized());
+    }
+
+    @DeleteMapping("/{skillId}/avatar")
+    public SkillResponse removeAvatar(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String skillId) {
+        var result = skillService.removeAvatar(user.userId(), skillId);
+        return SkillResponse.from(result.skill(), result.publicPoolSynchronized());
+    }
+
     @DeleteMapping("/{skillId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,

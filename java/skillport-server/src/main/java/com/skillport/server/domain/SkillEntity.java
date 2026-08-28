@@ -119,6 +119,21 @@ public class SkillEntity {
         this.avatarSha256 = sha256;
     }
 
+    public void updateAvatar(String fileName, String storagePath, String contentType,
+                             long sizeBytes, String sha256, Instant now) {
+        attachAvatar(fileName, storagePath, contentType, sizeBytes, sha256);
+        this.updatedAt = now;
+    }
+
+    public void removeAvatar(Instant now) {
+        this.avatarFileName = null;
+        this.avatarStoragePath = null;
+        this.avatarContentType = null;
+        this.avatarSizeBytes = null;
+        this.avatarSha256 = null;
+        this.updatedAt = now;
+    }
+
     public boolean hasAvatar() {
         return avatarStoragePath != null && !avatarStoragePath.isBlank();
     }

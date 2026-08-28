@@ -107,6 +107,10 @@ test("defines the SkillPort workspace and product metadata", async () => {
   assert.match(client, /setCategory\(previousCategory\)/);
   assert.match(client, /\/api\/skills\/\$\{encodeURIComponent\(skill\.id\)\}/);
   assert.match(client, /image\/png,image\/jpeg,image\/webp,image\/gif/);
+  assert.match(client, /编辑 Skill 头像/);
+  assert.match(client, /保存头像/);
+  assert.match(client, /移除头像/);
+  assert.match(client, /version: "1\.0\.27"/);
   assert.match(client, /\/api\/public-skills/);
   for (const category of ["全部技能", "编程技能", "测试技能", "排查技能", "日志技能"]) {
     assert.match(client, new RegExp(`\\["${category}",`));

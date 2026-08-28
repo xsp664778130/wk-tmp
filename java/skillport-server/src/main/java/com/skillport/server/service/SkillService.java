@@ -147,6 +147,34 @@ public class SkillService {
         return new DetailUpdateResult(skill, publicPoolSynchronized);
     }
 
+    @Transactional
+    public AvatarUpdateResult updateAvatar(String ownerId, String publicId, MultipartFile avatar) {
+        AvatarUpload avatarUpload = readAvatar(avatar);
+        if (avatarUpload == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请选择 Skill 头像");
+        }
+        SkillEntity skill = ownedSkill(ownerId, publicId);
+        String previousAvatarPath = skill.getAvatarStoragePath();
+        StoredSkillFile storedAvatar = fileStorageService.store(ownerId, publicId,
+                "__skillport_avatar_" + UUID.randomUUID() + "." + avatarUpload.extension(),
+                new ByteArrayInputStream(avatarUpload.bytes()));
+        skill.updateAvatar(storedAvatar.path().getFileName().toString(), storedAvatar.path().toString(),
+                avatarUpload.contentType(), storedAvatar.sizeBytes(), storedAvatar.sha256(), Instant.now());
+        cleanUpAvatarAfterTransaction(previousAvatarPath, storedAvatar.path().toString());
+        return new AvatarUpdateResult(skill, isShared(ownerId, publicId));
+    }
+
+    @Transactional
+    public AvatarUpdateResult removeAvatar(String ownerId, String publicId) {
+        SkillEntity skill = ownedSkill(ownerId, publicId);
+        String previousAvatarPath = skill.getAvatarStoragePath();
+        if (previousAvatarPath != null && !previousAvatarPath.isBlank()) {
+            skill.removeAvatar(Instant.now());
+            deleteFileAfterCommit(previousAvatarPath);
+        }
+        return new AvatarUpdateResult(skill, isShared(ownerId, publicId));
+    }
+
     @Transactional(readOnly = true)
     public SkillEntity ownedSkill(String ownerId, String publicId) {
         return skillRepository.findByPublicIdAndOwnerId(publicId, ownerId)
@@ -187,6 +215,52 @@ public class SkillService {
                 deleteFilesQuietly(storagePath);
             }
         });
+    }
+
+    private boolean isShared(String ownerId, String publicId) {
+        return publicSkillRepository.findBySourceSkillPublicIdAndPublisherOwnerId(publicId, ownerId).isPresent();
+    }
+
+    private void cleanUpAvatarAfterTransaction(String previousAvatarPath, String newAvatarPath) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            if (previousAvatarPath != null && !previousAvatarPath.isBlank()) {
+                deleteFileQuietly(previousAvatarPath);
+            }
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == TransactionSynchronization.STATUS_COMMITTED) {
+                    if (previousAvatarPath != null && !previousAvatarPath.isBlank()) {
+                        deleteFileQuietly(previousAvatarPath);
+                    }
+                } else {
+                    deleteFileQuietly(newAvatarPath);
+                }
+            }
+        });
+    }
+
+    private void deleteFileAfterCommit(String storagePath) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            fileStorageService.deleteFile(storagePath);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                deleteFileQuietly(storagePath);
+            }
+        });
+    }
+
+    private void deleteFileQuietly(String storagePath) {
+        try {
+            fileStorageService.deleteFile(storagePath);
+        } catch (RuntimeException ignored) {
+            // Database state is authoritative; an orphaned avatar can be cleaned up independently.
+        }
     }
 
     private void deleteFilesQuietly(String storagePath) {
@@ -331,5 +405,8 @@ public class SkillService {
     }
 
     public record DetailUpdateResult(SkillEntity skill, boolean publicPoolSynchronized) {
+    }
+
+    public record AvatarUpdateResult(SkillEntity skill, boolean publicPoolSynchronized) {
     }
 }
