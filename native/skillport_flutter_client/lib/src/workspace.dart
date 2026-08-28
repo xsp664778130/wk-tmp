@@ -619,7 +619,7 @@ class LocalWorkspaceLibrary extends StatelessWidget {
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
                         Text(selected == null ? '个人工作区' : '${selected.name} 工作区', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: -1.2)),
                         const SizedBox(height: 5),
-                        Text(selected == null ? '请从左侧选择一个已识别的 AI 工具。' : '${selected.directory} · ${controller.localSkills.where((item) => item.toolId == selected.id).length} 个本机 Skill', style: TextStyle(color: scheme.onSurfaceVariant)),
+                        Text(selected == null ? '请从左侧选择一个已识别的 AI 工具。' : '${selected.directory} · ${controller.localSkills.where((item) => item.toolId == selected!.id).length} 个本机 Skill', style: TextStyle(color: scheme.onSurfaceVariant)),
                       ])),
                     ],
                   ),
