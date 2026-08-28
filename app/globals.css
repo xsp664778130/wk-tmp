@@ -156,7 +156,7 @@ button { color: inherit; }
 .public-privacy-note { margin-top: 17px; background: #edf8e8; }.public-privacy-note > span { border-radius: 50%; background: var(--lime); color: #456129; }.public-privacy-note b { color: #447d31; }.public-privacy-note small { color: #6d9660; }
 .share-modal h2 { margin: 4px 0 7px; padding-right: 30px; font-size: 21px; letter-spacing: -.7px; }.share-fields, .share-private { display: grid; grid-template-columns: auto 1fr 1fr 1fr; gap: 7px; align-items: center; padding: 12px; border: 1px solid #e0daef; border-radius: 11px; background: #faf8ff; font-size: 8px; }.share-fields b, .share-private b { font-size: 9px; }.share-fields span, .share-private span { padding: 5px 7px; border-radius: 7px; background: white; color: #777281; text-align: center; }.share-private { grid-template-columns: auto 1fr 1fr; margin-top: 8px; border-color: #d9e9c9; background: #f3faec; }.share-private b { color: #548029; }
 .install-modal h2, .upload-modal h2 { margin: 4px 0 7px; padding-right: 30px; font-size: 21px; letter-spacing: -.7px; }.install-lead { margin: 0 0 20px; color: var(--muted); font-size: 10px; line-height: 1.55; }.os-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 11px; background: #f1efeb; }.os-switch button { height: 36px; border: 0; border-radius: 8px; background: transparent; color: #817e85; font-size: 10px; font-weight: 650; cursor: pointer; }.os-switch button.active { background: white; color: #27262b; box-shadow: 0 3px 9px rgba(0,0,0,.06); }.os-switch span { margin-right: 6px; }.target-list { display: grid; gap: 8px; margin: 17px 0; }.target-row { width: 100%; display: flex; align-items: center; gap: 11px; padding: 9px; border: 1px solid var(--line); border-radius: 12px; background: white; cursor: pointer; text-align: left; }.target-row.checked { border-color: #a997ef; background: #faf8ff; box-shadow: 0 0 0 2px rgba(116,87,232,.07); }.target-row p { display: grid; gap: 3px; margin: 0; }.target-row b { font-size: 10px; }.target-row small { color: #96939b; font-family: var(--font-geist-mono), monospace; font-size: 7px; }.checkbox { display: grid; place-items: center; width: 20px; height: 20px; margin-left: auto; border: 1px solid #d9d6df; border-radius: 6px; color: white; font-size: 10px; }.checked .checkbox { border-color: var(--purple); background: var(--purple); }.bridge-notice { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; background: #edf8e8; }.bridge-notice.offline { background: #fff7e8; }.bridge-notice p { display: grid; gap: 2px; margin: 0; }.bridge-notice b { color: #447d31; font-size: 9px; }.bridge-notice small { color: #78a36a; font-size: 7px; }.bridge-notice.offline b { color: #8b6729; }.bridge-notice.offline small { color: #a6844c; }.offline-installer { margin-top: 11px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; color: #77737c; font-size: 8px; }.offline-installer summary { cursor: pointer; font-weight: 750; }.offline-installer p { margin: 8px 0 10px; line-height: 1.55; }.offline-installer .secondary-button { width: 100%; min-height: 36px; }.full-primary { width: 100%; height: 43px; display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; border: 0; border-radius: 11px; background: var(--purple); color: white; font-size: 10px; font-weight: 750; cursor: pointer; box-shadow: 0 8px 20px rgba(116,87,232,.2); }.full-primary:disabled { opacity: .45; cursor: not-allowed; }.link-button { text-decoration: none; }
-.large-upload { display: grid; place-items: center; min-height: 180px; border: 1px dashed #c8c0df; border-radius: 15px; background: #f8f6fe; cursor: pointer; }.large-upload input { display: none; }.large-upload > span { display: grid; place-items: center; width: 45px; height: 45px; border-radius: 13px; background: #e9e1ff; color: var(--purple); font-size: 22px; }.large-upload b { margin-top: -22px; font-size: 11px; }.large-upload small { margin-top: -30px; color: #9d99a3; font-size: 8px; }
+.large-upload { display: flex; min-height: 150px; box-sizing: border-box; flex-direction: column; align-items: center; justify-content: center; gap: 9px; padding: 24px; border: 1px dashed #c8c0df; border-radius: 15px; background: #f8f6fe; cursor: pointer; text-align: center; transition: border-color .18s ease, background .18s ease, transform .18s ease; }.large-upload:hover { border-color: var(--purple); transform: translateY(-1px); }.large-upload input { display: none; }.large-upload > span { display: grid; place-items: center; width: 45px; height: 45px; border-radius: 13px; background: #e9e1ff; color: var(--purple); font-size: 22px; }.large-upload b { margin: 0; font-size: 14px; }.large-upload small { margin: 0; color: #9d99a3; font-size: 11px; line-height: 1.45; }
 .large-upload.selected { border-style: solid; border-color: #a997ef; background: #faf8ff; }.large-upload.selected > span { background: #dff4c9; color: #4e8333; }
 .upload-fields { display: grid; gap: 12px; margin-top: 14px; }.upload-fields label { display: grid; gap: 6px; }.upload-fields label > span { color: #4f4b55; font-size: 13px; font-weight: 800; }.upload-fields input, .upload-fields textarea, .upload-fields select { width: 100%; box-sizing: border-box; border: 1px solid #d9d4e1; border-radius: 10px; background: white; color: #2b2930; font: inherit; font-size: 14px; outline: none; }.upload-fields input, .upload-fields select { height: 42px; padding: 0 12px; }.upload-fields textarea { padding: 10px 12px; line-height: 1.5; resize: vertical; }.upload-fields input:focus, .upload-fields textarea:focus, .upload-fields select:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(116,87,232,.1); }.upload-fields small { color: #8c8791; font-size: 12px; line-height: 1.45; }
 .uninstall-modal .step-label { color: #ad4d3e; }.uninstall-target.checked { border-color: #d67b6d; background: #fff7f5; box-shadow: 0 0 0 2px rgba(195,79,62,.07); }.uninstall-target.checked .checkbox { border-color: #c34f3e; background: #c34f3e; }.uninstall-safety { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 11px 12px; border-radius: 10px; background: #f3faec; }.uninstall-safety > span { display: grid; place-items: center; width: 25px; height: 25px; flex: none; border-radius: 50%; background: var(--lime); color: #456129; font-size: 12px; font-weight: 800; }.uninstall-safety p { display: grid; gap: 2px; margin: 0; }.uninstall-safety b { color: #447d31; font-size: 10px; }.uninstall-safety small { color: #6d9660; font-size: 8px; line-height: 1.4; }.uninstall-confirm { background: #bd4d3d; box-shadow: 0 8px 20px rgba(189,77,61,.2); }
@@ -445,6 +445,76 @@ button { color: inherit; }
 .app-shell[data-theme] .feedback-public-list article > p,
 .app-shell[data-theme] .feedback-empty b,
 .app-shell[data-theme] .feedback-form label > span { color: var(--ink); }
+
+/* Upload is a focused editing surface: every layer follows the selected theme. */
+.app-shell[data-theme] .upload-modal {
+  width: min(560px, 100%);
+  border: 1px solid color-mix(in srgb, var(--purple) 16%, var(--line));
+  background: linear-gradient(155deg, color-mix(in srgb, var(--purple) 5%, var(--surface)) 0%, var(--surface) 38%);
+  scrollbar-color: color-mix(in srgb, var(--purple) 40%, var(--line)) transparent;
+}
+.app-shell[data-theme] .upload-modal .step-label { color: var(--purple-dark); }
+.app-shell[data-theme] .upload-modal h2 { color: var(--ink); font-size: 24px; line-height: 1.15; letter-spacing: -.75px; }
+.app-shell[data-theme] .upload-modal .install-lead { max-width: 490px; margin-bottom: 18px; color: var(--muted); font-size: 12px; line-height: 1.65; }
+.app-shell[data-theme] .upload-modal .close-button {
+  border: 1px solid var(--line);
+  background: var(--soft);
+  color: var(--muted);
+}
+.app-shell[data-theme] .upload-modal .close-button:hover { border-color: color-mix(in srgb, var(--purple) 38%, var(--line)); color: var(--ink); }
+.app-shell[data-theme] .upload-modal .large-upload {
+  border-color: color-mix(in srgb, var(--purple) 44%, var(--line));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--purple) 11%, var(--surface-raised)), color-mix(in srgb, var(--purple) 4%, var(--field)));
+  color: var(--ink);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.app-shell[data-theme] .upload-modal .large-upload:hover {
+  border-color: var(--purple);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--purple) 16%, var(--surface-raised)), color-mix(in srgb, var(--purple) 7%, var(--field)));
+}
+.app-shell[data-theme] .upload-modal .large-upload > span {
+  border: 1px solid color-mix(in srgb, var(--purple) 38%, var(--line));
+  background: color-mix(in srgb, var(--purple) 18%, var(--surface-raised));
+  color: var(--purple-dark);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--purple) 16%, transparent);
+}
+.app-shell[data-theme] .upload-modal .large-upload b { color: var(--ink); font-weight: 800; }
+.app-shell[data-theme] .upload-modal .large-upload small { color: var(--muted); }
+.app-shell[data-theme] .upload-modal .large-upload.selected { border-style: solid; border-color: color-mix(in srgb, var(--lime) 58%, var(--line)); background: color-mix(in srgb, var(--lime) 8%, var(--surface)); }
+.app-shell[data-theme] .upload-modal .large-upload.selected > span { border-color: color-mix(in srgb, var(--lime) 48%, var(--line)); background: color-mix(in srgb, var(--lime) 18%, var(--surface-raised)); color: color-mix(in srgb, var(--lime) 75%, var(--ink)); }
+.app-shell[data-theme] .upload-modal .upload-fields { gap: 15px; margin-top: 18px; }
+.app-shell[data-theme] .upload-modal .upload-fields label { gap: 7px; }
+.app-shell[data-theme] .upload-modal .upload-fields label > span { color: var(--ink); font-size: 12px; font-weight: 780; letter-spacing: .1px; }
+.app-shell[data-theme] .upload-modal .upload-fields input,
+.app-shell[data-theme] .upload-modal .upload-fields textarea,
+.app-shell[data-theme] .upload-modal .upload-fields select {
+  border-color: color-mix(in srgb, var(--ink) 14%, var(--line));
+  background: color-mix(in srgb, var(--field) 94%, var(--purple));
+  color: var(--ink);
+  caret-color: var(--purple-dark);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 4%, transparent);
+}
+.app-shell[data-theme] .upload-modal .upload-fields input::placeholder,
+.app-shell[data-theme] .upload-modal .upload-fields textarea::placeholder { color: color-mix(in srgb, var(--muted) 76%, transparent); opacity: 1; }
+.app-shell[data-theme] .upload-modal .upload-fields input:hover,
+.app-shell[data-theme] .upload-modal .upload-fields textarea:hover,
+.app-shell[data-theme] .upload-modal .upload-fields select:hover { border-color: color-mix(in srgb, var(--purple) 44%, var(--line)); }
+.app-shell[data-theme] .upload-modal .upload-fields input:focus,
+.app-shell[data-theme] .upload-modal .upload-fields textarea:focus,
+.app-shell[data-theme] .upload-modal .upload-fields select:focus { border-color: var(--purple); box-shadow: 0 0 0 3px color-mix(in srgb, var(--purple) 16%, transparent); }
+.app-shell[data-theme] .upload-modal .upload-fields small { color: var(--muted); font-size: 11px; }
+.app-shell[data-theme] .upload-modal .skill-standard { border-color: var(--line); background: color-mix(in srgb, var(--purple) 6%, var(--surface-raised)); }
+.app-shell[data-theme] .upload-modal .skill-standard b { color: var(--ink); }
+.app-shell[data-theme] .upload-modal .skill-standard a { color: var(--purple-dark); }
+.app-shell[data-theme] .upload-modal .skill-standard code { border: 1px solid var(--line); background: var(--canvas); color: color-mix(in srgb, var(--ink) 94%, var(--purple)); }
+.app-shell[data-theme] .upload-modal .skill-standard small,
+.app-shell[data-theme] .upload-modal .avatar-upload small { color: var(--muted); }
+.app-shell[data-theme] .upload-modal .avatar-upload { background: color-mix(in srgb, var(--purple) 5%, var(--surface-raised)); }
+.app-shell[data-theme] .upload-modal .avatar-upload b { color: var(--ink); }
+.app-shell[data-theme] .upload-modal .avatar-preview { border: 1px solid color-mix(in srgb, var(--purple) 30%, var(--line)); background: color-mix(in srgb, var(--purple) 15%, var(--surface-raised)); color: var(--purple-dark); }
+.app-shell[data-theme] .upload-modal .avatar-upload em { color: var(--purple-dark); }
+.app-shell[data-theme] .upload-modal .full-primary { background: linear-gradient(120deg, var(--purple), color-mix(in srgb, var(--purple) 72%, var(--purple-dark))); box-shadow: 0 10px 24px color-mix(in srgb, var(--purple) 24%, transparent); }
+.app-shell[data-theme] .upload-modal .full-primary:disabled { border: 1px solid var(--line); background: var(--soft); color: color-mix(in srgb, var(--muted) 78%, transparent); box-shadow: none; opacity: 1; }
 
 .theme-switcher { position: relative; }
 .theme-trigger { height: 39px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface, white); color: var(--muted); font-size: 10px; font-weight: 760; cursor: pointer; }
