@@ -173,10 +173,10 @@ void main() {
       expect(request.method, 'PUT');
       expect(request.url.path, '/api/skills/s1/file');
       expect(request.headers['cookie'], 'skillport_session=token-123');
-      expect(request, isA<http.MultipartRequest>());
-      final multipart = request as http.MultipartRequest;
-      expect(multipart.files.single.field, 'file');
-      expect(multipart.files.single.filename, 'audit-v2.zip');
+      expect(request.headers['content-type'], startsWith('multipart/form-data; boundary='));
+      final uploadedBody = utf8.decode((request as http.Request).bodyBytes);
+      expect(uploadedBody, contains('name="file"'));
+      expect(uploadedBody, contains('filename="audit-v2.zip"'));
       return http.Response(
         jsonEncode(<String, dynamic>{
           'id': 's1',
