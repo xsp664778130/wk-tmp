@@ -80,7 +80,7 @@ button { color: inherit; }
 .primary-button { height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 13px; padding: 0 17px; border: 0; border-radius: 11px; background: var(--purple); color: white; font-size: 11px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 18px rgba(116,87,232,.2); transition: .18s ease; }
 .primary-button:hover { transform: translateY(-1px); background: var(--purple-dark); }
 .primary-button span:first-child { font-size: 17px; font-weight: 400; }
-.stats-strip { display: grid; grid-template-columns: repeat(3, 1fr); margin: 25px 0 28px; border: 1px solid var(--line); border-radius: 14px; background: white; box-shadow: 0 5px 14px rgba(39,36,29,.025); }
+.stats-strip { display: grid; grid-template-columns: repeat(2, 1fr); margin: 25px 0 28px; border: 1px solid var(--line); border-radius: 14px; background: white; box-shadow: 0 5px 14px rgba(39,36,29,.025); }
 .stats-strip > div { display: flex; align-items: center; gap: 11px; min-height: 76px; padding: 14px 18px; border-right: 1px solid var(--line); }
 .stats-strip > div:last-child { border-right: 0; }
 .stat-icon { display: grid; place-items: center; width: 37px; height: 37px; border-radius: 11px; font-family: var(--font-geist-mono), monospace; font-size: 14px; font-weight: 700; }
