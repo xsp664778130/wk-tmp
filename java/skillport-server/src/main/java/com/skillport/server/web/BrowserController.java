@@ -340,6 +340,15 @@ public class BrowserController {
                 .body(new InputStreamResource(Files.newInputStream(file)));
     }
 
+    @PutMapping(path = "/skills/{skillId}/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public SkillController.SkillResponse replaceSkillPackage(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String skillId,
+            @RequestPart MultipartFile file) {
+        var result = skillService.replacePackage(user.userId(), skillId, file);
+        return SkillController.SkillResponse.from(result.skill(), result.publicPoolSynchronized());
+    }
+
     @GetMapping("/skills/{skillId}/avatar")
     public ResponseEntity<InputStreamResource> privateAvatar(
             @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,

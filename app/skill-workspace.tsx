@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.35",
+    date: "2026-08-28",
+    title: "Skill 压缩包独立替换",
+    changes: [
+      "我的 Skill 详情新增仅替换压缩包功能，重新执行完整结构与大小校验。",
+      "替换时名称、描述、详细说明、使用步骤、分类、备注和头像全部保持不变。",
+      "已分享 Skill 会同步更新公有池下载文件，其他用户已经拉取的独立副本不受影响。",
+    ],
+  },
+  {
     version: "1.0.34",
     date: "2026-08-28",
     title: "macOS 压缩包安装兼容修复",
@@ -539,11 +549,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.34",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.35",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.34",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.35",
   },
 };
 
@@ -1231,6 +1241,33 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     }
   }
 
+  async function replaceSkillPackage(skill: Skill, file: File) {
+    const extension = file.name.toLowerCase();
+    if ((!extension.endsWith(".zip") && !extension.endsWith(".skill")) || file.size > 25 * 1024 * 1024) {
+      setToast("请选择不超过 25MB 的 .zip 或 .skill 压缩包");
+      return false;
+    }
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const response = await fetch(`/api/skills/${encodeURIComponent(skill.id)}/file`, {
+        method: "PUT",
+        body: form,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.detail || data?.error || "Skill 压缩包替换没有完成"));
+      const fileName = String(data?.fileName || file.name);
+      setPrivateSkills((current) => current.map((item) => item.id === skill.id ? { ...item, fileName } : item));
+      setPublicSkills((current) => current.map((item) => item.sourceSkillId === skill.id ? { ...item, fileName } : item));
+      setSelected((current) => current?.id === skill.id ? { ...current, fileName } : current);
+      setToast(skill.shared ? "Skill 压缩包已替换，并同步到公有池" : "Skill 压缩包已替换");
+      return true;
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Skill 压缩包替换没有完成，请稍后再试");
+      return false;
+    }
+  }
+
   async function confirmSkillAction() {
     if (!actionCandidate || !user) return;
     const { skill, action } = actionCandidate;
@@ -1510,7 +1547,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         </section>
       </aside>
 
-      {selected && <DetailModal skill={selected} pulling={pullingId === selected.id} onClose={() => setSelected(null)} onInstall={() => { setInstaller(selected); setSelected(null); }} onUninstall={() => { setUninstaller(selected); setSelected(null); }} onPull={() => void pullSkill(selected)} onShare={() => setShareCandidate(selected)} onDelete={() => setActionCandidate({ skill: selected, action: "delete" })} onUnpublish={() => setActionCandidate({ skill: selected, action: "unpublish" })} onSaveCategory={(category) => updateSkillCategory(selected, category)} onSaveDetails={(values) => updateSkillDetails(selected, values)} onSaveAvatar={(avatar) => updateSkillAvatar(selected, avatar)} onSaveNote={(note) => {
+      {selected && <DetailModal skill={selected} pulling={pullingId === selected.id} onClose={() => setSelected(null)} onInstall={() => { setInstaller(selected); setSelected(null); }} onUninstall={() => { setUninstaller(selected); setSelected(null); }} onPull={() => void pullSkill(selected)} onShare={() => setShareCandidate(selected)} onDelete={() => setActionCandidate({ skill: selected, action: "delete" })} onUnpublish={() => setActionCandidate({ skill: selected, action: "unpublish" })} onSaveCategory={(category) => updateSkillCategory(selected, category)} onSaveDetails={(values) => updateSkillDetails(selected, values)} onSaveAvatar={(avatar) => updateSkillAvatar(selected, avatar)} onReplacePackage={(file) => replaceSkillPackage(selected, file)} onSaveNote={(note) => {
         setPrivateSkills((current) => current.map((skill) => skill.id === selected.id ? { ...skill, note } : skill));
         setSelected((current) => current ? { ...current, note } : current);
         if (selected.uploaded && user) fetch("/api/skills", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: selected.id, note }) }).catch(() => undefined);
@@ -1732,7 +1769,7 @@ function ClientDownloadModal({ onClose, onDownload }: { onClose: () => void; onD
   );
 }
 
-function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, onShare, onDelete, onUnpublish, onSaveCategory, onSaveDetails, onSaveAvatar, onSaveNote }: {
+function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, onShare, onDelete, onUnpublish, onSaveCategory, onSaveDetails, onSaveAvatar, onReplacePackage, onSaveNote }: {
   skill: Skill;
   pulling: boolean;
   onClose: () => void;
@@ -1745,6 +1782,7 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
   onSaveCategory: (category: SkillCategory) => Promise<boolean>;
   onSaveDetails: (values: { name: string; description: string; detail: string; usageSteps: string[] }) => Promise<boolean>;
   onSaveAvatar: (avatar: File | null) => Promise<boolean>;
+  onReplacePackage: (file: File) => Promise<boolean>;
   onSaveNote: (note: string) => void;
 }) {
   const [note, setNote] = useState(skill.note || "");
@@ -1763,6 +1801,9 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [avatarError, setAvatarError] = useState("");
+  const [packageFile, setPackageFile] = useState<File | null>(null);
+  const [packageSaving, setPackageSaving] = useState(false);
+  const [packageError, setPackageError] = useState("");
   const isPublic = skill.scope === "public";
 
   useEffect(() => () => {
@@ -1794,6 +1835,26 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
     const saved = await onSaveAvatar(avatar);
     setAvatarSaving(false);
     if (saved) cancelAvatarDraft();
+  }
+
+  function choosePackage(file?: File) {
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    if ((!name.endsWith(".zip") && !name.endsWith(".skill")) || file.size > 25 * 1024 * 1024) {
+      setPackageFile(null);
+      setPackageError("请选择不超过 25MB 的 .zip 或 .skill 压缩包。");
+      return;
+    }
+    setPackageFile(file);
+    setPackageError("");
+  }
+
+  async function savePackage() {
+    if (!packageFile) return;
+    setPackageSaving(true);
+    const saved = await onReplacePackage(packageFile);
+    setPackageSaving(false);
+    if (saved) setPackageFile(null);
   }
 
   async function saveCategory(nextCategory: SkillCategory) {
@@ -1848,6 +1909,7 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
         <button className="close-button" onClick={onClose}>×</button>
         <div className="detail-hero"><SkillAvatar skill={avatarPreview ? { ...skill, avatarUrl: avatarPreview } : skill} large/><div><span className="category-pill">{isPublic ? skill.category : category}</span><h2>{skill.name}</h2><p>by {skill.author} · {skill.uses}</p></div></div>
         {!isPublic && <section className="detail-avatar-editor" aria-label="编辑 Skill 头像"><div><b>Skill 头像</b><small>{avatarFile ? avatarFile.name : "PNG、JPEG、WebP 或 GIF，最大 2MB"}</small>{avatarError && <em role="alert">{avatarError}</em>}</div><div className="detail-avatar-actions"><label className="secondary-button"><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={avatarSaving} onChange={(event) => chooseAvatar(event.target.files?.[0])}/>{skill.avatarUrl || avatarFile ? "更换图片" : "选择图片"}</label>{avatarFile ? <><button className="secondary-button" disabled={avatarSaving} onClick={cancelAvatarDraft}>取消</button><button className="primary-button" disabled={avatarSaving} onClick={() => void saveAvatar(avatarFile)}>{avatarSaving ? "保存中…" : "保存头像"}</button></> : skill.avatarUrl ? <button className="avatar-remove-button" disabled={avatarSaving} onClick={() => void saveAvatar(null)}>{avatarSaving ? "处理中…" : "移除头像"}</button> : null}</div></section>}
+        {!isPublic && <section className="detail-package-editor" aria-label="替换 Skill 压缩包"><div><b>Skill 压缩包</b><small>{packageFile ? packageFile.name : `当前：${skill.fileName || "skill.zip"}`}</small><p>只替换文件；名称、描述、详情、步骤、分类、备注和头像均不改变。{skill.shared ? "公有池下载文件会同步更新。" : ""}</p>{packageError && <em role="alert">{packageError}</em>}</div><div className="detail-package-actions"><label className="secondary-button"><input type="file" accept=".zip,.skill,application/zip" disabled={packageSaving} onChange={(event) => choosePackage(event.target.files?.[0])}/>{packageFile ? "重新选择" : "选择新包"}</label>{packageFile && <button className="primary-button" disabled={packageSaving} onClick={() => void savePackage()}>{packageSaving ? "校验并替换中…" : "确认替换"}</button>}</div></section>}
         <p className="detail-description">{skill.description}</p>
         {editingDetails ? (
           <section className="skill-detail-editor" aria-label="编辑 Skill 详情">

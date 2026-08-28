@@ -175,6 +175,41 @@ public class SkillService {
         return new AvatarUpdateResult(skill, isShared(ownerId, publicId));
     }
 
+    @Transactional
+    public PackageUpdateResult replacePackage(String ownerId, String publicId, MultipartFile file) {
+        if (file == null || file.isEmpty() || file.getSize() > MAX_FILE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Skill 压缩包为空或超过 25MB");
+        }
+        String originalFilename = file.getOriginalFilename() == null ? "skill.zip" : file.getOriginalFilename();
+        String lowerFilename = originalFilename.toLowerCase(java.util.Locale.ROOT);
+        if (!lowerFilename.endsWith(".zip") && !lowerFilename.endsWith(".skill")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请选择 .zip 或 .skill 压缩包");
+        }
+        SkillEntity skill = ownedSkill(ownerId, publicId);
+        packageValidator.validate(file);
+        String previousStoragePath = skill.getStoragePath();
+        try {
+            StoredSkillFile stored = fileStorageService.store(ownerId, publicId,
+                    "__skillport_package_" + UUID.randomUUID() + "_" + originalFilename, file.getInputStream());
+            Instant now = Instant.now();
+            String contentType = safeText(file.getContentType(), 120, "application/octet-stream");
+            skill.replacePackage(originalFilename, stored.path().toString(), contentType,
+                    stored.sizeBytes(), stored.sha256(), now);
+            boolean publicPoolSynchronized = publicSkillRepository
+                    .findBySourceSkillPublicIdAndPublisherOwnerId(publicId, ownerId)
+                    .map(publication -> {
+                        publication.replacePackage(originalFilename, contentType,
+                                stored.sizeBytes(), stored.sha256(), now);
+                        return true;
+                    })
+                    .orElse(false);
+            cleanUpReplacedFileAfterTransaction(previousStoragePath, stored.path().toString());
+            return new PackageUpdateResult(skill, publicPoolSynchronized);
+        } catch (IOException exception) {
+            throw new IllegalStateException("无法读取 Skill 压缩包", exception);
+        }
+    }
+
     @Transactional(readOnly = true)
     public SkillEntity ownedSkill(String ownerId, String publicId) {
         return skillRepository.findByPublicIdAndOwnerId(publicId, ownerId)
@@ -237,6 +272,23 @@ public class SkillService {
                     }
                 } else {
                     deleteFileQuietly(newAvatarPath);
+                }
+            }
+        });
+    }
+
+    private void cleanUpReplacedFileAfterTransaction(String previousPath, String newPath) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            deleteFileQuietly(previousPath);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == TransactionSynchronization.STATUS_COMMITTED) {
+                    deleteFileQuietly(previousPath);
+                } else {
+                    deleteFileQuietly(newPath);
                 }
             }
         });
@@ -408,5 +460,8 @@ public class SkillService {
     }
 
     public record AvatarUpdateResult(SkillEntity skill, boolean publicPoolSynchronized) {
+    }
+
+    public record PackageUpdateResult(SkillEntity skill, boolean publicPoolSynchronized) {
     }
 }

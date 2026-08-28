@@ -95,6 +95,14 @@ public class PublicSkillEntity {
         this.updatedAt = now;
     }
 
+    public void replacePackage(String fileName, String contentType, long sizeBytes, String sha256, Instant now) {
+        this.fileName = fileName;
+        this.contentType = contentType;
+        this.sizeBytes = sizeBytes;
+        this.sha256 = sha256;
+        this.updatedAt = now;
+    }
+
     public String getPublicId() { return publicId; }
     public String getSourceSkillPublicId() { return sourceSkillPublicId; }
     public String getPublisherOwnerId() { return publisherOwnerId; }

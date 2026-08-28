@@ -44,7 +44,7 @@ skillport:
   public-api-base-url: ${SKILLPORT_API_PUBLIC_URL:http://localhost:8080}
   public-netty-base-url: ${SKILLPORT_NETTY_PUBLIC_URL:http://localhost:9091}
   client-release:
-    version: 1.0.34
+    version: 1.0.35
     date: 2026-08-28
     title: macOS 压缩包安装兼容修复
     changes:

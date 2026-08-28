@@ -14,9 +14,12 @@ import org.springframework.test.context.ActiveProfiles;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -181,8 +184,69 @@ class PublicSkillServiceTest {
         assertFalse(Files.exists(storedFile));
     }
 
+    @Test
+    void replacesOnlyPackageAndKeepsPrivateAndPublicMetadataUnchanged() throws Exception {
+        String publisherId = "replace-publisher-" + UUID.randomUUID();
+        String firstReaderId = "replace-reader-old-" + UUID.randomUUID();
+        String secondReaderId = "replace-reader-new-" + UUID.randomUUID();
+        SkillEntity source = skillService.upload(publisherId, "Stable title", "Stable description",
+                "编程技能", new MockMultipartFile("file", "SKILL.md", "text/markdown",
+                        skillManifest("stable-skill")));
+        skillService.updateDetails(publisherId, source.getPublicId(), "Stable title", "Stable description",
+                "Stable detail", List.of("Stable step one", "Stable step two"));
+        skillService.updateNote(publisherId, source.getPublicId(), "Private note");
+        PublicSkillEntity publication = publicSkillService.share(publisherId, "Publisher", source.getPublicId());
+        SkillEntity oldImported = publicSkillService.pull(firstReaderId, publication.getPublicId()).skill();
+        Path previousFile = fileStorageService.resolve(source.getStoragePath());
+        String previousHash = source.getSha256();
+        byte[] replacement = skillZip("stable-skill", "Replacement instructions");
+
+        SkillService.PackageUpdateResult result = skillService.replacePackage(
+                publisherId, source.getPublicId(),
+                new MockMultipartFile("file", "stable-skill-v2.zip", "application/zip", replacement));
+
+        assertTrue(result.publicPoolSynchronized());
+        assertEquals("Stable title", result.skill().getName());
+        assertEquals("Stable description", result.skill().getDescription());
+        assertEquals("Stable detail", result.skill().getDetail());
+        assertEquals("Stable step one\nStable step two", result.skill().getUsageSteps());
+        assertEquals("编程技能", result.skill().getCategory());
+        assertEquals("Private note", result.skill().getNote());
+        assertEquals("stable-skill-v2.zip", result.skill().getFileName());
+        assertNotEquals(previousHash, result.skill().getSha256());
+        assertArrayEquals(replacement, Files.readAllBytes(fileStorageService.resolve(result.skill().getStoragePath())));
+        assertFalse(Files.exists(previousFile));
+
+        PublicSkillEntity updatedPublication = publicSkillRepository.findByPublicId(publication.getPublicId())
+                .orElseThrow();
+        assertEquals("Stable title", updatedPublication.getName());
+        assertEquals("Stable description", updatedPublication.getDescription());
+        assertEquals("Stable detail", updatedPublication.getDetail());
+        assertEquals("Stable step one\nStable step two", updatedPublication.getUsageSteps());
+        assertEquals("编程技能", updatedPublication.getCategory());
+        assertEquals("stable-skill-v2.zip", updatedPublication.getFileName());
+        assertEquals(result.skill().getSha256(), updatedPublication.getSha256());
+
+        assertEquals(previousHash, oldImported.getSha256());
+        SkillEntity newImported = publicSkillService.pull(secondReaderId, publication.getPublicId()).skill();
+        assertEquals(result.skill().getSha256(), newImported.getSha256());
+        assertArrayEquals(replacement,
+                Files.readAllBytes(fileStorageService.resolve(newImported.getStoragePath())));
+    }
+
     private static byte[] skillManifest(String name) {
         return ("---\nname: " + name + "\ndescription: Test Skill\n---\n\n"
                 + "# Instructions\n\nRun the requested test workflow.\n").getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static byte[] skillZip(String name, String instructions) throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(output)) {
+            zip.putNextEntry(new ZipEntry(name + "/SKILL.md"));
+            zip.write(("---\nname: " + name + "\ndescription: Test Skill\n---\n\n# Instructions\n\n"
+                    + instructions + "\n").getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        return output.toByteArray();
     }
 }

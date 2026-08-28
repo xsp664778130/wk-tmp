@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -161,6 +162,48 @@ void main() {
 
     expect(skill.name, 'Audit Skill Pro');
     expect(skill.usageSteps, hasLength(3));
+  });
+
+  test('replaces only the private Skill package through multipart PUT', () async {
+    final directory = await Directory.systemTemp.createTemp('skillport-replace-test-');
+    final file = File('${directory.path}/audit-v2.zip');
+    await file.writeAsBytes(<int>[1, 2, 3, 4]);
+    addTearDown(() => directory.delete(recursive: true));
+    final client = MockClient((request) async {
+      expect(request.method, 'PUT');
+      expect(request.url.path, '/api/skills/s1/file');
+      expect(request.headers['cookie'], 'skillport_session=token-123');
+      expect(request, isA<http.MultipartRequest>());
+      final multipart = request as http.MultipartRequest;
+      expect(multipart.files.single.field, 'file');
+      expect(multipart.files.single.filename, 'audit-v2.zip');
+      return http.Response(
+        jsonEncode(<String, dynamic>{
+          'id': 's1',
+          'name': 'Audit Skill',
+          'description': 'Metadata stays unchanged',
+          'detail': 'Stable detail',
+          'usageSteps': <String>['Run audit'],
+          'category': '排查技能',
+          'fileName': 'audit-v2.zip',
+          'sizeBytes': 4,
+          'sha256': 'new-hash',
+          'note': 'private note',
+          'toolCompatibility': 'codex,qoder',
+          'shared': true,
+        }),
+        200,
+        headers: const <String, String>{'content-type': 'application/json'},
+      );
+    });
+    final api = SkillPortApi(httpClient: client)..token = 'token-123';
+
+    final skill = await api.replaceSkillPackage('s1', file.path);
+
+    expect(skill.fileName, 'audit-v2.zip');
+    expect(skill.name, 'Audit Skill');
+    expect(skill.note, 'private note');
+    expect(skill.shared, isTrue);
   });
 
   test('deletes an owned Skill from the private workspace API', () async {

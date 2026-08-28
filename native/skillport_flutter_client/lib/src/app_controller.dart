@@ -292,6 +292,24 @@ class AppController extends ChangeNotifier {
     }, successMessage: skill.shared ? '详情已保存，并同步到 Skill 公有池' : 'Skill 详情已保存');
   }
 
+  Future<bool> replaceSkillPackage(SkillItem skill, String filePath) async {
+    return _perform('正在校验并替换 Skill 压缩包…', () async {
+      final updated = await _api.replaceSkillPackage(skill.id, filePath);
+      privateSkills = privateSkills
+          .map((item) => item.id == updated.id ? updated : item)
+          .toList();
+      publicSkills = publicSkills
+          .map((item) => item.sourceSkillId == skill.id
+              ? item.copyWith(
+                  fileName: updated.fileName,
+                  sizeBytes: updated.sizeBytes,
+                  sha256: updated.sha256,
+                )
+              : item)
+          .toList();
+    }, successMessage: skill.shared ? '压缩包已替换，并同步到 Skill 公有池' : 'Skill 压缩包已替换');
+  }
+
   Future<bool> pull(SkillItem skill) async {
     return _perform('正在拉取 Skill…', () async {
       final result = await _api.pullSkill(skill.id);

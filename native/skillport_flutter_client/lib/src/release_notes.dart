@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.34';
+const currentReleaseVersion = '1.0.35';
 const currentReleaseDate = '2026-08-28';
-const currentReleaseTitle = 'macOS 压缩包安装兼容修复';
+const currentReleaseTitle = 'Skill 压缩包独立替换';
 const currentReleaseChanges = <String>[
-  '桌面客户端改为根据压缩包中唯一有效的 SKILL.md 识别 Skill 根目录。',
-  '自动忽略 __MACOSX、.DS_Store 与 AppleDouble 元数据，不再误报缺少 SKILL.md。',
-  '兼容外层目录和大小写不同的 skill.md，同时继续执行完整的安装安全校验。',
+  '我的 Skill 详情新增“仅替换压缩包”，重新执行完整结构与大小校验。',
+  '名称、描述、详细说明、使用步骤、分类、备注和头像全部保持不变。',
+  '已分享 Skill 会同步更新公有池下载文件，其他用户已拉取的副本不受影响。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.34',
+    date: '2026-08-28',
+    title: 'macOS 压缩包安装兼容修复',
+    changes: <String>[
+      '桌面客户端改为根据压缩包中唯一有效的 SKILL.md 识别 Skill 根目录。',
+      '自动忽略 __MACOSX、.DS_Store 与 AppleDouble 元数据，不再误报缺少 SKILL.md。',
+      '兼容外层目录和大小写不同的 skill.md，同时继续执行完整的安装安全校验。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.33',

@@ -34,7 +34,7 @@ class SkillPortApi {
     'accept': 'application/json',
     'content-type': 'application/json; charset=utf-8',
     if (token != null) 'cookie': 'skillport_session=$token',
-    'user-agent': 'SkillPort-Flutter/1.0.34',
+    'user-agent': 'SkillPort-Flutter/1.0.35',
   };
 
   Map<String, String> get sessionHeaders => <String, String>{
@@ -178,6 +178,18 @@ class SkillPortApi {
     return SkillItem.fromPrivateJson(_decodeObject(response));
   }
 
+  Future<SkillItem> replaceSkillPackage(String skillId, String filePath) async {
+    final request = http.MultipartRequest(
+      'PUT',
+      uri('/api/skills/${Uri.encodeComponent(skillId)}/file'),
+    )
+      ..headers.addAll(sessionHeaders)
+      ..files.add(await http.MultipartFile.fromPath('file', filePath));
+    final streamed = await _http.send(request);
+    final response = await http.Response.fromStream(streamed);
+    return SkillItem.fromPrivateJson(_decodeObject(response));
+  }
+
   Future<void> shareSkill(String skillId) async {
     final response = await _http.post(
       uri('/api/public-skills'),
@@ -244,7 +256,7 @@ class SkillPortApi {
       headers: <String, String>{
         ...sessionHeaders,
         'accept': 'application/octet-stream',
-        'user-agent': 'SkillPort-Flutter/1.0.34',
+        'user-agent': 'SkillPort-Flutter/1.0.35',
       },
     );
     _ensureSuccess(response);

@@ -85,6 +85,57 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
   late String _savedCategory = widget.skill.category;
   bool _categorySaving = false;
 
+  Future<void> _replacePackage() async {
+    final file = await openFile(
+      acceptedTypeGroups: const <XTypeGroup>[
+        XTypeGroup(label: 'Skill 压缩包', extensions: <String>['zip', 'skill']),
+      ],
+    );
+    if (file == null || !mounted) return;
+    final name = file.name.toLowerCase();
+    final length = await file.length();
+    if ((!name.endsWith('.zip') && !name.endsWith('.skill')) || length > 25 * 1024 * 1024) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请选择不超过 25MB 的 .zip 或 .skill 压缩包')),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('替换 Skill 压缩包？'),
+        content: Text(
+          '将使用 ${file.name} 替换当前文件。\n\n'
+          '名称、描述、详细说明、使用步骤、分类、备注和头像都不会改变。'
+          '${_skill.shared ? '\n公有池中的下载文件会同步更新，但展示信息不变。' : ''}',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('确认替换'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final saved = await widget.controller.replaceSkillPackage(_skill, file.path);
+    if (!mounted || !saved) return;
+    setState(() {
+      _skill = widget.controller.privateSkills.firstWhere(
+        (item) => item.id == _skill.id,
+        orElse: () => _skill,
+      );
+    });
+  }
+
   Future<void> _saveCategory(String category) async {
     setState(() {
       _category = category;
@@ -517,6 +568,15 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
                   style: FilledButton.styleFrom(backgroundColor: purple),
                   icon: const Icon(Icons.download_done_rounded, size: 18),
                   label: const Text('安装到本机'),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: widget.controller.busy ? null : _replacePackage,
+                  icon: const Icon(Icons.inventory_2_outlined, size: 17),
+                  label: Text('仅替换压缩包 · 当前 ${skill.fileName}'),
                 ),
               ),
               const SizedBox(height: 10),

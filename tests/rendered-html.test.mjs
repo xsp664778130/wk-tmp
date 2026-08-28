@@ -41,10 +41,11 @@ test("keeps every local workspace action row vertically aligned", async () => {
 });
 
 test("defines the SkillPort workspace and product metadata", async () => {
-  const [page, layout, client] = await Promise.all([
+  const [page, layout, client, packageRoute] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/skill-workspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/skills/[id]/file/route.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(layout, /SkillPort — AI Skill 管理工作台/);
@@ -125,6 +126,12 @@ test("defines the SkillPort workspace and product metadata", async () => {
   assert.match(client, /编辑 Skill 头像/);
   assert.match(client, /保存头像/);
   assert.match(client, /移除头像/);
+  assert.match(client, /只替换文件；名称、描述、详情、步骤、分类、备注和头像均不改变/);
+  assert.match(client, /method: "PUT"/);
+  assert.match(client, /\/api\/skills\/\$\{encodeURIComponent\(skill\.id\)\}\/file/);
+  assert.match(client, /确认替换/);
+  assert.match(packageRoute, /export async function PUT/);
+  assert.match(packageRoute, /\/api\/v1\/skills\/\$\{encodeURIComponent\(id\)\}\/content/);
   assert.match(client, /version: "1\.0\.27"/);
   assert.match(client, /\/api\/public-skills/);
   for (const category of ["全部技能", "编程技能", "测试技能", "排查技能", "日志技能"]) {

@@ -96,6 +96,15 @@ public class SkillController {
                 .body(resource);
     }
 
+    @PutMapping(path = "/{skillId}/content", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public SkillResponse replacePackage(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String skillId,
+            @RequestPart MultipartFile file) {
+        var result = skillService.replacePackage(user.userId(), skillId, file);
+        return SkillResponse.from(result.skill(), result.publicPoolSynchronized());
+    }
+
     @GetMapping("/{skillId}/avatar")
     public ResponseEntity<InputStreamResource> avatar(
             @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
