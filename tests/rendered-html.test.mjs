@@ -16,6 +16,18 @@ test("keeps the upload editor visually aligned with every theme", async () => {
   assert.match(client, /上传界面主题适配/);
 });
 
+test("keeps the dashboard overview focused on useful account metrics", async () => {
+  const [styles, client] = await Promise.all([
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/skill-workspace.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(styles, /\.stats-strip \{[^}]*grid-template-columns: repeat\(2, 1fr\)/);
+  assert.doesNotMatch(client, /<small>累计加载任务<\/small>/);
+  assert.match(client, /version: "1\.0\.25"/);
+  assert.match(client, /首页统计精简/);
+});
+
 test("defines the SkillPort workspace and product metadata", async () => {
   const [page, layout, client] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),

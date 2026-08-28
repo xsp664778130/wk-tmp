@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.25",
+    date: "2026-08-28",
+    title: "首页统计精简",
+    changes: [
+      "暂时移除参考价值较低的累计加载任务指标。",
+      "首页概览调整为我的 Skills 与已连接设备两项，信息更聚焦。",
+      "后台安装和卸载任务记录继续保留，不影响历史记录与任务执行。",
+    ],
+  },
+  {
     version: "1.0.24",
     date: "2026-08-28",
     title: "上传界面主题适配",
@@ -1134,7 +1144,6 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
 
           <section className="stats-strip" aria-label="技能统计">
             <div><span className="stat-icon purple">▦</span><p><b>{statistics?.mySkills ?? "—"}</b><small>我的 Skills</small></p><em>{statistics ? `${statistics.sharedSkills} 个已分享` : "登录后查看"}</em></div>
-            <div><span className="stat-icon orange">◎</span><p><b>{statistics?.totalInstalls ?? "—"}</b><small>累计加载任务</small></p><em>{statistics ? "MySQL 实时统计" : "登录后查看"}</em></div>
             <div><span className="stat-icon green">⌁</span><p><b>{statistics?.connectedDevices ?? "—"}</b><small>已连接设备</small></p><em className="neutral">{statistics ? `${statistics.onlineDevices} 台在线` : "Bridge 实时状态"}</em></div>
           </section>
 
