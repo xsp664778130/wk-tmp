@@ -148,7 +148,7 @@ test("provides enterprise WeCom silent authorization and QR login", async () => 
 });
 
 test("ships MySQL accounts, Netty and cross-platform Bridge capabilities", async () => {
-  const [hosting, schema, userSchema, publicPoolSchema, avatarSchema, operationSchema, feedbackSchema, publicFeedbackSchema, cursorSchema, detailSchema, client, nettyServer, bridge, uninstaller, toolScanRoute, macInstaller, windowsInstaller, macUpdater, windowsUpdater] = await Promise.all([
+  const [hosting, schema, userSchema, publicPoolSchema, avatarSchema, operationSchema, feedbackSchema, publicFeedbackSchema, cursorSchema, detailSchema, instanceSchema, client, nettyServer, bridge, uninstaller, toolScanRoute, macInstaller, windowsInstaller, macUpdater, windowsUpdater] = await Promise.all([
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V1__init_skillport.sql", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V2__add_local_users.sql", import.meta.url), "utf8"),
@@ -159,6 +159,7 @@ test("ships MySQL accounts, Netty and cross-platform Bridge capabilities", async
     readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V12__publish_feedback_mailbox.sql", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V11__add_cursor_skill_support.sql", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V13__add_skill_details_and_usage_steps.sql", import.meta.url), "utf8"),
+    readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V14__add_stable_device_identity.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/skill-workspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-server/src/main/java/com/skillport/server/netty/BridgeNettyServer.java", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-bridge/src/main/java/com/skillport/bridge/SkillInstaller.java", import.meta.url), "utf8"),
@@ -187,6 +188,8 @@ test("ships MySQL accounts, Netty and cross-platform Bridge capabilities", async
   assert.match(cursorSchema, /codex,qoder,opencode,claude,cursor/);
   assert.match(detailSchema, /detail_text TEXT/);
   assert.match(detailSchema, /usage_steps TEXT/);
+  assert.match(instanceSchema, /client_instance_id/);
+  assert.match(instanceSchema, /uk_devices_owner_instance/);
   assert.match(nettyServer, /NioServerSocketChannel/);
   assert.match(bridge, /verifySha256/);
   assert.match(uninstaller, /deleteInstalledSkill/);

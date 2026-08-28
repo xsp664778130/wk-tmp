@@ -2,7 +2,6 @@ package com.skillport.server.service;
 
 import com.skillport.server.domain.DeviceEntity;
 import com.skillport.server.netty.BridgeSessionRegistry;
-import com.skillport.server.repository.DeviceRepository;
 import com.skillport.server.repository.InstallTaskRepository;
 import com.skillport.server.repository.PublicSkillRepository;
 import com.skillport.server.repository.SkillRepository;
@@ -21,10 +20,10 @@ class DashboardStatisticsServiceTest {
         SkillRepository skillRepository = mock(SkillRepository.class);
         PublicSkillRepository publicSkillRepository = mock(PublicSkillRepository.class);
         InstallTaskRepository installTaskRepository = mock(InstallTaskRepository.class);
-        DeviceRepository deviceRepository = mock(DeviceRepository.class);
+        DeviceService deviceService = mock(DeviceService.class);
         BridgeSessionRegistry sessionRegistry = mock(BridgeSessionRegistry.class);
         DashboardStatisticsService service = new DashboardStatisticsService(
-                skillRepository, publicSkillRepository, installTaskRepository, deviceRepository, sessionRegistry);
+                skillRepository, publicSkillRepository, installTaskRepository, deviceService, sessionRegistry);
 
         String ownerId = "owner-1";
         DeviceEntity online = new DeviceEntity("device-online", ownerId, "MacBook", "macos", "arm64",
@@ -34,7 +33,7 @@ class DashboardStatisticsServiceTest {
         when(skillRepository.countByOwnerId(ownerId)).thenReturn(7L);
         when(publicSkillRepository.countByPublisherOwnerId(ownerId)).thenReturn(2L);
         when(installTaskRepository.countByOwnerId(ownerId)).thenReturn(5L);
-        when(deviceRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId)).thenReturn(List.of(online, offline));
+        when(deviceService.list(ownerId)).thenReturn(List.of(online, offline));
         when(sessionRegistry.isOnline("device-online")).thenReturn(true);
         when(sessionRegistry.isOnline("device-offline")).thenReturn(false);
 

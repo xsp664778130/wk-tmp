@@ -19,13 +19,14 @@ public class PairingClient {
         this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     }
 
-    public PairResult pair(String apiBaseUrl, String code, String name) {
+    public PairResult pair(String apiBaseUrl, String code, String name, String clientInstanceId) {
         try {
             String body = objectMapper.writeValueAsString(Map.of(
                     "code", code,
                     "name", name,
                     "os", normalizedOs(),
-                    "arch", System.getProperty("os.arch", "unknown")));
+                    "arch", System.getProperty("os.arch", "unknown"),
+                    "clientInstanceId", clientInstanceId));
             HttpRequest request = HttpRequest.newBuilder(URI.create(trimSlash(apiBaseUrl) + "/api/v1/bridge/pair"))
                     .timeout(Duration.ofSeconds(20))
                     .header("Content-Type", "application/json")

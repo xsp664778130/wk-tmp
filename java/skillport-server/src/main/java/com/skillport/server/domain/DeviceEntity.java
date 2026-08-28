@@ -7,7 +7,9 @@ import java.util.Arrays;
 import java.util.List;
 
 @Entity
-@Table(name = "devices", indexes = @Index(name = "idx_devices_owner_seen", columnList = "owner_id,last_seen_at"))
+@Table(name = "devices",
+        indexes = @Index(name = "idx_devices_owner_seen", columnList = "owner_id,last_seen_at"),
+        uniqueConstraints = @UniqueConstraint(name = "uk_devices_owner_instance", columnNames = {"owner_id", "client_instance_id"}))
 public class DeviceEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -16,6 +18,8 @@ public class DeviceEntity {
     private String publicId;
     @Column(name = "owner_id", nullable = false, length = 128)
     private String ownerId;
+    @Column(name = "client_instance_id", length = 64)
+    private String clientInstanceId;
     @Column(nullable = false, length = 120)
     private String name;
     @Column(nullable = false, length = 32)
@@ -40,8 +44,14 @@ public class DeviceEntity {
 
     public DeviceEntity(String publicId, String ownerId, String name, String os, String arch,
                         String tokenHash, Instant createdAt) {
+        this(publicId, ownerId, null, name, os, arch, tokenHash, createdAt);
+    }
+
+    public DeviceEntity(String publicId, String ownerId, String clientInstanceId, String name, String os, String arch,
+                        String tokenHash, Instant createdAt) {
         this.publicId = publicId;
         this.ownerId = ownerId;
+        this.clientInstanceId = clientInstanceId;
         this.name = name;
         this.os = os;
         this.arch = arch;
@@ -49,6 +59,17 @@ public class DeviceEntity {
         this.status = "OFFLINE";
         this.installedTools = "";
         this.createdAt = createdAt;
+    }
+
+    public void rePair(String clientInstanceId, String name, String os, String arch,
+                       String tokenHash, Instant now) {
+        this.clientInstanceId = clientInstanceId;
+        this.name = name;
+        this.os = os;
+        this.arch = arch;
+        this.tokenHash = tokenHash;
+        this.status = "OFFLINE";
+        this.lastSeenAt = now;
     }
 
     public void markOnline(Instant now) { this.status = "ONLINE"; this.lastSeenAt = now; }
@@ -60,6 +81,7 @@ public class DeviceEntity {
 
     public String getPublicId() { return publicId; }
     public String getOwnerId() { return ownerId; }
+    public String getClientInstanceId() { return clientInstanceId; }
     public String getName() { return name; }
     public String getOs() { return os; }
     public String getArch() { return arch; }

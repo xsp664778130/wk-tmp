@@ -23,7 +23,9 @@ public final class SkillPortBridgeApplication {
             System.exit(2);
         }
         String name = args.length >= 5 ? args[4] : System.getProperty("user.name", "My Computer") + "'s computer";
-        PairingClient.PairResult result = new PairingClient(objectMapper).pair(args[1], args[3], name);
+        String clientInstanceId = BridgeInstanceIdentity.loadOrCreate();
+        PairingClient.PairResult result = new PairingClient(objectMapper)
+                .pair(args[1], args[3], name, clientInstanceId);
         new BridgeConfig(args[1], args[2], result.deviceId(), result.deviceToken()).save();
         System.out.println("配对成功，设备ID=" + result.deviceId());
     }

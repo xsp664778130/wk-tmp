@@ -16,11 +16,13 @@ public class BridgePairController {
 
     @PostMapping("/pair")
     public PairResponse pair(@Valid @RequestBody PairRequest request) {
-        PairingService.PairedDevice device = pairingService.pair(request.code(), request.name(), request.os(), request.arch());
+        PairingService.PairedDevice device = pairingService.pair(
+                request.code(), request.name(), request.os(), request.arch(), request.clientInstanceId());
         return new PairResponse(device.deviceId(), device.deviceToken());
     }
 
-    public record PairRequest(@NotBlank String code, @NotBlank String name, @NotBlank String os, @NotBlank String arch) {
+    public record PairRequest(@NotBlank String code, @NotBlank String name, @NotBlank String os,
+                              @NotBlank String arch, String clientInstanceId) {
     }
     public record PairResponse(String deviceId, String deviceToken) {
     }

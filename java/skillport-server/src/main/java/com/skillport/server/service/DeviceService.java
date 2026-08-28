@@ -9,9 +9,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class DeviceService {
@@ -27,7 +32,31 @@ public class DeviceService {
 
     @Transactional(readOnly = true)
     public List<DeviceEntity> list(String ownerId) {
-        return deviceRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId);
+        return logicalDevices(deviceRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId));
+    }
+
+    static List<DeviceEntity> logicalDevices(List<DeviceEntity> devices) {
+        Set<String> signaturesWithStableIdentity = devices.stream()
+                .filter(device -> device.getClientInstanceId() != null && !device.getClientInstanceId().isBlank())
+                .map(DeviceService::legacySignature)
+                .collect(Collectors.toSet());
+        Map<String, DeviceEntity> logical = new LinkedHashMap<>();
+        for (DeviceEntity device : devices) {
+            String instanceId = device.getClientInstanceId();
+            String signature = legacySignature(device);
+            if ((instanceId == null || instanceId.isBlank()) && signaturesWithStableIdentity.contains(signature)) {
+                continue;
+            }
+            String key = instanceId == null || instanceId.isBlank()
+                    ? "legacy:" + signature
+                    : "instance:" + instanceId;
+            logical.putIfAbsent(key, device);
+        }
+        return new ArrayList<>(logical.values());
+    }
+
+    private static String legacySignature(DeviceEntity device) {
+        return String.join("\u0000", device.getName(), device.getOs(), device.getArch()).toLowerCase(Locale.ROOT);
     }
 
     @Transactional(readOnly = true)
