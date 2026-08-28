@@ -40,19 +40,24 @@ class _WorkspaceState extends State<Workspace> {
       });
     }
     return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 900;
-          final showRail = constraints.maxWidth >= 1260;
-          return Row(
-            children: <Widget>[
-              Sidebar(controller: widget.controller, compact: compact),
-              Expanded(child: Library(controller: widget.controller)),
-              if (showRail && widget.controller.mode != LibraryMode.localWorkspace)
-                LocalRail(controller: widget.controller),
-            ],
-          );
-        },
+      body: Stack(
+        children: <Widget>[
+          ThemeGlowBackdrop(preset: widget.controller.themePreset),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 900;
+              final showRail = constraints.maxWidth >= 1260;
+              return Row(
+                children: <Widget>[
+                  Sidebar(controller: widget.controller, compact: compact),
+                  Expanded(child: Library(controller: widget.controller)),
+                  if (showRail && widget.controller.mode != LibraryMode.localWorkspace)
+                    LocalRail(controller: widget.controller),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -341,7 +346,13 @@ class Sidebar extends StatelessWidget {
                   .map(
                     (preset) => PopupMenuItem<SkillPortThemePreset>(
                       value: preset,
-                      child: Text(preset.label),
+                      child: Row(
+                        children: <Widget>[
+                          ThemePresetSwatch(preset: preset, size: 20),
+                          const SizedBox(width: 10),
+                          Text(preset.label),
+                        ],
+                      ),
                     ),
                   )
                   .toList(),
@@ -359,10 +370,7 @@ class Sidebar extends StatelessWidget {
                         value: preset,
                         child: ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: CircleAvatar(
-                            radius: 12,
-                            backgroundColor: preset.previewColor,
-                          ),
+                          leading: ThemePresetSwatch(preset: preset),
                           title: Text(preset.label, style: const TextStyle(fontWeight: FontWeight.w800)),
                           subtitle: Text(preset.description),
                           trailing: controller.themePreset == preset

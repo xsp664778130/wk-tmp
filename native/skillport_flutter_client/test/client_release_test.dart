@@ -18,7 +18,7 @@ void main() {
   test('loads the public latest-client manifest', () async {
     final client = MockClient((request) async {
       expect(request.url.path, '/bridge/client/latest.json');
-      expect(request.headers['user-agent'], 'SkillPort-Flutter/1.0.29');
+      expect(request.headers['user-agent'], 'SkillPort-Flutter/1.0.30');
       return http.Response(
         jsonEncode(<String, dynamic>{
           'version': '1.0.18',
@@ -78,7 +78,7 @@ void main() {
       );
       expect(
         request.headers['user-agent'],
-        'SkillPort-Flutter-Updater/1.0.29',
+        'SkillPort-Flutter-Updater/1.0.30',
       );
       return http.Response.bytes(
         payload,

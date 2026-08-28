@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.29';
+const currentReleaseVersion = '1.0.30';
 const currentReleaseDate = '2026-08-28';
-const currentReleaseTitle = 'AI 工具导航式工作区';
+const currentReleaseTitle = '环境高光主题';
 const currentReleaseChanges = <String>[
-  '左侧直接展示本机实际识别到的 AI 工具，并显示各工具中的 Skill 数量。',
-  '点击 AI 工具后，主区域只展示该工具真实目录中的 Skill 卡片。',
-  'SkillPort 安装项保留来源标识；删除其他本地 Skill 前会提示文件不可恢复。',
+  '深夜紫、曜石黑与海湾蓝新增多层环境高光，页面更有空间感。',
+  '新增极光青与暮霞玫两套高光主题，共支持 6 套可切换配色。',
+  '主题菜单改为渐变光晕色卡预览，选择后仍会自动记住。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.29',
+    date: '2026-08-28',
+    title: 'AI 工具导航式工作区',
+    changes: <String>[
+      '左侧直接展示本机实际识别到的 AI 工具，并显示各工具中的 Skill 数量。',
+      '点击 AI 工具后，主区域只展示该工具真实目录中的 Skill 卡片。',
+      'SkillPort 安装项保留来源标识；删除其他本地 Skill 前会提示文件不可恢复。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.21',

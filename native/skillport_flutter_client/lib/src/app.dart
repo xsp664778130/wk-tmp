@@ -110,6 +110,7 @@ class _AuthScreenState extends State<AuthScreen> {
     return Scaffold(
       body: Stack(
         children: <Widget>[
+          ThemeGlowBackdrop(preset: widget.controller.themePreset),
           Row(
             children: <Widget>[
               Expanded(
@@ -311,7 +312,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       value: preset,
                       child: Row(
                         children: <Widget>[
-                          CircleAvatar(radius: 7, backgroundColor: preset.previewColor),
+                          ThemePresetSwatch(preset: preset, size: 18),
                           const SizedBox(width: 10),
                           Text(preset.label),
                           if (widget.controller.themePreset == preset) ...<Widget>[
