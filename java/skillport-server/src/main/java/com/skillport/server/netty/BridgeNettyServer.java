@@ -6,6 +6,7 @@ import com.skillport.server.service.DeviceService;
 import com.skillport.server.service.DeviceToolScanService;
 import com.skillport.server.service.DownloadTicketService;
 import com.skillport.server.service.InstallTaskService;
+import com.skillport.server.service.LocalSkillWorkspaceService;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -28,6 +29,7 @@ public class BridgeNettyServer implements SmartLifecycle {
     private final DownloadTicketService downloadTicketService;
     private final InstallTaskService installTaskService;
     private final DeviceToolScanService toolScanService;
+    private final LocalSkillWorkspaceService localSkillWorkspaceService;
     private final BridgeSessionRegistry sessionRegistry;
     private final ObjectMapper objectMapper;
     private volatile boolean running;
@@ -38,13 +40,14 @@ public class BridgeNettyServer implements SmartLifecycle {
 
     public BridgeNettyServer(SkillPortProperties properties, DeviceService deviceService,
                              DownloadTicketService downloadTicketService, InstallTaskService installTaskService,
-                             DeviceToolScanService toolScanService,
+                             DeviceToolScanService toolScanService, LocalSkillWorkspaceService localSkillWorkspaceService,
                              BridgeSessionRegistry sessionRegistry, ObjectMapper objectMapper) {
         this.properties = properties;
         this.deviceService = deviceService;
         this.downloadTicketService = downloadTicketService;
         this.installTaskService = installTaskService;
         this.toolScanService = toolScanService;
+        this.localSkillWorkspaceService = localSkillWorkspaceService;
         this.sessionRegistry = sessionRegistry;
         this.objectMapper = objectMapper;
     }
@@ -56,7 +59,8 @@ public class BridgeNettyServer implements SmartLifecycle {
         workerGroup = new NioEventLoopGroup(properties.netty().workerThreads());
         blockingGroup = new DefaultEventExecutorGroup(Math.max(2, properties.netty().workerThreads()));
         SkillPortNettyHandler handler = new SkillPortNettyHandler(
-                deviceService, downloadTicketService, installTaskService, toolScanService, sessionRegistry, objectMapper);
+                deviceService, downloadTicketService, installTaskService, toolScanService,
+                localSkillWorkspaceService, sessionRegistry, objectMapper);
         try {
             serverChannel = new ServerBootstrap()
                     .group(bossGroup, workerGroup)

@@ -17,9 +17,15 @@ public final class ToolTargetPaths {
     }
 
     public static Path resolve(Path home, String target, String skillSlug) {
+        Path resolved = root(home, target).resolve(skillSlug).normalize();
+        if (!resolved.startsWith(home.normalize())) throw new IllegalArgumentException("无效的安装路径");
+        return resolved;
+    }
+
+    public static Path root(Path home, String target) {
         String directory = TOOL_DIRECTORIES.get(target);
         if (directory == null) throw new IllegalArgumentException("不支持的 AI 工具: " + target);
-        Path resolved = home.resolve(directory).resolve(skillSlug).normalize();
+        Path resolved = home.resolve(directory).normalize();
         if (!resolved.startsWith(home.normalize())) throw new IllegalArgumentException("无效的安装路径");
         return resolved;
     }
@@ -29,5 +35,14 @@ public final class ToolTargetPaths {
                 .replaceAll("[^a-z0-9\\p{IsHan}]+", "-")
                 .replaceAll("(^-+|-+$)", "");
         return normalized.isBlank() ? "skillport-skill" : normalized;
+    }
+
+    public static String literalSlug(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty() || normalized.equals(".") || normalized.equals("..")
+                || !normalized.matches("[a-zA-Z0-9._\\-\\p{IsHan}]+")) {
+            throw new IllegalArgumentException("无效的本机 Skill 目录名称");
+        }
+        return normalized;
     }
 }

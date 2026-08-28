@@ -12,6 +12,7 @@ import com.skillport.server.service.DeviceToolScanService;
 import com.skillport.server.service.FeedbackMailboxService;
 import com.skillport.server.service.DashboardStatisticsService;
 import com.skillport.server.service.InstallTaskService;
+import com.skillport.server.service.LocalSkillWorkspaceService;
 import com.skillport.server.service.PairingService;
 import com.skillport.server.service.PublicSkillService;
 import com.skillport.server.service.SkillService;
@@ -73,6 +74,7 @@ public class BrowserController {
     private final DeviceToolScanService toolScanService;
     private final PairingService pairingService;
     private final InstallTaskService installTaskService;
+    private final LocalSkillWorkspaceService localSkillWorkspaceService;
     private final BridgeSessionRegistry sessionRegistry;
     private final SkillPortProperties properties;
     private final WeComAuthService weComAuthService;
@@ -82,6 +84,7 @@ public class BrowserController {
                              PublicSkillService publicSkillService, DeviceService deviceService,
                              DashboardStatisticsService statisticsService, DeviceToolScanService toolScanService,
                              PairingService pairingService, InstallTaskService installTaskService,
+                             LocalSkillWorkspaceService localSkillWorkspaceService,
                              BridgeSessionRegistry sessionRegistry, SkillPortProperties properties,
                              WeComAuthService weComAuthService,
                              FeedbackMailboxService feedbackMailboxService) {
@@ -93,6 +96,7 @@ public class BrowserController {
         this.toolScanService = toolScanService;
         this.pairingService = pairingService;
         this.installTaskService = installTaskService;
+        this.localSkillWorkspaceService = localSkillWorkspaceService;
         this.sessionRegistry = sessionRegistry;
         this.properties = properties;
         this.weComAuthService = weComAuthService;
@@ -394,6 +398,23 @@ public class BrowserController {
             @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
             @PathVariable String deviceId) {
         return DeviceController.ToolScanResponse.from(toolScanService.request(user.userId(), deviceId));
+    }
+
+    @GetMapping("/devices/{deviceId}/local-skills")
+    public LocalSkillWorkspaceService.WorkspaceView localSkills(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String deviceId) {
+        return localSkillWorkspaceService.workspace(user.userId(), deviceId);
+    }
+
+    @PostMapping("/devices/{deviceId}/local-skills/uninstall")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public InstallController.TaskResponse uninstallLocalSkill(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String deviceId,
+            @Valid @RequestBody LocalSkillWorkspaceController.LocalUninstallRequest request) {
+        return InstallController.TaskResponse.from(installTaskService.createLocalUninstall(
+                user.userId(), deviceId, request.tool(), request.slug()));
     }
 
     @GetMapping("/installs")

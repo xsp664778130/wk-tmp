@@ -12,4 +12,6 @@ public interface InstallTaskRepository extends JpaRepository<InstallTaskEntity, 
     Optional<InstallTaskEntity> findByPublicIdAndDevicePublicId(String publicId, String devicePublicId);
     Optional<InstallTaskEntity> findByPublicIdAndOwnerId(String publicId, String ownerId);
     List<InstallTaskEntity> findTop50ByOwnerIdOrderByCreatedAtDesc(String ownerId);
+    List<InstallTaskEntity> findTop200ByOwnerIdAndDevicePublicIdAndStatusOrderByUpdatedAtDesc(
+            String ownerId, String devicePublicId, String status);
 }

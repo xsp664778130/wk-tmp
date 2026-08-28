@@ -29,16 +29,23 @@ public class BridgeWebSocketClient {
     private final ExecutorService toolScanExecutor = Executors.newSingleThreadExecutor(
             Thread.ofPlatform().name("skill-tool-scan-", 0).factory());
     private final ToolDetector toolDetector;
+    private final LocalSkillScanner localSkillScanner;
 
     public BridgeWebSocketClient(BridgeConfig config, ObjectMapper objectMapper) {
-        this(config, objectMapper, new ToolDetector());
+        this(config, objectMapper, new ToolDetector(), new LocalSkillScanner());
     }
 
     BridgeWebSocketClient(BridgeConfig config, ObjectMapper objectMapper, ToolDetector toolDetector) {
+        this(config, objectMapper, toolDetector, new LocalSkillScanner());
+    }
+
+    BridgeWebSocketClient(BridgeConfig config, ObjectMapper objectMapper, ToolDetector toolDetector,
+                          LocalSkillScanner localSkillScanner) {
         this.config = config;
         this.objectMapper = objectMapper;
         this.protocolCodec = new ProtocolCodec(objectMapper);
         this.toolDetector = toolDetector;
+        this.localSkillScanner = localSkillScanner;
     }
 
     public void runForever() {
@@ -118,6 +125,7 @@ public class BridgeWebSocketClient {
             try {
                 installer.install(command);
                 sendProgress(channel, command.taskId(), 100, "COMPLETED", "安装完成", MessageType.INSTALL_COMPLETED);
+                scanTools(channel, command.taskId() + "-refresh");
             } catch (Exception exception) {
                 log.warn("Skill installation failed taskId={} error={}", command.taskId(), exception.getMessage());
                 sendProgress(channel, command.taskId(), 0, "FAILED", exception.getMessage(), MessageType.INSTALL_FAILED);
@@ -136,6 +144,7 @@ public class BridgeWebSocketClient {
                         : "已从 " + result.removedTargets() + " 个工具彻底移除";
                 sendProgress(channel, command.taskId(), 100, "COMPLETED", message,
                         MessageType.UNINSTALL_COMPLETED);
+                scanTools(channel, command.taskId() + "-refresh");
             } catch (Exception exception) {
                 log.warn("Skill uninstall failed taskId={} error={}", command.taskId(), exception.getMessage());
                 sendProgress(channel, command.taskId(), 0, "FAILED", exception.getMessage(),
@@ -152,7 +161,9 @@ public class BridgeWebSocketClient {
 
     private void scanTools(Channel channel, String requestId) {
         toolScanExecutor.execute(() -> {
-            ToolScanResult result = new ToolScanResult(toolDetector.detect(), java.time.Instant.now());
+            java.util.List<String> tools = toolDetector.detect();
+            ToolScanResult result = new ToolScanResult(
+                    tools, localSkillScanner.scan(tools), java.time.Instant.now());
             if (!channel.isActive()) return;
             channel.writeAndFlush(new TextWebSocketFrame(
                     protocolCodec.encode(MessageType.TOOL_SCAN_RESULT, requestId, result)));

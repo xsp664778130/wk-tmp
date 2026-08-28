@@ -36,7 +36,19 @@ public class SkillInstaller {
         progressListener.onProgress(95, "INSTALLING", "正在写入工具目录");
         String slug = ToolTargetPaths.slug(command.skillName());
         for (String target : command.targets()) {
-            installToTarget(completed, command.fileName(), ToolTargetPaths.resolve(home, target, slug));
+            Path destination = ToolTargetPaths.resolve(home, target, slug);
+            installToTarget(completed, command.fileName(), destination);
+            writeOriginMarker(destination, command.skillId());
+        }
+    }
+
+    private static void writeOriginMarker(Path destination, String skillId) {
+        try {
+            Files.writeString(destination.resolve(LocalSkillScanner.ORIGIN_MARKER), skillId,
+                    java.nio.charset.StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException exception) {
+            throw new IllegalStateException("无法记录 SkillPort 安装来源", exception);
         }
     }
 

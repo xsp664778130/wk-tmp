@@ -13,6 +13,7 @@
 - **标准结构校验**：上传 `.zip`、`.skill` 或 `SKILL.md` 时检查目录结构、文件大小和 `SKILL.md`。
 - **跨平台安装**：支持 macOS 与 Windows，可安装到 Codex、Qoder、OpenCode、Claude Code 和 Cursor。
 - **本机工具识别**：按设备识别本地 AI 工具和 Skills 目录，避免不同电脑之间混用检测结果。
+- **个人工作区**：在网页中按 AI 工具查看当前设备的本机 Skill、安装来源和实际目录，并区分“来自我的 Skill”与外部本地文件。
 - **安全卸载**：只删除选定 AI 工具中的本机 Skill，不删除云端副本。
 - **桌面客户端**：Flutter 客户端直接管理本机目录，不打开网页，也不依赖常驻 JAR。
 - **浏览器 Bridge**：网页可通过设备配对和 Netty 长连接向本机 Bridge 下发安装或卸载任务。

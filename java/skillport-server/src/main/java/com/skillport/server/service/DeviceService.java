@@ -71,6 +71,12 @@ public class DeviceService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "设备不存在"));
     }
 
+    @Transactional(readOnly = true)
+    public DeviceEntity device(String deviceId) {
+        return deviceRepository.findByPublicId(deviceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "设备不存在"));
+    }
+
     @Transactional
     public void markOnline(String deviceId) {
         deviceRepository.findByPublicId(deviceId).ifPresent(device -> device.markOnline(Instant.now()));

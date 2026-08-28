@@ -7,6 +7,7 @@ import com.skillport.protocol.MessageType;
 import com.skillport.protocol.ProtocolCodec;
 import com.skillport.protocol.UninstallCommand;
 import com.skillport.server.domain.DeviceEntity;
+import com.skillport.server.domain.DeviceLocalSkillEntity;
 import com.skillport.server.domain.InstallTaskEntity;
 import com.skillport.server.domain.SkillEntity;
 import com.skillport.server.netty.BridgeSessionRegistry;
@@ -21,6 +22,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -36,16 +38,19 @@ public class InstallTaskService {
     private final DownloadTicketService ticketService;
     private final BridgeSessionRegistry sessionRegistry;
     private final ProtocolCodec protocolCodec;
+    private final LocalSkillWorkspaceService localSkillWorkspaceService;
 
     public InstallTaskService(InstallTaskRepository taskRepository, SkillRepository skillRepository,
                               DeviceRepository deviceRepository, DownloadTicketService ticketService,
-                              BridgeSessionRegistry sessionRegistry, ObjectMapper objectMapper) {
+                              BridgeSessionRegistry sessionRegistry, ObjectMapper objectMapper,
+                              LocalSkillWorkspaceService localSkillWorkspaceService) {
         this.taskRepository = taskRepository;
         this.skillRepository = skillRepository;
         this.deviceRepository = deviceRepository;
         this.ticketService = ticketService;
         this.sessionRegistry = sessionRegistry;
         this.protocolCodec = new ProtocolCodec(objectMapper);
+        this.localSkillWorkspaceService = localSkillWorkspaceService;
     }
 
     @Transactional
@@ -93,6 +98,38 @@ public class InstallTaskService {
                 device.getPublicId(), String.join(",", targets), "UNINSTALL", now));
         UninstallCommand command = new UninstallCommand(
                 taskId, skillId, skill.getName(), targets);
+        String message = protocolCodec.encode(MessageType.UNINSTALL_SKILL, taskId, command);
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                if (sessionRegistry.send(device.getPublicId(), message)) markSent(taskId);
+            }
+        });
+        return task;
+    }
+
+    @Transactional
+    public InstallTaskEntity createLocalUninstall(
+            String ownerId, String deviceId, String tool, String slug) {
+        DeviceLocalSkillEntity localSkill = localSkillWorkspaceService
+                .ownedLocalSkill(ownerId, deviceId, tool, slug);
+        DeviceEntity device = resolveDevice(ownerId, deviceId);
+        if (!sessionRegistry.isOnline(device.getPublicId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "目标设备当前不在线，无法从本机卸载");
+        }
+
+        String taskId = UUID.randomUUID().toString();
+        String originSkillId = localSkill.getOriginSkillId();
+        String skillReference = originSkillId != null && originSkillId.length() <= 36
+                ? originSkillId
+                : UUID.nameUUIDFromBytes((deviceId + "\u0000" + tool + "\u0000" + slug)
+                        .getBytes(StandardCharsets.UTF_8)).toString();
+        Instant now = Instant.now();
+        InstallTaskEntity task = taskRepository.save(new InstallTaskEntity(
+                taskId, ownerId, skillReference, device.getPublicId(), localSkill.getTool(), "UNINSTALL", now));
+        UninstallCommand command = new UninstallCommand(
+                taskId, skillReference, localSkill.getName(), localSkill.getSlug(), List.of(localSkill.getTool()));
         String message = protocolCodec.encode(MessageType.UNINSTALL_SKILL, taskId, command);
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

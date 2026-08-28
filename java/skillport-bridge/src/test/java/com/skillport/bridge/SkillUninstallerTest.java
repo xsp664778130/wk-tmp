@@ -48,4 +48,18 @@ class SkillUninstallerTest {
         assertEquals(0, result.removedTargets());
         assertEquals(1, result.requestedTargets());
     }
+
+    @Test
+    void removesTheExactScannedDirectoryForExternalSkills() throws Exception {
+        Path externalSkill = tempDir.resolve(".cursor/skills/DMS_Audit.v2");
+        Files.createDirectories(externalSkill);
+        Files.writeString(externalSkill.resolve("SKILL.md"), "external");
+        SkillUninstaller uninstaller = new SkillUninstaller((progress, stage, message) -> { }, tempDir);
+
+        SkillUninstaller.UninstallResult result = uninstaller.uninstall(new UninstallCommand(
+                "task-789", "skill-789", "Display Name", "DMS_Audit.v2", List.of("cursor")));
+
+        assertEquals(1, result.removedTargets());
+        assertFalse(Files.exists(externalSkill));
+    }
 }

@@ -22,7 +22,9 @@ public class SkillUninstaller {
     }
 
     public UninstallResult uninstall(UninstallCommand command) {
-        String slug = ToolTargetPaths.slug(command.skillName());
+        String slug = command.skillSlug() == null
+                ? ToolTargetPaths.slug(command.skillName())
+                : ToolTargetPaths.literalSlug(command.skillSlug());
         int removed = 0;
         int total = command.targets().size();
         progressListener.onProgress(10, "PREPARING", "正在检查本机 Skill 目录");

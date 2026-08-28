@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.28",
+    date: "2026-08-28",
+    title: "本机个人工作区",
+    changes: [
+      "我的 Skill 下方新增个人工作区，按当前绑定电脑展示各 AI 工具中的本机 Skill。",
+      "本机 Skill 卡片显示名称、说明、目录和所属工具，并标记来自我的 Skill 的安装项。",
+      "支持直接卸载 SkillPort 安装项；删除其他本地 Skill 前会明确提示文件不可恢复。",
+    ],
+  },
+  {
     version: "1.0.27",
     date: "2026-08-28",
     title: "Skill 头像编辑",
@@ -319,6 +329,23 @@ type InstallTask = {
   createdAt: string;
 };
 
+type LocalWorkspaceSkill = {
+  tool: keyof typeof toolMeta;
+  slug: string;
+  name: string;
+  description: string;
+  relativePath: string;
+  fromMySkills: boolean;
+  sourceSkillId?: string;
+};
+
+type LocalWorkspace = {
+  deviceId: string;
+  deviceName: string;
+  detectedAt?: string;
+  skills: LocalWorkspaceSkill[];
+};
+
 function browserDeviceStorageKey(userId: string) {
   return `skillport.browser-device.${userId}`;
 }
@@ -537,6 +564,10 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const [devices, setDevices] = useState<Device[]>([]);
   const [statistics, setStatistics] = useState<DashboardStatistics | null>(null);
   const [installTasks, setInstallTasks] = useState<InstallTask[]>([]);
+  const [localWorkspace, setLocalWorkspace] = useState<LocalWorkspace | null>(null);
+  const [localWorkspaceLoading, setLocalWorkspaceLoading] = useState(false);
+  const [localUninstallCandidate, setLocalUninstallCandidate] = useState<LocalWorkspaceSkill | null>(null);
+  const [localUninstallBusyKey, setLocalUninstallBusyKey] = useState<string | null>(null);
   const [selected, setSelected] = useState<Skill | null>(null);
   const [installer, setInstaller] = useState<Skill | null>(null);
   const [uninstaller, setUninstaller] = useState<Skill | null>(null);
@@ -562,6 +593,38 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const automaticToolScanAt = useRef(new Map<string, number>());
+
+  const refreshLocalWorkspace = useCallback(async (deviceId: string) => {
+    setLocalWorkspaceLoading(true);
+    try {
+      const response = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/local-skills`, { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error();
+      const skills = (Array.isArray(data?.skills) ? data.skills : []).map((value: Record<string, unknown>) => ({
+        tool: String(value.tool || "codex") as keyof typeof toolMeta,
+        slug: String(value.slug || ""),
+        name: String(value.name || value.slug || "本机 Skill"),
+        description: String(value.description || "本机 Skill"),
+        relativePath: String(value.relativePath || ""),
+        fromMySkills: Boolean(value.fromMySkills),
+        sourceSkillId: value.sourceSkillId ? String(value.sourceSkillId) : undefined,
+      })).filter((value: LocalWorkspaceSkill) => Boolean(toolMeta[value.tool]) && Boolean(value.slug));
+      setLocalWorkspace({
+        deviceId: String(data?.deviceId || deviceId),
+        deviceName: String(data?.deviceName || "当前电脑"),
+        detectedAt: data?.detectedAt ? String(data.detectedAt) : undefined,
+        skills,
+      });
+    } catch {
+      setLocalWorkspace((current) => current?.deviceId === deviceId ? current : null);
+    } finally {
+      setLocalWorkspaceLoading(false);
+    }
+  }, []);
+
+  const selectedDeviceToolsDetectedAt = devices.find(
+    (device) => device.id === selectedDeviceId,
+  )?.toolsDetectedAt;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -611,6 +674,12 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     });
     return () => { active = false; };
   }, [user]);
+
+  useEffect(() => {
+    if (!user || !selectedDeviceId) return;
+    const timer = window.setTimeout(() => void refreshLocalWorkspace(selectedDeviceId), 0);
+    return () => window.clearTimeout(timer);
+  }, [refreshLocalWorkspace, selectedDeviceId, selectedDeviceToolsDetectedAt, user]);
 
   const bindBrowserDevice = useCallback((deviceId: string | null) => {
     setSelectedDeviceId(deviceId);
@@ -828,6 +897,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         if (refreshed?.toolsDetectedAt && refreshed.toolsDetectedAt !== previousDetection) {
           const count = Array.isArray(refreshed.installedTools) ? refreshed.installedTools.length : 0;
           setToast(`识别完成，发现 ${count} 个本机 AI 工具`);
+          void refreshLocalWorkspace(device.id);
           return;
         }
       }
@@ -837,7 +907,33 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     } finally {
       setScanningDeviceId(null);
     }
-  }, [scanningDeviceId]);
+  }, [refreshLocalWorkspace, scanningDeviceId]);
+
+  async function uninstallLocalWorkspaceSkill(skill: LocalWorkspaceSkill) {
+    if (!onlineDevice || localUninstallBusyKey) return;
+    const key = `${skill.tool}:${skill.slug}`;
+    setLocalUninstallBusyKey(key);
+    try {
+      const response = await fetch(`/api/devices/${encodeURIComponent(onlineDevice.id)}/local-skills`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tool: skill.tool, slug: skill.slug }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.detail || data?.error || "本机卸载任务发送失败"));
+      setLocalWorkspace((current) => current ? {
+        ...current,
+        skills: current.skills.filter((item) => !(item.tool === skill.tool && item.slug === skill.slug)),
+      } : current);
+      setLocalUninstallCandidate(null);
+      setToast(`已发送卸载任务：${skill.name}`);
+      void refreshInstallTasks();
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "本机卸载任务发送失败");
+    } finally {
+      setLocalUninstallBusyKey(null);
+    }
+  }
 
   useEffect(() => {
     if (!selectedDeviceId) return;
@@ -1254,6 +1350,16 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
           ) : (
             <div className="empty-state"><span>{libraryMode === "public" ? "◎" : "⌕"}</span><h3>{libraryMode === "public" ? "公有池还没有这个分类的 Skill" : "私人空间里还没有 Skill"}</h3><p>{libraryMode === "public" ? "你可以成为第一个分享者，个人备注不会公开。" : "拖动上传，或先从公有池拉取一份。"}</p><button onClick={() => { setQuery(""); setActiveCategory("全部技能"); if (libraryMode === "public") guardAccount(() => setLibraryMode("private")); else setLibraryMode("public"); }}>{libraryMode === "public" ? "去分享 Skill" : "浏览公有池"}</button></div>
           )}
+          {libraryMode === "private" && <LocalWorkspaceSection
+            workspace={localWorkspace?.deviceId === selectedDeviceId ? localWorkspace : null}
+            loading={localWorkspaceLoading}
+            device={selectedDevice}
+            busyKey={localUninstallBusyKey}
+            onRefresh={() => onlineDevice && void refreshLocalTools(onlineDevice)}
+            onUninstall={(skill) => skill.fromMySkills
+              ? void uninstallLocalWorkspaceSkill(skill)
+              : setLocalUninstallCandidate(skill)}
+          />}
         </div>
       </main>
 
@@ -1309,7 +1415,19 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         setToast("备注已保存，仅你自己可见");
       }}/>}
       {shareCandidate && <ShareConfirmModal skill={shareCandidate} busy={shareBusy} onClose={() => !shareBusy && setShareCandidate(null)} onConfirm={() => void shareSkill()}/>}
-      {actionCandidate && <SkillActionConfirmModal skill={actionCandidate.skill} action={actionCandidate.action} busy={actionBusy} onClose={() => !actionBusy && setActionCandidate(null)} onConfirm={() => void confirmSkillAction()}/>}
+      {actionCandidate && <SkillActionConfirmModal
+        skill={actionCandidate.skill}
+        action={actionCandidate.action}
+        busy={actionBusy}
+        onClose={() => !actionBusy && setActionCandidate(null)}
+        onConfirm={() => void confirmSkillAction()}
+      />}
+      {localUninstallCandidate && <LocalSkillUninstallConfirmModal
+        skill={localUninstallCandidate}
+        busy={localUninstallBusyKey === `${localUninstallCandidate.tool}:${localUninstallCandidate.slug}`}
+        onClose={() => !localUninstallBusyKey && setLocalUninstallCandidate(null)}
+        onConfirm={() => void uninstallLocalWorkspaceSkill(localUninstallCandidate)}
+      />}
       {installer && (
         <InstallModal skill={installer} signedIn={Boolean(user)} onRequireSignIn={() => { setInstaller(null); setAuthOpen(true); }} onConnectBridge={() => { setInstaller(null); setPairOpen(true); }} onlineDevice={onlineDevice ?? null} onClose={() => setInstaller(null)} onDone={(message) => { setInstaller(null); setToast(message); void refreshStatistics(); void refreshInstallTasks(); }}/>
       )}
@@ -1698,6 +1816,97 @@ function SkillActionConfirmModal({ skill, action, busy, onClose, onConfirm }: {
           ? `将永久删除你的私人 Skill 文件、头像和备注${skill.shared ? "，并同时从公有池下架" : ""}。其他用户此前拉取的独立副本不会受影响。`
           : "只会删除公有池中的发布记录，你的私人原件、头像和备注都会保留。"}</p>
         <div className="modal-actions"><button className="secondary-button" disabled={busy} onClick={onClose}>取消</button><button className="danger-confirm" disabled={busy} onClick={onConfirm}>{busy ? "正在处理…" : deleting ? "确认永久删除" : "确认下架"}</button></div>
+      </div>
+    </div>
+  );
+}
+
+function LocalWorkspaceSection({ workspace, loading, device, busyKey, onRefresh, onUninstall }: {
+  workspace: LocalWorkspace | null;
+  loading: boolean;
+  device: Device | null;
+  busyKey: string | null;
+  onRefresh: () => void;
+  onUninstall: (skill: LocalWorkspaceSkill) => void;
+}) {
+  const groupedSkills = Object.entries(toolMeta)
+    .map(([toolId, meta]) => ({
+      toolId: toolId as keyof typeof toolMeta,
+      meta,
+      skills: (workspace?.skills || []).filter((skill) => skill.tool === toolId),
+    }))
+    .filter((group) => group.skills.length > 0);
+  const online = device?.status === "ONLINE";
+
+  return (
+    <section className="local-workspace" aria-labelledby="local-workspace-title">
+      <div className="local-workspace-heading">
+        <div>
+          <span>LOCAL WORKSPACE</span>
+          <h2 id="local-workspace-title">个人工作区</h2>
+          <p>{device
+            ? `展示 ${device.name} 中已识别 AI 工具下的 Skill；本机文件不会上传到云端。`
+            : "选择当前浏览器对应的电脑后，才能查看这台电脑中的 Skill。"}</p>
+        </div>
+        <div className="local-workspace-summary">
+          {device && <small className={online ? "workspace-device-status online" : "workspace-device-status"}><i/>{online ? "设备在线" : "设备离线"}</small>}
+          <b>{workspace?.skills.length || 0}</b><span>个本机 Skill</span>
+          <button disabled={!online || loading} onClick={onRefresh}>{loading ? "识别中…" : "重新识别"}<em>↻</em></button>
+        </div>
+      </div>
+
+      {!device ? (
+        <div className="local-workspace-empty"><span>⌁</span><h3>尚未选择当前电脑</h3><p>请在右侧“本机工具”中选择或配对这台电脑。</p></div>
+      ) : loading && !workspace ? (
+        <div className="local-workspace-empty loading"><span>↻</span><h3>正在读取本机工作区</h3><p>Bridge 正在检查已识别 AI 工具的 Skills 目录。</p></div>
+      ) : groupedSkills.length === 0 ? (
+        <div className="local-workspace-empty"><span>◇</span><h3>暂未识别到本机 Skill</h3><p>{online ? "请更新 Bridge 后点击“重新识别”，或先向任一 AI 工具安装一个 Skill。" : "设备离线时保留最近一次识别结果；重新连接后可再次识别。"}</p></div>
+      ) : (
+        <div className="local-workspace-groups">
+          {groupedSkills.map((group) => (
+            <section className="local-tool-group" key={group.toolId}>
+              <div className="local-tool-heading"><span className={`tool-logo ${group.meta.color}`}>{group.meta.mark}</span><div><h3>{group.meta.name}</h3><p>{group.skills.length} 个 Skill</p></div></div>
+              <div className="local-skill-grid">
+                {group.skills.map((skill) => {
+                  const actionKey = `${skill.tool}:${skill.slug}`;
+                  const busy = busyKey === actionKey;
+                  return (
+                    <article className="local-skill-card" key={actionKey}>
+                      <div className="local-skill-card-head"><span>{skill.name.slice(0, 1).toUpperCase()}</span><div><h4>{skill.name}</h4><p>{skill.slug}</p></div></div>
+                      <p className="local-skill-description">{skill.description || "本机 Skill"}</p>
+                      <div className="local-skill-path" title={skill.relativePath}><span>▱</span><code>{skill.relativePath}</code></div>
+                      <div className="local-skill-card-footer">
+                        <button disabled={!online || busy} onClick={() => onUninstall(skill)}>{busy ? "正在卸载…" : "从本机卸载"}</button>
+                        {skill.fromMySkills && <span className="local-origin-badge"><i>✓</i>来自我的 Skill</span>}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function LocalSkillUninstallConfirmModal({ skill, busy, onClose, onConfirm }: {
+  skill: LocalWorkspaceSkill;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const tool = toolMeta[skill.tool];
+  return (
+    <div className="modal-backdrop share-backdrop">
+      <div className="modal share-modal danger-modal local-uninstall-confirm" role="alertdialog" aria-modal="true" aria-labelledby="local-uninstall-title">
+        <button className="close-button" disabled={busy} onClick={onClose} aria-label="关闭卸载确认">×</button>
+        <span className="step-label">REMOVE LOCAL SKILL</span>
+        <h2 id="local-uninstall-title">删除本机 Skill？</h2>
+        <p className="install-lead">从 {tool.name} 中删除“{skill.name}”？此操作会删除本地文件且不可恢复。</p>
+        <div className="local-uninstall-target"><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><div><b>{tool.name}</b><code>{skill.relativePath}</code></div></div>
+        <div className="modal-actions"><button className="secondary-button" disabled={busy} onClick={onClose}>取消</button><button className="danger-confirm" disabled={busy} onClick={onConfirm}>{busy ? "正在发送卸载任务…" : "确认删除本地文件"}</button></div>
       </div>
     </div>
   );
