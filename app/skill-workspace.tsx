@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.32",
+    date: "2026-08-28",
+    title: "Windows 工作区按钮优化",
+    changes: [
+      "个人工作区 Skill 卡片采用更合理的宽度，避免 Windows 下操作区过度拥挤。",
+      "“打开文件夹”和“从本机卸载”固定为单行显示，不再出现难看的文字换行。",
+      "两个操作按钮重新分配宽度并缩小图标和内边距，窄窗口下仍保持整齐。",
+    ],
+  },
+  {
     version: "1.0.31",
     date: "2026-08-28",
     title: "本机 Skill 快速查看",
@@ -509,11 +519,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.31",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.32",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.31",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.32",
   },
 };
 

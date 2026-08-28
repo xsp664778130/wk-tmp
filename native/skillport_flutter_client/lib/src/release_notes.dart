@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.31';
+const currentReleaseVersion = '1.0.32';
 const currentReleaseDate = '2026-08-28';
-const currentReleaseTitle = '本机 Skill 快速查看';
+const currentReleaseTitle = 'Windows 工作区按钮优化';
 const currentReleaseChanges = <String>[
-  '个人工作区卡片新增“打开文件夹”，直接进入真实的本机 Skill 目录。',
-  '卡片右上角新增三点菜单，可查看并滚动浏览完整 SKILL.md 内容。',
-  '所有本机操作都会重新校验工具根目录和 Skill 路径，避免访问目录外文件。',
+  '个人工作区 Skill 卡片采用更合理的宽度，避免 Windows 下操作区过度拥挤。',
+  '“打开文件夹”和“从本机卸载”固定为单行显示，不再出现难看的文字换行。',
+  '两个操作按钮重新分配宽度并缩小图标和内边距，窄窗口下仍保持整齐。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.31',
+    date: '2026-08-28',
+    title: '本机 Skill 快速查看',
+    changes: <String>[
+      '个人工作区卡片新增“打开文件夹”，直接进入真实的本机 Skill 目录。',
+      '卡片右上角新增三点菜单，可查看并滚动浏览完整 SKILL.md 内容。',
+      '所有本机操作都会重新校验工具根目录和 Skill 路径，避免访问目录外文件。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.30',

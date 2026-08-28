@@ -44,13 +44,13 @@ skillport:
   public-api-base-url: ${SKILLPORT_API_PUBLIC_URL:http://localhost:8080}
   public-netty-base-url: ${SKILLPORT_NETTY_PUBLIC_URL:http://localhost:9091}
   client-release:
-    version: 1.0.31
+    version: 1.0.32
     date: 2026-08-28
-    title: 本机 Skill 快速查看
+    title: Windows 工作区按钮优化
     changes:
-      - 网页与桌面客户端的个人工作区卡片新增打开本地文件夹，可直接进入真实 Skill 目录。
-      - 卡片右上角新增三点菜单，可临时读取并预览该目录中的 SKILL.md 完整内容。
-      - Bridge 只接受已识别工具和 Skill 目录名，重新校验本机路径且不会保存预览内容。
+      - 个人工作区 Skill 卡片采用更合理的宽度，避免 Windows 下操作区过度拥挤。
+      - 打开文件夹和从本机卸载固定为单行显示，不再出现难看的文字换行。
+      - 两个操作按钮重新分配宽度并缩小图标和内边距，窄窗口下仍保持整齐。
     download-base-url: ${SKILLPORT_CLIENT_DOWNLOAD_URL:https://www.jmuyuer.com}
   wecom:
     enabled: ${WECOM_ENABLED:false}

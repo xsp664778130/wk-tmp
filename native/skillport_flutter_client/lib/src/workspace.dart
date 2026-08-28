@@ -646,7 +646,7 @@ class LocalWorkspaceLibrary extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(28, 0, 28, 36),
                   sliver: SliverGrid.builder(
                     itemCount: skills.length,
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 360, mainAxisExtent: 280, mainAxisSpacing: 14, crossAxisSpacing: 14),
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 430, mainAxisExtent: 280, mainAxisSpacing: 14, crossAxisSpacing: 14),
                     itemBuilder: (context, index) => LocalSkillCard(controller: controller, skill: skills[index]),
                   ),
                 ),
@@ -670,6 +670,11 @@ class LocalSkillCard extends StatelessWidget {
     final palette = skillPortPalette(context);
     final fromMySkills = controller.isFromMySkills(skill);
     final toolName = toolLabels[skill.toolId] ?? skill.toolId;
+    final actionButtonStyle = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 42),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
     return Card(
       elevation: 0,
       color: scheme.surface,
@@ -708,9 +713,9 @@ class LocalSkillCard extends StatelessWidget {
           Tooltip(message: skill.directory, child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), decoration: BoxDecoration(color: palette.soft, borderRadius: BorderRadius.circular(9)), child: Row(children: <Widget>[Icon(Icons.folder_open_rounded, size: 15, color: scheme.primary), const SizedBox(width: 7), Expanded(child: Text(skill.directory, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: scheme.onSurfaceVariant)))]))),
           const Spacer(),
           Row(children: <Widget>[
-            Expanded(child: OutlinedButton.icon(onPressed: controller.busy ? null : () => controller.openLocalSkillFolder(skill), icon: const Icon(Icons.folder_open_rounded, size: 17), label: const Text('打开文件夹'))),
+            Flexible(flex: 5, child: SizedBox(width: double.infinity, child: OutlinedButton.icon(style: actionButtonStyle, onPressed: controller.busy ? null : () => controller.openLocalSkillFolder(skill), icon: const Icon(Icons.folder_open_rounded, size: 16), label: const Text('打开文件夹', maxLines: 1, softWrap: false, overflow: TextOverflow.fade)))),
             const SizedBox(width: 8),
-            Expanded(child: OutlinedButton.icon(onPressed: controller.busy ? null : () => _removeLocalSkill(context, fromMySkills, toolName), icon: const Icon(Icons.delete_outline_rounded, size: 17), label: const Text('从本机卸载'))),
+            Flexible(flex: 6, child: SizedBox(width: double.infinity, child: OutlinedButton.icon(style: actionButtonStyle, onPressed: controller.busy ? null : () => _removeLocalSkill(context, fromMySkills, toolName), icon: const Icon(Icons.delete_outline_rounded, size: 16), label: const Text('从本机卸载', maxLines: 1, softWrap: false, overflow: TextOverflow.fade)))),
           ]),
           if (fromMySkills) ...<Widget>[
             const SizedBox(height: 7),
