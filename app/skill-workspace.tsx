@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.29",
+    date: "2026-08-28",
+    title: "AI 工具导航式工作区",
+    changes: [
+      "网页版与桌面客户端在左侧直接展示当前设备已识别的 AI 工具。",
+      "点击 Codex、Qoder、OpenCode、Claude Code 或 Cursor 后，主区域只展示该工具目录中的 Skill 卡片。",
+      "保留本机来源标识与差异化卸载确认，非 SkillPort 安装项会明确提示文件不可恢复。",
+    ],
+  },
+  {
     version: "1.0.28",
     date: "2026-08-28",
     title: "本机个人工作区",
@@ -489,11 +499,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.21",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.29",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.21",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.29",
   },
 };
 
@@ -558,7 +568,8 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const [user, setUser] = useState<User>(initialUser);
   const [activeCategory, setActiveCategory] = useState("全部技能");
   const [query, setQuery] = useState("");
-  const [libraryMode, setLibraryMode] = useState<"public" | "private">("public");
+  const [libraryMode, setLibraryMode] = useState<"public" | "private" | "workspace">("public");
+  const [selectedWorkspaceTool, setSelectedWorkspaceTool] = useState<keyof typeof toolMeta | null>(null);
   const [privateSkills, setPrivateSkills] = useState<Skill[]>([]);
   const [publicSkills, setPublicSkills] = useState<Skill[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
@@ -811,7 +822,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    const skills = libraryMode === "public" ? publicSkills : privateSkills;
+    const skills = libraryMode === "public" ? publicSkills : libraryMode === "private" ? privateSkills : [];
     return skills.filter((skill) => {
       const categoryMatch = activeCategory === "全部技能" || skill.category === activeCategory;
       const searchMatch = !normalized || `${skill.name} ${skill.description} ${skill.detail} ${skill.usageSteps.join(" ")} ${skill.category}`.toLowerCase().includes(normalized);
@@ -1196,6 +1207,16 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const detectedTools = new Set(onlineDevice?.installedTools || []);
   const hasToolDetection = Boolean(onlineDevice?.toolsDetectedAt);
   const scanningTools = onlineDevice?.id === scanningDeviceId;
+  const workspaceToolIds = (selectedDevice?.installedTools || [])
+    .filter((tool): tool is keyof typeof toolMeta => tool in toolMeta);
+  const workspaceSkills = localWorkspace?.deviceId === selectedDeviceId ? localWorkspace.skills : [];
+  const workspaceToolCounts = workspaceSkills.reduce<Record<string, number>>((counts, skill) => {
+    counts[skill.tool] = (counts[skill.tool] || 0) + 1;
+    return counts;
+  }, {});
+  const effectiveWorkspaceTool = selectedWorkspaceTool && workspaceToolIds.includes(selectedWorkspaceTool)
+    ? selectedWorkspaceTool
+    : workspaceToolIds[0] || null;
 
   return (
     <div className="app-shell" data-theme={theme}>
@@ -1214,6 +1235,15 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
           ))}
           <p className="nav-label nav-label-space">个人空间</p>
           <button className={libraryMode === "private" ? "nav-item active" : "nav-item"} onClick={() => { guardAccount(() => { setLibraryMode("private"); setActiveCategory("全部技能"); setQuery(""); }); }}><span className="nav-icon">↑</span><span>我的 Skill</span><span className="nav-count">{privateSkills.length}</span></button>
+          <p className="nav-label workspace-nav-label">个人工作区</p>
+          {workspaceToolIds.length ? workspaceToolIds.map((toolId) => {
+            const meta = toolMeta[toolId];
+            return (
+              <button key={toolId} className={libraryMode === "workspace" && effectiveWorkspaceTool === toolId ? "nav-item workspace-tool-item active" : "nav-item workspace-tool-item"} onClick={() => { guardAccount(() => { setSelectedWorkspaceTool(toolId); setLibraryMode("workspace"); setQuery(""); }); }}>
+                <span className={`nav-tool-mark ${meta.color}`}>{meta.mark}</span><span>{meta.name}</span><span className="nav-count">{workspaceToolCounts[toolId] || 0}</span>
+              </button>
+            );
+          }) : <span className="workspace-nav-empty">{selectedDevice ? "等待识别本机工具" : "请先选择当前电脑"}</span>}
           <button className="nav-item"><span className="nav-icon">♡</span><span>收藏夹</span></button>
           <button className="nav-item"><span className="nav-icon">↺</span><span>安装记录</span></button>
         </nav>
@@ -1294,6 +1324,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             </div>
           </section>
 
+          {libraryMode !== "workspace" ? <>
           <section className="stats-strip" aria-label="技能统计">
             <div><span className="stat-icon purple">▦</span><p><b>{statistics?.mySkills ?? "—"}</b><small>我的 Skills</small></p><em>{statistics ? `${statistics.sharedSkills} 个已分享` : "登录后查看"}</em></div>
             <div><span className="stat-icon green">⌁</span><p><b>{statistics?.connectedDevices ?? "—"}</b><small>已连接设备</small></p><em className="neutral">{statistics ? `${statistics.onlineDevices} 台在线` : "Bridge 实时状态"}</em></div>
@@ -1350,10 +1381,12 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
           ) : (
             <div className="empty-state"><span>{libraryMode === "public" ? "◎" : "⌕"}</span><h3>{libraryMode === "public" ? "公有池还没有这个分类的 Skill" : "私人空间里还没有 Skill"}</h3><p>{libraryMode === "public" ? "你可以成为第一个分享者，个人备注不会公开。" : "拖动上传，或先从公有池拉取一份。"}</p><button onClick={() => { setQuery(""); setActiveCategory("全部技能"); if (libraryMode === "public") guardAccount(() => setLibraryMode("private")); else setLibraryMode("public"); }}>{libraryMode === "public" ? "去分享 Skill" : "浏览公有池"}</button></div>
           )}
-          {libraryMode === "private" && <LocalWorkspaceSection
+          </> : <LocalWorkspaceSection
             workspace={localWorkspace?.deviceId === selectedDeviceId ? localWorkspace : null}
             loading={localWorkspaceLoading}
             device={selectedDevice}
+            selectedTool={effectiveWorkspaceTool}
+            query={query}
             busyKey={localUninstallBusyKey}
             onRefresh={() => onlineDevice && void refreshLocalTools(onlineDevice)}
             onUninstall={(skill) => skill.fromMySkills
@@ -1821,21 +1854,20 @@ function SkillActionConfirmModal({ skill, action, busy, onClose, onConfirm }: {
   );
 }
 
-function LocalWorkspaceSection({ workspace, loading, device, busyKey, onRefresh, onUninstall }: {
+function LocalWorkspaceSection({ workspace, loading, device, selectedTool, query, busyKey, onRefresh, onUninstall }: {
   workspace: LocalWorkspace | null;
   loading: boolean;
   device: Device | null;
+  selectedTool: keyof typeof toolMeta | null;
+  query: string;
   busyKey: string | null;
   onRefresh: () => void;
   onUninstall: (skill: LocalWorkspaceSkill) => void;
 }) {
-  const groupedSkills = Object.entries(toolMeta)
-    .map(([toolId, meta]) => ({
-      toolId: toolId as keyof typeof toolMeta,
-      meta,
-      skills: (workspace?.skills || []).filter((skill) => skill.tool === toolId),
-    }))
-    .filter((group) => group.skills.length > 0);
+  const meta = selectedTool ? toolMeta[selectedTool] : null;
+  const normalizedQuery = query.trim().toLowerCase();
+  const skills = (workspace?.skills || []).filter((skill) =>
+    skill.tool === selectedTool && (!normalizedQuery || `${skill.name} ${skill.description} ${skill.slug} ${skill.relativePath}`.toLowerCase().includes(normalizedQuery)));
   const online = device?.status === "ONLINE";
 
   return (
@@ -1843,14 +1875,14 @@ function LocalWorkspaceSection({ workspace, loading, device, busyKey, onRefresh,
       <div className="local-workspace-heading">
         <div>
           <span>LOCAL WORKSPACE</span>
-          <h2 id="local-workspace-title">个人工作区</h2>
+          <h2 id="local-workspace-title">{meta ? `${meta.name} 工作区` : "个人工作区"}</h2>
           <p>{device
-            ? `展示 ${device.name} 中已识别 AI 工具下的 Skill；本机文件不会上传到云端。`
+            ? meta ? `展示 ${device.name} 的 ${meta.name} Skills 目录；本机文件不会上传到云端。` : `请选择左侧已识别的 AI 工具。`
             : "选择当前浏览器对应的电脑后，才能查看这台电脑中的 Skill。"}</p>
         </div>
         <div className="local-workspace-summary">
           {device && <small className={online ? "workspace-device-status online" : "workspace-device-status"}><i/>{online ? "设备在线" : "设备离线"}</small>}
-          <b>{workspace?.skills.length || 0}</b><span>个本机 Skill</span>
+          <b>{skills.length}</b><span>个本机 Skill</span>
           <button disabled={!online || loading} onClick={onRefresh}>{loading ? "识别中…" : "重新识别"}<em>↻</em></button>
         </div>
       </div>
@@ -1859,15 +1891,15 @@ function LocalWorkspaceSection({ workspace, loading, device, busyKey, onRefresh,
         <div className="local-workspace-empty"><span>⌁</span><h3>尚未选择当前电脑</h3><p>请在右侧“本机工具”中选择或配对这台电脑。</p></div>
       ) : loading && !workspace ? (
         <div className="local-workspace-empty loading"><span>↻</span><h3>正在读取本机工作区</h3><p>Bridge 正在检查已识别 AI 工具的 Skills 目录。</p></div>
-      ) : groupedSkills.length === 0 ? (
-        <div className="local-workspace-empty"><span>◇</span><h3>暂未识别到本机 Skill</h3><p>{online ? "请更新 Bridge 后点击“重新识别”，或先向任一 AI 工具安装一个 Skill。" : "设备离线时保留最近一次识别结果；重新连接后可再次识别。"}</p></div>
+      ) : !selectedTool || !meta ? (
+        <div className="local-workspace-empty"><span>⌁</span><h3>请选择一个 AI 工具</h3><p>左侧只会列出当前电脑已经识别到的工具。</p></div>
+      ) : skills.length === 0 ? (
+        <div className="local-workspace-empty"><span>{meta.mark}</span><h3>{normalizedQuery ? "没有匹配的 Skill" : `${meta.name} 目录暂时为空`}</h3><p>{normalizedQuery ? "换一个关键词，或清空搜索后查看全部本机 Skill。" : online ? `可从“我的 Skill”将内容安装到 ${meta.name}，或点击“重新识别”。` : "设备重新在线后可以刷新目录。"}</p></div>
       ) : (
-        <div className="local-workspace-groups">
-          {groupedSkills.map((group) => (
-            <section className="local-tool-group" key={group.toolId}>
-              <div className="local-tool-heading"><span className={`tool-logo ${group.meta.color}`}>{group.meta.mark}</span><div><h3>{group.meta.name}</h3><p>{group.skills.length} 个 Skill</p></div></div>
-              <div className="local-skill-grid">
-                {group.skills.map((skill) => {
+        <section className="local-tool-view">
+          <div className="local-tool-view-heading"><span className={`tool-logo ${meta.color}`}>{meta.mark}</span><div><h3>{meta.name}</h3><p>{workspace?.skills.filter((skill) => skill.tool === selectedTool).length || 0} 个目录项</p></div><code>{skills[0]?.relativePath.split("/").slice(0, -1).join("/") || "Skills"}</code></div>
+          <div className="local-skill-grid">
+                {skills.map((skill) => {
                   const actionKey = `${skill.tool}:${skill.slug}`;
                   const busy = busyKey === actionKey;
                   return (
@@ -1882,10 +1914,8 @@ function LocalWorkspaceSection({ workspace, loading, device, busyKey, onRefresh,
                     </article>
                   );
                 })}
-              </div>
-            </section>
-          ))}
-        </div>
+          </div>
+        </section>
       )}
     </section>
   );

@@ -120,6 +120,10 @@ void main() {
           File(path.join(installed.path, 'scripts', 'check.sh')).existsSync(),
           isTrue,
         );
+        expect(
+          await File(path.join(installed.path, skillPortOriginFile)).readAsString(),
+          skill.id,
+        );
         expect(installer.isInstalled(skill, 'codex'), isTrue);
         final cursorInstalled = Directory(
           path.join(home.path, '.cursor', 'skills', 'sample-skill'),
@@ -151,6 +155,44 @@ void main() {
         );
       },
     );
+
+    test('scans local Skill metadata and preserves its cloud origin', () async {
+      final directory = await Directory(
+        path.join(home.path, '.codex', 'skills', 'audit-helper'),
+      ).create(recursive: true);
+      await File(path.join(directory.path, 'SKILL.md')).writeAsString(
+        '---\nname: Audit Helper\ndescription: 检查服务配置\n---\n# Audit Helper\n',
+      );
+      await File(path.join(directory.path, skillPortOriginFile))
+          .writeAsString('private-skill-42');
+
+      final skills = await installer.scanLocalSkills(
+        toolIds: const <String>['codex'],
+      );
+
+      expect(skills, hasLength(1));
+      expect(skills.single.toolId, 'codex');
+      expect(skills.single.slug, 'audit-helper');
+      expect(skills.single.name, 'Audit Helper');
+      expect(skills.single.description, '检查服务配置');
+      expect(skills.single.originSkillId, 'private-skill-42');
+    });
+
+    test('uninstalls an exact external local Skill directory', () async {
+      final directory = await Directory(
+        path.join(home.path, '.codex', 'skills', 'external-skill'),
+      ).create(recursive: true);
+      await File(path.join(directory.path, 'skill.md')).writeAsString(
+        '# External Skill\n',
+      );
+      final item = (await installer.scanLocalSkills(
+        toolIds: const <String>['codex'],
+      )).single;
+
+      expect(item.originSkillId, isNull);
+      expect(await installer.uninstallLocalSkill(item), isTrue);
+      expect(directory.existsSync(), isFalse);
+    });
 
     test(
       'rejects an archive traversal path before writing outside destination',

@@ -48,7 +48,8 @@ class _WorkspaceState extends State<Workspace> {
             children: <Widget>[
               Sidebar(controller: widget.controller, compact: compact),
               Expanded(child: Library(controller: widget.controller)),
-              if (showRail) LocalRail(controller: widget.controller),
+              if (showRail && widget.controller.mode != LibraryMode.localWorkspace)
+                LocalRail(controller: widget.controller),
             ],
           );
         },
@@ -69,7 +70,8 @@ class Sidebar extends StatelessWidget {
     final palette = skillPortPalette(context);
     final width = compact ? 82.0 : 238.0;
     Widget navButton({
-      required IconData icon,
+      IconData? icon,
+      String? mark,
       required String label,
       required bool selected,
       required VoidCallback onTap,
@@ -91,11 +93,23 @@ class Sidebar extends StatelessWidget {
                     : MainAxisAlignment.start,
                 children: <Widget>[
                   if (!compact) const SizedBox(width: 13),
-                  Icon(
-                    icon,
-                    size: 20,
-                    color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                  ),
+                  if (mark == null)
+                    Icon(
+                      icon,
+                      size: 20,
+                      color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                    )
+                  else
+                    Container(
+                      width: 25,
+                      height: 25,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: selected ? scheme.primaryContainer : palette.soft,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(mark, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: selected ? scheme.primary : scheme.onSurfaceVariant)),
+                    ),
                   if (!compact) ...<Widget>[
                     const SizedBox(width: 11),
                     Expanded(
@@ -165,7 +179,12 @@ class Sidebar extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 20),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
           if (!compact)
             Padding(
               padding: EdgeInsets.only(left: 11, bottom: 6),
@@ -224,7 +243,29 @@ class Sidebar extends StatelessWidget {
             count: controller.privateSkills.length,
             onTap: () => controller.setMode(LibraryMode.privateSpace),
           ),
-          const Spacer(),
+          if (!compact)
+            Padding(
+              padding: const EdgeInsets.only(left: 11, top: 22, bottom: 6),
+              child: Text('个人工作区', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+            ),
+          if (controller.detectedTools.isEmpty && !compact)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 8, 12),
+              child: Text('暂未识别到本机 AI 工具', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11)),
+            )
+          else
+            ...controller.detectedTools.map((tool) => navButton(
+              mark: toolMarks[tool.id] ?? '?',
+              label: tool.name,
+              selected: controller.mode == LibraryMode.localWorkspace && controller.selectedLocalToolId == tool.id,
+              count: controller.localSkills.where((skill) => skill.toolId == tool.id).length,
+              onTap: () => controller.selectLocalTool(tool.id),
+            )),
+          const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          ),
           if (!compact)
             Container(
               padding: const EdgeInsets.all(13),
@@ -369,6 +410,9 @@ class Library extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (controller.mode == LibraryMode.localWorkspace) {
+      return LocalWorkspaceLibrary(controller: controller);
+    }
     final public = controller.mode == LibraryMode.publicPool;
     final scheme = Theme.of(context).colorScheme;
     return Column(
@@ -524,6 +568,148 @@ class Library extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class LocalWorkspaceLibrary extends StatelessWidget {
+  const LocalWorkspaceLibrary({super.key, required this.controller});
+
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    ToolTarget? selected;
+    for (final tool in controller.tools) {
+      if (tool.id == controller.selectedLocalToolId) {
+        selected = tool;
+        break;
+      }
+    }
+    final skills = controller.visibleLocalSkills;
+    return Column(
+      children: <Widget>[
+        Container(
+          height: 74,
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          decoration: BoxDecoration(color: scheme.surface.withValues(alpha: .96), border: Border(bottom: BorderSide(color: scheme.outlineVariant))),
+          child: Row(
+            children: <Widget>[
+              Expanded(child: TextField(onChanged: controller.setQuery, decoration: InputDecoration(hintText: selected == null ? '搜索本机 Skill…' : '搜索 ${selected.name} 中的 Skill…', prefixIcon: const Icon(Icons.search_rounded), isDense: true))),
+              const SizedBox(width: 16),
+              const VersionUpdateButton(),
+              const SizedBox(width: 8),
+              IconButton(onPressed: controller.busy ? null : controller.refreshLocalWorkspace, tooltip: '重新识别本机工作区', icon: const Icon(Icons.refresh_rounded)),
+              const SizedBox(width: 8),
+              CircleAvatar(backgroundColor: scheme.inverseSurface, foregroundColor: scheme.onInverseSurface, child: Text(controller.user!.displayName.characters.first.toUpperCase())),
+            ],
+          ),
+        ),
+        if (controller.busy) LinearProgressIndicator(minHeight: 3, backgroundColor: Colors.transparent, semanticsLabel: controller.busyLabel),
+        Expanded(
+          child: CustomScrollView(
+            slivers: <Widget>[
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(28, 28, 28, 20),
+                sliver: SliverToBoxAdapter(
+                  child: Row(
+                    children: <Widget>[
+                      Container(width: 48, height: 48, alignment: Alignment.center, decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(15)), child: Text(selected == null ? '?' : toolMarks[selected.id] ?? '?', style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w900))),
+                      const SizedBox(width: 14),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+                        Text(selected == null ? '个人工作区' : '${selected.name} 工作区', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: -1.2)),
+                        const SizedBox(height: 5),
+                        Text(selected == null ? '请从左侧选择一个已识别的 AI 工具。' : '${selected.directory} · ${controller.localSkills.where((item) => item.toolId == selected.id).length} 个本机 Skill', style: TextStyle(color: scheme.onSurfaceVariant)),
+                      ])),
+                    ],
+                  ),
+                ),
+              ),
+              if (selected == null || skills.isEmpty)
+                SliverFillRemaining(hasScrollBody: false, child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
+                  Icon(selected == null ? Icons.desktop_windows_outlined : Icons.folder_open_outlined, size: 42, color: scheme.primary),
+                  const SizedBox(height: 12),
+                  Text(selected == null ? '暂未识别到 AI 工具' : '${selected.name} 目录中还没有 Skill', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                  const SizedBox(height: 6),
+                  Text(controller.query.trim().isNotEmpty ? '清空搜索词后再试一次。' : '安装后可在这里查看并管理真实的本机目录。', style: TextStyle(color: scheme.onSurfaceVariant)),
+                ])))
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(28, 0, 28, 36),
+                  sliver: SliverGrid.builder(
+                    itemCount: skills.length,
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 360, mainAxisExtent: 245, mainAxisSpacing: 14, crossAxisSpacing: 14),
+                    itemBuilder: (context, index) => LocalSkillCard(controller: controller, skill: skills[index]),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class LocalSkillCard extends StatelessWidget {
+  const LocalSkillCard({super.key, required this.controller, required this.skill});
+
+  final AppController controller;
+  final LocalSkillItem skill;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final palette = skillPortPalette(context);
+    final fromMySkills = controller.isFromMySkills(skill);
+    final toolName = toolLabels[skill.toolId] ?? skill.toolId;
+    return Card(
+      elevation: 0,
+      color: scheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17), side: BorderSide(color: scheme.outlineVariant)),
+      child: Padding(
+        padding: const EdgeInsets.all(17),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+          Row(children: <Widget>[
+            CircleAvatar(backgroundColor: palette.soft, foregroundColor: scheme.primary, child: Text(skill.name.characters.first.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900))),
+            const SizedBox(width: 11),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+              Text(skill.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              Text(skill.slug, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, fontFamily: 'monospace')),
+            ])),
+          ]),
+          const SizedBox(height: 13),
+          Text(skill.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(height: 1.5, color: scheme.onSurfaceVariant)),
+          const SizedBox(height: 12),
+          Tooltip(message: skill.directory, child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), decoration: BoxDecoration(color: palette.soft, borderRadius: BorderRadius.circular(9)), child: Row(children: <Widget>[Icon(Icons.folder_open_rounded, size: 15, color: scheme.primary), const SizedBox(width: 7), Expanded(child: Text(skill.directory, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: scheme.onSurfaceVariant)))]))),
+          const Spacer(),
+          Row(children: <Widget>[
+            OutlinedButton.icon(onPressed: controller.busy ? null : () => _removeLocalSkill(context, fromMySkills, toolName), icon: const Icon(Icons.delete_outline_rounded, size: 17), label: const Text('从本机卸载')),
+            const Spacer(),
+            if (fromMySkills) Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6), decoration: BoxDecoration(color: palette.successSurface, borderRadius: BorderRadius.circular(999)), child: Row(children: <Widget>[Icon(Icons.verified_rounded, size: 14, color: palette.success), const SizedBox(width: 4), Text('来自我的 Skill', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: palette.success))])),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _removeLocalSkill(BuildContext context, bool fromMySkills, String toolName) async {
+    if (fromMySkills) {
+      await controller.uninstallLocalSkill(skill);
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('删除本机 Skill？'),
+        content: Text('从 $toolName 中删除“${skill.name}”？此操作会删除本地文件且不可恢复。'),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('确认删除本地文件')),
+        ],
+      ),
+    );
+    if (confirmed == true) await controller.uninstallLocalSkill(skill);
   }
 }
 

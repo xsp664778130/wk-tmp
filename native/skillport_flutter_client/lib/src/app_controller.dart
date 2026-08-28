@@ -34,6 +34,8 @@ class AppController extends ChangeNotifier {
   List<SkillItem> privateSkills = const <SkillItem>[];
   List<SkillItem> publicSkills = const <SkillItem>[];
   List<ToolTarget> tools = const <ToolTarget>[];
+  List<LocalSkillItem> localSkills = const <LocalSkillItem>[];
+  String? selectedLocalToolId;
   final List<LocalActivity> activities = <LocalActivity>[];
   bool initializing = true;
   bool busy = false;
@@ -46,6 +48,7 @@ class AppController extends ChangeNotifier {
   Map<String, String> get imageHeaders => _api.sessionHeaders;
 
   List<SkillItem> get visibleSkills {
+    if (mode == LibraryMode.localWorkspace) return const <SkillItem>[];
     final source = mode == LibraryMode.publicPool
         ? publicSkills
         : privateSkills;
@@ -62,11 +65,26 @@ class AppController extends ChangeNotifier {
     }).toList();
   }
 
+  List<ToolTarget> get detectedTools =>
+      tools.where((tool) => tool.detected).toList(growable: false);
+
+  List<LocalSkillItem> get visibleLocalSkills {
+    final normalized = query.trim().toLowerCase();
+    return localSkills.where((skill) {
+      final toolMatches = skill.toolId == selectedLocalToolId;
+      final searchMatches = normalized.isEmpty ||
+          '${skill.name} ${skill.description} ${skill.slug} ${skill.directory}'
+              .toLowerCase()
+              .contains(normalized);
+      return toolMatches && searchMatches;
+    }).toList(growable: false);
+  }
+
   Future<void> initialize() async {
     try {
       themePreset = await ThemePreferenceStore.read();
       notifyListeners();
-      tools = _installer.detectTools();
+      await _refreshLocalWorkspace();
       final token = await _sessionStore.readToken();
       if (token != null && token.isNotEmpty) {
         _api.token = token;
@@ -151,7 +169,7 @@ class AppController extends ChangeNotifier {
       ]);
       privateSkills = results[0];
       publicSkills = results[1];
-      tools = _installer.detectTools();
+      await _refreshLocalWorkspace();
     }
 
     if (showBusy) {
@@ -164,6 +182,15 @@ class AppController extends ChangeNotifier {
 
   void setMode(LibraryMode value) {
     mode = value;
+    activeCategory = '全部技能';
+    query = '';
+    notifyListeners();
+  }
+
+  void selectLocalTool(String toolId) {
+    if (!detectedTools.any((tool) => tool.id == toolId)) return;
+    selectedLocalToolId = toolId;
+    mode = LibraryMode.localWorkspace;
     activeCategory = '全部技能';
     query = '';
     notifyListeners();
@@ -339,7 +366,7 @@ class AppController extends ChangeNotifier {
             createdAt: DateTime.now(),
           ),
         );
-        tools = _installer.detectTools();
+        await _refreshLocalWorkspace(notify: false);
       },
       successMessage:
           '已安装到 ${targets.map((id) => toolLabels[id] ?? id).join('、')}',
@@ -359,6 +386,7 @@ class AppController extends ChangeNotifier {
           createdAt: DateTime.now(),
         ),
       );
+      await _refreshLocalWorkspace(notify: false);
     });
     if (succeeded) {
       _show(removed == 0 ? '所选工具中没有这个 Skill' : '已永久删除 $removed 份本机副本');
@@ -368,6 +396,53 @@ class AppController extends ChangeNotifier {
 
   bool isInstalled(SkillItem skill, String target) =>
       _installer.isInstalled(skill, target);
+
+  SkillItem? sourceSkillForLocal(LocalSkillItem local) {
+    if (local.originSkillId != null) {
+      for (final skill in privateSkills) {
+        if (skill.id == local.originSkillId) return skill;
+      }
+    }
+    for (final skill in privateSkills) {
+      if (skillSlug(skill.name) == local.slug) return skill;
+    }
+    return null;
+  }
+
+  bool isFromMySkills(LocalSkillItem local) => sourceSkillForLocal(local) != null;
+
+  Future<bool> uninstallLocalSkill(LocalSkillItem skill) async {
+    var removed = false;
+    final succeeded = await _perform('正在删除本机 Skill…', () async {
+      removed = await _installer.uninstallLocalSkill(skill);
+      activities.insert(
+        0,
+        LocalActivity(
+          skillName: skill.name,
+          action: LocalAction.uninstall,
+          targets: <String>[skill.toolId],
+          createdAt: DateTime.now(),
+        ),
+      );
+      await _refreshLocalWorkspace(notify: false);
+    });
+    if (succeeded) _show(removed ? '已从本机永久删除 ${skill.name}' : '本机目录中已不存在该 Skill');
+    return succeeded;
+  }
+
+  Future<void> refreshLocalWorkspace() async {
+    await _perform('正在重新识别本机工作区…', () => _refreshLocalWorkspace(notify: false), successMessage: '本机工作区已刷新');
+  }
+
+  Future<void> _refreshLocalWorkspace({bool notify = true}) async {
+    tools = _installer.detectTools();
+    final detectedIds = tools.where((tool) => tool.detected).map((tool) => tool.id);
+    localSkills = await _installer.scanLocalSkills(toolIds: detectedIds);
+    if (selectedLocalToolId == null || !tools.any((tool) => tool.detected && tool.id == selectedLocalToolId)) {
+      selectedLocalToolId = detectedIds.isEmpty ? null : detectedIds.first;
+    }
+    if (notify) notifyListeners();
+  }
 
   Future<bool> _perform(
     String label,

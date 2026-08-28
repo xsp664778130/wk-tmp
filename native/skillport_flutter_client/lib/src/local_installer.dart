@@ -31,6 +31,8 @@ const toolMarks = <String, String>{
   'cursor': 'CU',
 };
 
+const skillPortOriginFile = '.skillport-origin';
+
 class LocalInstaller {
   LocalInstaller({
     String? homeDirectory,
@@ -175,6 +177,7 @@ class LocalInstaller {
         destination: destination,
         fileName: skill.fileName,
         content: content,
+        originSkillId: skill.id,
       );
     }
   }
@@ -196,6 +199,116 @@ class LocalInstaller {
   bool isInstalled(SkillItem skill, String target) =>
       Directory(_targetPath(target, skillSlug(skill.name))).existsSync();
 
+  Future<List<LocalSkillItem>> scanLocalSkills({
+    Iterable<String>? toolIds,
+  }) async {
+    final selected = (toolIds ?? toolDirectories.keys)
+        .where(toolDirectories.containsKey)
+        .toSet();
+    final result = <LocalSkillItem>[];
+    for (final toolId in selected) {
+      final root = Directory(_toolRoot(toolId));
+      if (!root.existsSync()) continue;
+      for (final entity in root.listSync(followLinks: false)) {
+        if (entity is! Directory || path.basename(entity.path).startsWith('.skillport-install-')) {
+          continue;
+        }
+        final skillFile = _findSkillFile(entity, depth: 0);
+        if (skillFile == null) continue;
+        final metadata = await _readSkillMetadata(skillFile);
+        final marker = File(path.join(entity.path, skillPortOriginFile));
+        final origin = marker.existsSync()
+            ? (await marker.readAsString()).trim()
+            : '';
+        result.add(
+          LocalSkillItem(
+            toolId: toolId,
+            slug: path.basename(entity.path),
+            name: metadata.$1,
+            description: metadata.$2,
+            directory: path.normalize(entity.path),
+            originSkillId: origin.isEmpty ? null : origin,
+          ),
+        );
+      }
+    }
+    result.sort((left, right) {
+      final byTool = left.toolId.compareTo(right.toolId);
+      return byTool != 0 ? byTool : left.name.toLowerCase().compareTo(right.name.toLowerCase());
+    });
+    return result;
+  }
+
+  Future<bool> uninstallLocalSkill(LocalSkillItem skill) async {
+    final root = path.normalize(path.absolute(_toolRoot(skill.toolId)));
+    final directory = path.normalize(path.absolute(skill.directory));
+    if (!path.isWithin(root, directory) || path.dirname(directory) != root) {
+      throw const LocalInstallException('本机 Skill 路径不安全，已停止删除');
+    }
+    final target = Directory(directory);
+    if (!target.existsSync()) return false;
+    await target.delete(recursive: true);
+    return true;
+  }
+
+  String _toolRoot(String target) {
+    final relative = toolDirectories[target];
+    if (relative == null) throw LocalInstallException('不支持的 AI 工具：$target');
+    return path.normalize(path.absolute(path.joinAll(<String>[_home, ...relative.split('/')] )));
+  }
+
+  File? _findSkillFile(Directory directory, {required int depth}) {
+    if (depth > 3) return null;
+    for (final entity in directory.listSync(followLinks: false)) {
+      if (entity is File && path.basename(entity.path).toLowerCase() == 'skill.md') {
+        return entity;
+      }
+    }
+    if (depth == 3) return null;
+    for (final entity in directory.listSync(followLinks: false)) {
+      if (entity is Directory) {
+        final nested = _findSkillFile(entity, depth: depth + 1);
+        if (nested != null) return nested;
+      }
+    }
+    return null;
+  }
+
+  Future<(String, String)> _readSkillMetadata(File file) async {
+    var content = await file.readAsString();
+    if (content.length > 128 * 1024) content = content.substring(0, 128 * 1024);
+    var name = '';
+    var description = '';
+    final lines = content.split(RegExp(r'\r?\n'));
+    if (lines.isNotEmpty && lines.first.trim() == '---') {
+      for (var index = 1; index < lines.length; index += 1) {
+        final line = lines[index].trim();
+        if (line == '---') break;
+        final separator = line.indexOf(':');
+        if (separator < 1) continue;
+        final key = line.substring(0, separator).trim().toLowerCase();
+        final value = _unquote(line.substring(separator + 1).trim());
+        if (key == 'name') name = value;
+        if (key == 'description') description = value;
+      }
+    }
+    if (name.isEmpty) {
+      final heading = lines.cast<String?>().firstWhere(
+        (line) => line?.trimLeft().startsWith('# ') == true,
+        orElse: () => null,
+      );
+      name = heading?.trim().substring(2).trim() ?? path.basename(file.parent.path);
+    }
+    return (name, description.isEmpty ? '本机 Skill' : description);
+  }
+
+  String _unquote(String value) {
+    if (value.length >= 2 && ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))) {
+      return value.substring(1, value.length - 1);
+    }
+    return value;
+  }
+
   String _targetPath(String target, String slug) {
     final relative = toolDirectories[target];
     if (relative == null) throw LocalInstallException('不支持的 AI 工具：$target');
@@ -214,6 +327,7 @@ class LocalInstaller {
     required String destination,
     required String fileName,
     required Uint8List content,
+    required String originSkillId,
   }) async {
     final parent = Directory(path.dirname(destination));
     await parent.create(recursive: true);
@@ -230,6 +344,8 @@ class LocalInstaller {
       if (!File(path.join(temporary.path, 'SKILL.md')).existsSync()) {
         throw const LocalInstallException('Skill 包根目录缺少 SKILL.md');
       }
+      await File(path.join(temporary.path, skillPortOriginFile))
+          .writeAsString(originSkillId, flush: true);
       final existing = Directory(destination);
       if (existing.existsSync()) await existing.delete(recursive: true);
       await temporary.rename(destination);

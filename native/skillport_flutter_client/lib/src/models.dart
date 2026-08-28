@@ -1,4 +1,4 @@
-enum LibraryMode { publicPool, privateSpace }
+enum LibraryMode { publicPool, privateSpace, localWorkspace }
 
 enum LocalAction { install, uninstall }
 
@@ -153,6 +153,24 @@ class ToolTarget {
   final String name;
   final String directory;
   final bool detected;
+}
+
+class LocalSkillItem {
+  const LocalSkillItem({
+    required this.toolId,
+    required this.slug,
+    required this.name,
+    required this.description,
+    required this.directory,
+    this.originSkillId,
+  });
+
+  final String toolId;
+  final String slug;
+  final String name;
+  final String description;
+  final String directory;
+  final String? originSkillId;
 }
 
 class LocalActivity {

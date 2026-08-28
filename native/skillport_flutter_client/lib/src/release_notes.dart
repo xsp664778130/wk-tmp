@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.21';
-const currentReleaseDate = '2026-08-27';
-const currentReleaseTitle = 'Skill 分类保存修复';
+const currentReleaseVersion = '1.0.29';
+const currentReleaseDate = '2026-08-28';
+const currentReleaseTitle = 'AI 工具导航式工作区';
 const currentReleaseChanges = <String>[
-  '我的 Skill 分类改为选择后立即自动保存，不再需要额外点击保存按钮。',
-  '分类保存过程会显示明确状态，失败时自动恢复原分类。',
-  '已分享 Skill 的分类保存成功后同步刷新公有池记录。',
+  '左侧直接展示本机实际识别到的 AI 工具，并显示各工具中的 Skill 数量。',
+  '点击 AI 工具后，主区域只展示该工具真实目录中的 Skill 卡片。',
+  'SkillPort 安装项保留来源标识；删除其他本地 Skill 前会提示文件不可恢复。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.21',
+    date: '2026-08-27',
+    title: 'Skill 分类保存修复',
+    changes: <String>[
+      '我的 Skill 分类改为选择后立即自动保存，不再需要额外点击保存按钮。',
+      '分类保存过程会显示明确状态，失败时自动恢复原分类。',
+      '已分享 Skill 的分类保存成功后同步刷新公有池记录。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.20',
