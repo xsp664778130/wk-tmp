@@ -13,6 +13,8 @@ import com.skillport.server.service.FeedbackMailboxService;
 import com.skillport.server.service.DashboardStatisticsService;
 import com.skillport.server.service.InstallTaskService;
 import com.skillport.server.service.LocalSkillWorkspaceService;
+import com.skillport.server.service.LocalSkillRemoteAccessService;
+import com.skillport.protocol.LocalSkillActionResult;
 import com.skillport.server.service.PairingService;
 import com.skillport.server.service.PublicSkillService;
 import com.skillport.server.service.SkillService;
@@ -75,6 +77,7 @@ public class BrowserController {
     private final PairingService pairingService;
     private final InstallTaskService installTaskService;
     private final LocalSkillWorkspaceService localSkillWorkspaceService;
+    private final LocalSkillRemoteAccessService localSkillRemoteAccessService;
     private final BridgeSessionRegistry sessionRegistry;
     private final SkillPortProperties properties;
     private final WeComAuthService weComAuthService;
@@ -85,6 +88,7 @@ public class BrowserController {
                              DashboardStatisticsService statisticsService, DeviceToolScanService toolScanService,
                              PairingService pairingService, InstallTaskService installTaskService,
                              LocalSkillWorkspaceService localSkillWorkspaceService,
+                             LocalSkillRemoteAccessService localSkillRemoteAccessService,
                              BridgeSessionRegistry sessionRegistry, SkillPortProperties properties,
                              WeComAuthService weComAuthService,
                              FeedbackMailboxService feedbackMailboxService) {
@@ -97,6 +101,7 @@ public class BrowserController {
         this.pairingService = pairingService;
         this.installTaskService = installTaskService;
         this.localSkillWorkspaceService = localSkillWorkspaceService;
+        this.localSkillRemoteAccessService = localSkillRemoteAccessService;
         this.sessionRegistry = sessionRegistry;
         this.properties = properties;
         this.weComAuthService = weComAuthService;
@@ -415,6 +420,24 @@ public class BrowserController {
             @Valid @RequestBody LocalSkillWorkspaceController.LocalUninstallRequest request) {
         return InstallController.TaskResponse.from(installTaskService.createLocalUninstall(
                 user.userId(), deviceId, request.tool(), request.slug()));
+    }
+
+    @PostMapping("/devices/{deviceId}/local-skills/open-folder")
+    public LocalSkillActionResult openLocalSkillFolder(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String deviceId,
+            @Valid @RequestBody LocalSkillWorkspaceController.LocalUninstallRequest request) {
+        return localSkillRemoteAccessService.openFolder(
+                user.userId(), deviceId, request.tool(), request.slug());
+    }
+
+    @PostMapping("/devices/{deviceId}/local-skills/manifest")
+    public LocalSkillActionResult localSkillManifest(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String deviceId,
+            @Valid @RequestBody LocalSkillWorkspaceController.LocalUninstallRequest request) {
+        return localSkillRemoteAccessService.readManifest(
+                user.userId(), deviceId, request.tool(), request.slug());
     }
 
     @GetMapping("/installs")

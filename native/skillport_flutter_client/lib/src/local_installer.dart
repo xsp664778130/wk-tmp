@@ -240,15 +240,55 @@ class LocalInstaller {
   }
 
   Future<bool> uninstallLocalSkill(LocalSkillItem skill) async {
-    final root = path.normalize(path.absolute(_toolRoot(skill.toolId)));
-    final directory = path.normalize(path.absolute(skill.directory));
-    if (!path.isWithin(root, directory) || path.dirname(directory) != root) {
-      throw const LocalInstallException('本机 Skill 路径不安全，已停止删除');
-    }
+    final directory = _validatedLocalSkillDirectory(skill);
     final target = Directory(directory);
     if (!target.existsSync()) return false;
     await target.delete(recursive: true);
     return true;
+  }
+
+  Future<void> openLocalSkillFolder(LocalSkillItem skill) async {
+    final directory = _validatedLocalSkillDirectory(skill);
+    try {
+      if (_isMacOS) {
+        await Process.start('open', <String>[directory], mode: ProcessStartMode.detached);
+      } else if (_isWindows) {
+        await Process.start('explorer.exe', <String>[directory], mode: ProcessStartMode.detached);
+      } else {
+        throw const LocalInstallException('当前系统暂不支持打开本地文件夹');
+      }
+    } on LocalInstallException {
+      rethrow;
+    } catch (error) {
+      throw LocalInstallException('无法打开本地文件夹：$error');
+    }
+  }
+
+  Future<String> readLocalSkillManifest(LocalSkillItem skill) async {
+    final directory = _validatedLocalSkillDirectory(skill);
+    final manifest = _findSkillFile(Directory(directory), depth: 0);
+    if (manifest == null) throw const LocalInstallException('本机 Skill 中没有找到 SKILL.md');
+    try {
+      if (await manifest.length() > 512 * 1024) {
+        throw const LocalInstallException('SKILL.md 超过 512KB，无法预览');
+      }
+      return await manifest.readAsString();
+    } on LocalInstallException {
+      rethrow;
+    } catch (error) {
+      throw LocalInstallException('无法读取 SKILL.md：$error');
+    }
+  }
+
+  String _validatedLocalSkillDirectory(LocalSkillItem skill) {
+    final root = path.normalize(path.absolute(_toolRoot(skill.toolId)));
+    final directory = path.normalize(path.absolute(skill.directory));
+    final type = FileSystemEntity.typeSync(directory, followLinks: false);
+    if (!path.isWithin(root, directory) || path.dirname(directory) != root ||
+        type != FileSystemEntityType.directory) {
+      throw const LocalInstallException('本机 Skill 路径不安全，请重新识别');
+    }
+    return directory;
   }
 
   String _toolRoot(String target) {

@@ -22,30 +22,40 @@ import java.util.concurrent.*;
 
 public class BridgeWebSocketClient {
     private static final Logger log = LoggerFactory.getLogger(BridgeWebSocketClient.class);
+    private static final int MAX_WEBSOCKET_FRAME_BYTES = 2 * 1024 * 1024;
     private final BridgeConfig config;
     private final ProtocolCodec protocolCodec;
     private final ObjectMapper objectMapper;
     private final ExecutorService installExecutor = Executors.newFixedThreadPool(2, Thread.ofPlatform().name("skill-install-", 0).factory());
     private final ExecutorService toolScanExecutor = Executors.newSingleThreadExecutor(
             Thread.ofPlatform().name("skill-tool-scan-", 0).factory());
+    private final ExecutorService localAccessExecutor = Executors.newSingleThreadExecutor(
+            Thread.ofPlatform().name("skill-local-access-", 0).factory());
     private final ToolDetector toolDetector;
     private final LocalSkillScanner localSkillScanner;
+    private final LocalSkillAccess localSkillAccess;
 
     public BridgeWebSocketClient(BridgeConfig config, ObjectMapper objectMapper) {
-        this(config, objectMapper, new ToolDetector(), new LocalSkillScanner());
+        this(config, objectMapper, new ToolDetector(), new LocalSkillScanner(), new LocalSkillAccess());
     }
 
     BridgeWebSocketClient(BridgeConfig config, ObjectMapper objectMapper, ToolDetector toolDetector) {
-        this(config, objectMapper, toolDetector, new LocalSkillScanner());
+        this(config, objectMapper, toolDetector, new LocalSkillScanner(), new LocalSkillAccess());
     }
 
     BridgeWebSocketClient(BridgeConfig config, ObjectMapper objectMapper, ToolDetector toolDetector,
                           LocalSkillScanner localSkillScanner) {
+        this(config, objectMapper, toolDetector, localSkillScanner, new LocalSkillAccess());
+    }
+
+    BridgeWebSocketClient(BridgeConfig config, ObjectMapper objectMapper, ToolDetector toolDetector,
+                          LocalSkillScanner localSkillScanner, LocalSkillAccess localSkillAccess) {
         this.config = config;
         this.objectMapper = objectMapper;
         this.protocolCodec = new ProtocolCodec(objectMapper);
         this.toolDetector = toolDetector;
         this.localSkillScanner = localSkillScanner;
+        this.localSkillAccess = localSkillAccess;
     }
 
     public void runForever() {
@@ -65,6 +75,7 @@ public class BridgeWebSocketClient {
         } finally {
             installExecutor.shutdownNow();
             toolScanExecutor.shutdownNow();
+            localAccessExecutor.shutdownNow();
             group.shutdownGracefully().syncUninterruptibly();
         }
     }
@@ -75,7 +86,7 @@ public class BridgeWebSocketClient {
         int port = uri.getPort() > 0 ? uri.getPort() : ssl ? 443 : 80;
         SslContext sslContext = ssl ? SslContextBuilder.forClient().build() : null;
         WebSocketClientHandshaker handshaker = WebSocketClientHandshakerFactory.newHandshaker(
-                uri, WebSocketVersion.V13, null, true, new DefaultHttpHeaders(), 64 * 1024);
+                uri, WebSocketVersion.V13, null, true, new DefaultHttpHeaders(), MAX_WEBSOCKET_FRAME_BYTES);
         BridgeClientHandler handler = new BridgeClientHandler(handshaker);
 
         Channel channel = new Bootstrap()
@@ -170,6 +181,32 @@ public class BridgeWebSocketClient {
         });
     }
 
+    private void accessLocalSkill(Channel channel, BridgeEnvelope envelope, boolean openFolder) {
+        LocalSkillActionCommand command = protocolCodec.payload(envelope, LocalSkillActionCommand.class);
+        localAccessExecutor.execute(() -> {
+            LocalSkillActionResult result;
+            String action = openFolder ? "OPEN_FOLDER" : "READ_MANIFEST";
+            try {
+                if (openFolder) {
+                    localSkillAccess.openFolder(command.tool(), command.slug());
+                    result = LocalSkillActionResult.opened(command.tool(), command.slug());
+                } else {
+                    result = LocalSkillActionResult.manifest(
+                            command.tool(), command.slug(), localSkillAccess.readManifest(command.tool(), command.slug()));
+                }
+            } catch (Exception exception) {
+                String message = exception.getMessage() == null ? "本机 Skill 操作失败" : exception.getMessage();
+                log.warn("Local Skill access failed action={} tool={} slug={} error={}",
+                        action, command.tool(), command.slug(), message);
+                result = LocalSkillActionResult.failed(command.tool(), command.slug(), action, message);
+            }
+            if (channel.isActive()) {
+                channel.writeAndFlush(new TextWebSocketFrame(
+                        protocolCodec.encode(MessageType.LOCAL_SKILL_ACTION_RESULT, envelope.requestId(), result)));
+            }
+        });
+    }
+
     private static void sleep(Duration duration) {
         try {
             Thread.sleep(duration);
@@ -219,6 +256,10 @@ public class BridgeWebSocketClient {
                     uninstall(context.channel(), protocolCodec.payload(envelope, UninstallCommand.class));
                 } else if (envelope.type() == MessageType.SCAN_TOOLS) {
                     scanTools(context.channel(), envelope.requestId());
+                } else if (envelope.type() == MessageType.OPEN_LOCAL_SKILL_FOLDER) {
+                    accessLocalSkill(context.channel(), envelope, true);
+                } else if (envelope.type() == MessageType.READ_LOCAL_SKILL_MANIFEST) {
+                    accessLocalSkill(context.channel(), envelope, false);
                 }
             } else if (message instanceof PingWebSocketFrame frame) {
                 context.writeAndFlush(new PongWebSocketFrame(frame.content().retain()));

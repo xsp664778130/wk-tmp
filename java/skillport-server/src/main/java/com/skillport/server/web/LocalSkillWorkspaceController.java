@@ -4,6 +4,8 @@ import com.skillport.server.security.RequestUser;
 import com.skillport.server.security.RequestUserFilter;
 import com.skillport.server.service.InstallTaskService;
 import com.skillport.server.service.LocalSkillWorkspaceService;
+import com.skillport.server.service.LocalSkillRemoteAccessService;
+import com.skillport.protocol.LocalSkillActionResult;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -22,11 +24,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class LocalSkillWorkspaceController {
     private final LocalSkillWorkspaceService workspaceService;
     private final InstallTaskService installTaskService;
+    private final LocalSkillRemoteAccessService remoteAccessService;
 
     public LocalSkillWorkspaceController(LocalSkillWorkspaceService workspaceService,
-                                         InstallTaskService installTaskService) {
+                                         InstallTaskService installTaskService,
+                                         LocalSkillRemoteAccessService remoteAccessService) {
         this.workspaceService = workspaceService;
         this.installTaskService = installTaskService;
+        this.remoteAccessService = remoteAccessService;
     }
 
     @GetMapping
@@ -44,6 +49,22 @@ public class LocalSkillWorkspaceController {
             @Valid @RequestBody LocalUninstallRequest request) {
         return InstallController.TaskResponse.from(installTaskService.createLocalUninstall(
                 user.userId(), deviceId, request.tool(), request.slug()));
+    }
+
+    @PostMapping("/open-folder")
+    public LocalSkillActionResult openFolder(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String deviceId,
+            @Valid @RequestBody LocalUninstallRequest request) {
+        return remoteAccessService.openFolder(user.userId(), deviceId, request.tool(), request.slug());
+    }
+
+    @PostMapping("/manifest")
+    public LocalSkillActionResult manifest(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String deviceId,
+            @Valid @RequestBody LocalUninstallRequest request) {
+        return remoteAccessService.readManifest(user.userId(), deviceId, request.tool(), request.slug());
     }
 
     public record LocalUninstallRequest(@NotBlank @Size(max = 32) String tool,

@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.31",
+    date: "2026-08-28",
+    title: "本机 Skill 快速查看",
+    changes: [
+      "网页与桌面客户端的个人工作区卡片新增“打开本地文件夹”，可直接进入真实 Skill 目录。",
+      "卡片右上角新增三点菜单，可临时读取并预览该目录中的 SKILL.md 完整内容。",
+      "Bridge 只接受已识别工具和 Skill 目录名，重新校验本机路径且不会把预览内容保存到云端。",
+    ],
+  },
+  {
     version: "1.0.29",
     date: "2026-08-28",
     title: "AI 工具导航式工作区",
@@ -499,11 +509,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.29",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.31",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.29",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.31",
   },
 };
 
@@ -579,6 +589,8 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const [localWorkspaceLoading, setLocalWorkspaceLoading] = useState(false);
   const [localUninstallCandidate, setLocalUninstallCandidate] = useState<LocalWorkspaceSkill | null>(null);
   const [localUninstallBusyKey, setLocalUninstallBusyKey] = useState<string | null>(null);
+  const [localActionBusyKey, setLocalActionBusyKey] = useState<string | null>(null);
+  const [localManifestPreview, setLocalManifestPreview] = useState<{ skill: LocalWorkspaceSkill; content: string } | null>(null);
   const [selected, setSelected] = useState<Skill | null>(null);
   const [installer, setInstaller] = useState<Skill | null>(null);
   const [uninstaller, setUninstaller] = useState<Skill | null>(null);
@@ -943,6 +955,30 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
       setToast(error instanceof Error ? error.message : "本机卸载任务发送失败");
     } finally {
       setLocalUninstallBusyKey(null);
+    }
+  }
+
+  async function runLocalWorkspaceAction(skill: LocalWorkspaceSkill, action: "open-folder" | "manifest") {
+    if (!onlineDevice || localActionBusyKey) return;
+    const key = `${action}:${skill.tool}:${skill.slug}`;
+    setLocalActionBusyKey(key);
+    try {
+      const response = await fetch(`/api/devices/${encodeURIComponent(onlineDevice.id)}/local-skills/${action}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tool: skill.tool, slug: skill.slug }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.detail || data?.error || "本机操作失败"));
+      if (action === "manifest") {
+        setLocalManifestPreview({ skill, content: String(data?.content || "") });
+      } else {
+        setToast(`已在 ${toolMeta[skill.tool].name} 中打开“${skill.name}”文件夹`);
+      }
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "本机操作失败");
+    } finally {
+      setLocalActionBusyKey(null);
     }
   }
 
@@ -1388,7 +1424,10 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             selectedTool={effectiveWorkspaceTool}
             query={query}
             busyKey={localUninstallBusyKey}
+            actionBusyKey={localActionBusyKey}
             onRefresh={() => onlineDevice && void refreshLocalTools(onlineDevice)}
+            onOpenFolder={(skill) => void runLocalWorkspaceAction(skill, "open-folder")}
+            onViewManifest={(skill) => void runLocalWorkspaceAction(skill, "manifest")}
             onUninstall={(skill) => skill.fromMySkills
               ? void uninstallLocalWorkspaceSkill(skill)
               : setLocalUninstallCandidate(skill)}
@@ -1460,6 +1499,11 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         busy={localUninstallBusyKey === `${localUninstallCandidate.tool}:${localUninstallCandidate.slug}`}
         onClose={() => !localUninstallBusyKey && setLocalUninstallCandidate(null)}
         onConfirm={() => void uninstallLocalWorkspaceSkill(localUninstallCandidate)}
+      />}
+      {localManifestPreview && <LocalSkillManifestModal
+        skill={localManifestPreview.skill}
+        content={localManifestPreview.content}
+        onClose={() => setLocalManifestPreview(null)}
       />}
       {installer && (
         <InstallModal skill={installer} signedIn={Boolean(user)} onRequireSignIn={() => { setInstaller(null); setAuthOpen(true); }} onConnectBridge={() => { setInstaller(null); setPairOpen(true); }} onlineDevice={onlineDevice ?? null} onClose={() => setInstaller(null)} onDone={(message) => { setInstaller(null); setToast(message); void refreshStatistics(); void refreshInstallTasks(); }}/>
@@ -1854,16 +1898,20 @@ function SkillActionConfirmModal({ skill, action, busy, onClose, onConfirm }: {
   );
 }
 
-function LocalWorkspaceSection({ workspace, loading, device, selectedTool, query, busyKey, onRefresh, onUninstall }: {
+function LocalWorkspaceSection({ workspace, loading, device, selectedTool, query, busyKey, actionBusyKey, onRefresh, onOpenFolder, onViewManifest, onUninstall }: {
   workspace: LocalWorkspace | null;
   loading: boolean;
   device: Device | null;
   selectedTool: keyof typeof toolMeta | null;
   query: string;
   busyKey: string | null;
+  actionBusyKey: string | null;
   onRefresh: () => void;
+  onOpenFolder: (skill: LocalWorkspaceSkill) => void;
+  onViewManifest: (skill: LocalWorkspaceSkill) => void;
   onUninstall: (skill: LocalWorkspaceSkill) => void;
 }) {
+  const [openMenuKey, setOpenMenuKey] = useState<string | null>(null);
   const meta = selectedTool ? toolMeta[selectedTool] : null;
   const normalizedQuery = query.trim().toLowerCase();
   const skills = (workspace?.skills || []).filter((skill) =>
@@ -1902,15 +1950,25 @@ function LocalWorkspaceSection({ workspace, loading, device, selectedTool, query
                 {skills.map((skill) => {
                   const actionKey = `${skill.tool}:${skill.slug}`;
                   const busy = busyKey === actionKey;
+                  const opening = actionBusyKey === `open-folder:${actionKey}`;
+                  const reading = actionBusyKey === `manifest:${actionKey}`;
                   return (
                     <article className="local-skill-card" key={actionKey}>
-                      <div className="local-skill-card-head"><span>{skill.name.slice(0, 1).toUpperCase()}</span><div><h4>{skill.name}</h4><p>{skill.slug}</p></div></div>
+                      <div className="local-skill-card-head">
+                        <span>{skill.name.slice(0, 1).toUpperCase()}</span>
+                        <div className="local-skill-title"><h4>{skill.name}</h4><p>{skill.slug}</p></div>
+                        <div className="local-skill-menu">
+                          <button aria-label={`${skill.name} 更多操作`} aria-expanded={openMenuKey === actionKey} aria-haspopup="menu" onClick={() => setOpenMenuKey((current) => current === actionKey ? null : actionKey)}>•••</button>
+                          {openMenuKey === actionKey && <div role="menu"><button role="menuitem" disabled={!online || reading} onClick={() => { setOpenMenuKey(null); onViewManifest(skill); }}>{reading ? "正在读取…" : "查看 SKILL.md"}</button></div>}
+                        </div>
+                      </div>
                       <p className="local-skill-description">{skill.description || "本机 Skill"}</p>
                       <div className="local-skill-path" title={skill.relativePath}><span>▱</span><code>{skill.relativePath}</code></div>
                       <div className="local-skill-card-footer">
-                        <button disabled={!online || busy} onClick={() => onUninstall(skill)}>{busy ? "正在卸载…" : "从本机卸载"}</button>
-                        {skill.fromMySkills && <span className="local-origin-badge"><i>✓</i>来自我的 Skill</span>}
+                        <button className="open-folder-button" disabled={!online || opening} onClick={() => onOpenFolder(skill)}><span>▱</span>{opening ? "正在打开…" : "打开本地文件夹"}</button>
+                        <button className="local-remove-button" disabled={!online || busy} onClick={() => onUninstall(skill)}>{busy ? "正在卸载…" : "从本机卸载"}</button>
                       </div>
+                      {skill.fromMySkills && <div className="local-skill-origin-row"><span className="local-origin-badge" title="来自我的 Skill"><i>✓</i>来自我的 Skill</span></div>}
                     </article>
                   );
                 })}
@@ -1918,6 +1976,27 @@ function LocalWorkspaceSection({ workspace, loading, device, selectedTool, query
         </section>
       )}
     </section>
+  );
+}
+
+function LocalSkillManifestModal({ skill, content, onClose }: {
+  skill: LocalWorkspaceSkill;
+  content: string;
+  onClose: () => void;
+}) {
+  const tool = toolMeta[skill.tool];
+  return (
+    <div className="modal-backdrop share-backdrop">
+      <div className="modal local-manifest-modal" role="dialog" aria-modal="true" aria-labelledby="local-manifest-title">
+        <button className="close-button" onClick={onClose} aria-label="关闭 SKILL.md 预览">×</button>
+        <span className="step-label">LOCAL SKILL MANIFEST</span>
+        <h2 id="local-manifest-title">{skill.name} · SKILL.md</h2>
+        <p className="install-lead">从 {tool.name} 本机目录临时读取，仅用于本次预览，不会保存到云端。</p>
+        <div className="local-manifest-path"><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><code>{skill.relativePath}/SKILL.md</code></div>
+        <pre>{content || "SKILL.md 内容为空"}</pre>
+        <div className="modal-actions"><button className="secondary-button" onClick={onClose}>关闭</button></div>
+      </div>
+    </div>
   );
 }
 

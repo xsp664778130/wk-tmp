@@ -646,7 +646,7 @@ class LocalWorkspaceLibrary extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(28, 0, 28, 36),
                   sliver: SliverGrid.builder(
                     itemCount: skills.length,
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 360, mainAxisExtent: 245, mainAxisSpacing: 14, crossAxisSpacing: 14),
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 360, mainAxisExtent: 280, mainAxisSpacing: 14, crossAxisSpacing: 14),
                     itemBuilder: (context, index) => LocalSkillCard(controller: controller, skill: skills[index]),
                   ),
                 ),
@@ -684,6 +684,23 @@ class LocalSkillCard extends StatelessWidget {
               Text(skill.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
               Text(skill.slug, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant, fontFamily: 'monospace')),
             ])),
+            PopupMenuButton<String>(
+              tooltip: '更多操作',
+              onSelected: (value) {
+                if (value == 'manifest') _showManifest(context);
+              },
+              itemBuilder: (context) => const <PopupMenuEntry<String>>[
+                PopupMenuItem<String>(
+                  value: 'manifest',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.description_outlined),
+                    title: Text('查看 SKILL.md'),
+                  ),
+                ),
+              ],
+              icon: const Icon(Icons.more_horiz_rounded),
+            ),
           ]),
           const SizedBox(height: 13),
           Text(skill.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(height: 1.5, color: scheme.onSurfaceVariant)),
@@ -691,11 +708,52 @@ class LocalSkillCard extends StatelessWidget {
           Tooltip(message: skill.directory, child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), decoration: BoxDecoration(color: palette.soft, borderRadius: BorderRadius.circular(9)), child: Row(children: <Widget>[Icon(Icons.folder_open_rounded, size: 15, color: scheme.primary), const SizedBox(width: 7), Expanded(child: Text(skill.directory, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: scheme.onSurfaceVariant)))]))),
           const Spacer(),
           Row(children: <Widget>[
-            OutlinedButton.icon(onPressed: controller.busy ? null : () => _removeLocalSkill(context, fromMySkills, toolName), icon: const Icon(Icons.delete_outline_rounded, size: 17), label: const Text('从本机卸载')),
-            const Spacer(),
-            if (fromMySkills) Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6), decoration: BoxDecoration(color: palette.successSurface, borderRadius: BorderRadius.circular(999)), child: Row(children: <Widget>[Icon(Icons.verified_rounded, size: 14, color: palette.success), const SizedBox(width: 4), Text('来自我的 Skill', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: palette.success))])),
+            Expanded(child: OutlinedButton.icon(onPressed: controller.busy ? null : () => controller.openLocalSkillFolder(skill), icon: const Icon(Icons.folder_open_rounded, size: 17), label: const Text('打开文件夹'))),
+            const SizedBox(width: 8),
+            Expanded(child: OutlinedButton.icon(onPressed: controller.busy ? null : () => _removeLocalSkill(context, fromMySkills, toolName), icon: const Icon(Icons.delete_outline_rounded, size: 17), label: const Text('从本机卸载'))),
           ]),
+          if (fromMySkills) ...<Widget>[
+            const SizedBox(height: 7),
+            Align(alignment: Alignment.centerRight, child: Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6), decoration: BoxDecoration(color: palette.successSurface, borderRadius: BorderRadius.circular(999)), child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[Icon(Icons.verified_rounded, size: 14, color: palette.success), const SizedBox(width: 4), Text('来自我的 Skill', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: palette.success))]))),
+          ],
         ]),
+      ),
+    );
+  }
+
+  Future<void> _showManifest(BuildContext context) async {
+    final content = await controller.readLocalSkillManifest(skill);
+    if (content == null || !context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: <Widget>[
+            const Icon(Icons.description_outlined),
+            const SizedBox(width: 10),
+            Expanded(child: Text('${skill.name} · SKILL.md', maxLines: 1, overflow: TextOverflow.ellipsis)),
+            IconButton(onPressed: () => Navigator.pop(context), tooltip: '关闭', icon: const Icon(Icons.close_rounded)),
+          ],
+        ),
+        content: SizedBox(
+          width: 720,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(skill.directory, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(maxHeight: 520),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: skillPortPalette(context).field, border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), borderRadius: BorderRadius.circular(12)),
+                child: SingleChildScrollView(child: SelectableText(content.isEmpty ? 'SKILL.md 内容为空' : content, style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.6))),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

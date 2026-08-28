@@ -67,6 +67,9 @@ test("defines the SkillPort workspace and product metadata", async () => {
   assert.match(client, /setActionCandidate\(\{ skill, action: "delete" \}\)/);
   assert.match(client, /从公有池下架/);
   assert.match(client, /从本机卸载/);
+  assert.match(client, /打开本地文件夹/);
+  assert.match(client, /查看 SKILL\.md/);
+  assert.match(client, /不会保存到云端/);
   assert.match(client, /下载 macOS 客户端/);
   assert.match(client, /下载 Windows 客户端/);
   assert.match(client, /版本更新/);
@@ -152,7 +155,7 @@ test("provides enterprise WeCom silent authorization and QR login", async () => 
 });
 
 test("ships MySQL accounts, Netty and cross-platform Bridge capabilities", async () => {
-  const [hosting, schema, userSchema, publicPoolSchema, avatarSchema, operationSchema, feedbackSchema, publicFeedbackSchema, cursorSchema, detailSchema, instanceSchema, localSkillSchema, client, nettyServer, bridge, scanner, uninstaller, toolScanRoute, localSkillRoute, macInstaller, windowsInstaller, macUpdater, windowsUpdater] = await Promise.all([
+  const [hosting, schema, userSchema, publicPoolSchema, avatarSchema, operationSchema, feedbackSchema, publicFeedbackSchema, cursorSchema, detailSchema, instanceSchema, localSkillSchema, client, nettyServer, bridge, scanner, uninstaller, localAccess, localRemoteAccess, toolScanRoute, localSkillRoute, localManifestRoute, localOpenFolderRoute, macInstaller, windowsInstaller, macUpdater, windowsUpdater] = await Promise.all([
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V1__init_skillport.sql", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V2__add_local_users.sql", import.meta.url), "utf8"),
@@ -170,8 +173,12 @@ test("ships MySQL accounts, Netty and cross-platform Bridge capabilities", async
     readFile(new URL("../java/skillport-bridge/src/main/java/com/skillport/bridge/SkillInstaller.java", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-bridge/src/main/java/com/skillport/bridge/LocalSkillScanner.java", import.meta.url), "utf8"),
     readFile(new URL("../java/skillport-bridge/src/main/java/com/skillport/bridge/SkillUninstaller.java", import.meta.url), "utf8"),
+    readFile(new URL("../java/skillport-bridge/src/main/java/com/skillport/bridge/LocalSkillAccess.java", import.meta.url), "utf8"),
+    readFile(new URL("../java/skillport-server/src/main/java/com/skillport/server/service/LocalSkillRemoteAccessService.java", import.meta.url), "utf8"),
     readFile(new URL("../app/api/devices/[id]/scan-tools/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/devices/[id]/local-skills/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/devices/[id]/local-skills/manifest/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/devices/[id]/local-skills/open-folder/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../public/bridge/install-macos.sh", import.meta.url), "utf8"),
     readFile(new URL("../public/bridge/install-windows.ps1", import.meta.url), "utf8"),
     readFile(new URL("../public/bridge/update-macos.sh", import.meta.url), "utf8"),
@@ -205,6 +212,11 @@ test("ships MySQL accounts, Netty and cross-platform Bridge capabilities", async
   assert.match(uninstaller, /deleteInstalledSkill/);
   assert.match(toolScanRoute, /scan-tools/);
   assert.match(localSkillRoute, /local-skills\/uninstall/);
+  assert.match(localManifestRoute, /local-skills\/manifest/);
+  assert.match(localOpenFolderRoute, /local-skills\/open-folder/);
+  assert.match(localAccess, /MAX_MANIFEST_BYTES = 512 \* 1024/);
+  assert.match(localAccess, /LinkOption\.NOFOLLOW_LINKS/);
+  assert.match(localRemoteAccess, /RESPONSE_TIMEOUT/);
   assert.match(client, /个人工作区/);
   assert.match(client, /来自我的 Skill/);
   assert.match(client, /macos/);

@@ -8,6 +8,7 @@ import com.skillport.server.service.DeviceToolScanService;
 import com.skillport.server.service.DownloadTicketService;
 import com.skillport.server.service.InstallTaskService;
 import com.skillport.server.service.LocalSkillWorkspaceService;
+import com.skillport.server.service.LocalSkillRemoteAccessService;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http.websocketx.*;
@@ -30,18 +31,21 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 @ChannelHandler.Sharable
 public class SkillPortNettyHandler extends SimpleChannelInboundHandler<Object> {
     private static final Logger log = LoggerFactory.getLogger(SkillPortNettyHandler.class);
+    private static final int MAX_WEBSOCKET_FRAME_BYTES = 2 * 1024 * 1024;
     private static final AttributeKey<String> DEVICE_ID = AttributeKey.valueOf("skillport.deviceId");
     private final DeviceService deviceService;
     private final DownloadTicketService ticketService;
     private final InstallTaskService installTaskService;
     private final DeviceToolScanService toolScanService;
     private final LocalSkillWorkspaceService localSkillWorkspaceService;
+    private final LocalSkillRemoteAccessService localSkillRemoteAccessService;
     private final BridgeSessionRegistry sessionRegistry;
     private final ProtocolCodec protocolCodec;
 
     public SkillPortNettyHandler(DeviceService deviceService, DownloadTicketService ticketService,
                                  InstallTaskService installTaskService, DeviceToolScanService toolScanService,
                                  LocalSkillWorkspaceService localSkillWorkspaceService,
+                                 LocalSkillRemoteAccessService localSkillRemoteAccessService,
                                  BridgeSessionRegistry sessionRegistry,
                                  ObjectMapper objectMapper) {
         this.deviceService = deviceService;
@@ -49,6 +53,7 @@ public class SkillPortNettyHandler extends SimpleChannelInboundHandler<Object> {
         this.installTaskService = installTaskService;
         this.toolScanService = toolScanService;
         this.localSkillWorkspaceService = localSkillWorkspaceService;
+        this.localSkillRemoteAccessService = localSkillRemoteAccessService;
         this.sessionRegistry = sessionRegistry;
         this.protocolCodec = new ProtocolCodec(objectMapper);
     }
@@ -90,7 +95,7 @@ public class SkillPortNettyHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         WebSocketServerHandshaker handshaker = new WebSocketServerHandshakerFactory(
-                websocketLocation(request), null, true, 64 * 1024).newHandshaker(request);
+                websocketLocation(request), null, true, MAX_WEBSOCKET_FRAME_BYTES).newHandshaker(request);
         if (handshaker == null) {
             WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(context.channel());
             return;
@@ -131,6 +136,8 @@ public class SkillPortNettyHandler extends SimpleChannelInboundHandler<Object> {
                 localSkillWorkspaceService.replaceInventory(
                         deviceId, result.tools(), result.skills(), result.detectedAt());
             }
+            case LOCAL_SKILL_ACTION_RESULT -> localSkillRemoteAccessService.complete(
+                    deviceId, envelope.requestId(), protocolCodec.payload(envelope, LocalSkillActionResult.class));
             default -> log.warn("Ignored bridge message deviceId={} type={}", deviceId, envelope.type());
         }
     }

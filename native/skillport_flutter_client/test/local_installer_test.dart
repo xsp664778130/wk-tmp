@@ -194,6 +194,19 @@ void main() {
       expect(directory.existsSync(), isFalse);
     });
 
+    test('reads SKILL.md from an identified local Skill directory', () async {
+      final directory = await Directory(
+        path.join(home.path, '.codex', 'skills', 'preview-skill'),
+      ).create(recursive: true);
+      const content = '---\nname: Preview Skill\n---\n\nRun the preview.\n';
+      await File(path.join(directory.path, 'SKILL.md')).writeAsString(content);
+      final item = (await installer.scanLocalSkills(
+        toolIds: const <String>['codex'],
+      )).single;
+
+      expect(await installer.readLocalSkillManifest(item), content);
+    });
+
     test(
       'rejects an archive traversal path before writing outside destination',
       () async {

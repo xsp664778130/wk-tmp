@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.30';
+const currentReleaseVersion = '1.0.31';
 const currentReleaseDate = '2026-08-28';
-const currentReleaseTitle = '环境高光主题';
+const currentReleaseTitle = '本机 Skill 快速查看';
 const currentReleaseChanges = <String>[
-  '深夜紫、曜石黑与海湾蓝新增多层环境高光，页面更有空间感。',
-  '新增极光青与暮霞玫两套高光主题，共支持 6 套可切换配色。',
-  '主题菜单改为渐变光晕色卡预览，选择后仍会自动记住。',
+  '个人工作区卡片新增“打开文件夹”，直接进入真实的本机 Skill 目录。',
+  '卡片右上角新增三点菜单，可查看并滚动浏览完整 SKILL.md 内容。',
+  '所有本机操作都会重新校验工具根目录和 Skill 路径，避免访问目录外文件。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.30',
+    date: '2026-08-28',
+    title: '环境高光主题',
+    changes: <String>[
+      '深夜紫、曜石黑与海湾蓝新增多层环境高光，页面更有空间感。',
+      '新增极光青与暮霞玫两套高光主题，共支持 6 套可切换配色。',
+      '主题菜单改为渐变光晕色卡预览，选择后仍会自动记住。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.29',

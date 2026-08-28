@@ -44,13 +44,13 @@ skillport:
   public-api-base-url: ${SKILLPORT_API_PUBLIC_URL:http://localhost:8080}
   public-netty-base-url: ${SKILLPORT_NETTY_PUBLIC_URL:http://localhost:9091}
   client-release:
-    version: 1.0.30
+    version: 1.0.31
     date: 2026-08-28
-    title: 环境高光主题
+    title: 本机 Skill 快速查看
     changes:
-      - 深夜紫、曜石黑与海湾蓝新增多层环境高光，页面更有空间感。
-      - 新增极光青与暮霞玫两套高光主题，共支持 6 套可切换配色。
-      - 主题菜单改为渐变光晕色卡预览，选择后仍会自动记住。
+      - 网页与桌面客户端的个人工作区卡片新增打开本地文件夹，可直接进入真实 Skill 目录。
+      - 卡片右上角新增三点菜单，可临时读取并预览该目录中的 SKILL.md 完整内容。
+      - Bridge 只接受已识别工具和 Skill 目录名，重新校验本机路径且不会保存预览内容。
     download-base-url: ${SKILLPORT_CLIENT_DOWNLOAD_URL:https://www.jmuyuer.com}
   wecom:
     enabled: ${WECOM_ENABLED:false}

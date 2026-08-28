@@ -434,6 +434,26 @@ class AppController extends ChangeNotifier {
     await _perform('正在重新识别本机工作区…', () => _refreshLocalWorkspace(notify: false), successMessage: '本机工作区已刷新');
   }
 
+  Future<bool> openLocalSkillFolder(LocalSkillItem skill) async {
+    try {
+      await _installer.openLocalSkillFolder(skill);
+      _show('已打开 ${skill.name} 的本地文件夹');
+      return true;
+    } catch (error) {
+      _show(error.toString(), error: true);
+      return false;
+    }
+  }
+
+  Future<String?> readLocalSkillManifest(LocalSkillItem skill) async {
+    try {
+      return await _installer.readLocalSkillManifest(skill);
+    } catch (error) {
+      _show(error.toString(), error: true);
+      return null;
+    }
+  }
+
   Future<void> _refreshLocalWorkspace({bool notify = true}) async {
     tools = _installer.detectTools();
     final detectedIds = tools.where((tool) => tool.detected).map((tool) => tool.id);

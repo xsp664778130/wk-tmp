@@ -7,6 +7,7 @@ import com.skillport.server.service.DeviceToolScanService;
 import com.skillport.server.service.DownloadTicketService;
 import com.skillport.server.service.InstallTaskService;
 import com.skillport.server.service.LocalSkillWorkspaceService;
+import com.skillport.server.service.LocalSkillRemoteAccessService;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -30,6 +31,7 @@ public class BridgeNettyServer implements SmartLifecycle {
     private final InstallTaskService installTaskService;
     private final DeviceToolScanService toolScanService;
     private final LocalSkillWorkspaceService localSkillWorkspaceService;
+    private final LocalSkillRemoteAccessService localSkillRemoteAccessService;
     private final BridgeSessionRegistry sessionRegistry;
     private final ObjectMapper objectMapper;
     private volatile boolean running;
@@ -41,6 +43,7 @@ public class BridgeNettyServer implements SmartLifecycle {
     public BridgeNettyServer(SkillPortProperties properties, DeviceService deviceService,
                              DownloadTicketService downloadTicketService, InstallTaskService installTaskService,
                              DeviceToolScanService toolScanService, LocalSkillWorkspaceService localSkillWorkspaceService,
+                             LocalSkillRemoteAccessService localSkillRemoteAccessService,
                              BridgeSessionRegistry sessionRegistry, ObjectMapper objectMapper) {
         this.properties = properties;
         this.deviceService = deviceService;
@@ -48,6 +51,7 @@ public class BridgeNettyServer implements SmartLifecycle {
         this.installTaskService = installTaskService;
         this.toolScanService = toolScanService;
         this.localSkillWorkspaceService = localSkillWorkspaceService;
+        this.localSkillRemoteAccessService = localSkillRemoteAccessService;
         this.sessionRegistry = sessionRegistry;
         this.objectMapper = objectMapper;
     }
@@ -60,7 +64,7 @@ public class BridgeNettyServer implements SmartLifecycle {
         blockingGroup = new DefaultEventExecutorGroup(Math.max(2, properties.netty().workerThreads()));
         SkillPortNettyHandler handler = new SkillPortNettyHandler(
                 deviceService, downloadTicketService, installTaskService, toolScanService,
-                localSkillWorkspaceService, sessionRegistry, objectMapper);
+                localSkillWorkspaceService, localSkillRemoteAccessService, sessionRegistry, objectMapper);
         try {
             serverChannel = new ServerBootstrap()
                     .group(bossGroup, workerGroup)
