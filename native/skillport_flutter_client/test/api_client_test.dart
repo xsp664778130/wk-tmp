@@ -174,7 +174,7 @@ void main() {
       expect(request.url.path, '/api/skills/s1/file');
       expect(request.headers['cookie'], 'skillport_session=token-123');
       expect(request.headers['content-type'], startsWith('multipart/form-data; boundary='));
-      final uploadedBody = utf8.decode((request as http.Request).bodyBytes);
+      final uploadedBody = utf8.decode(request.bodyBytes);
       expect(uploadedBody, contains('name="file"'));
       expect(uploadedBody, contains('filename="audit-v2.zip"'));
       return http.Response(
