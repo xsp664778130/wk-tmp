@@ -116,6 +116,42 @@ spec:
                   optional: true
             - name: WECOM_CALLBACK_URL
               value: https://www.jmuyuer.com/api/auth/wecom/callback
+            - name: SKILLPORT_MAIL_ENABLED
+              value: "true"
+            - name: SKILLPORT_MAIL_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: skillport-secrets
+                  key: mail-host
+                  optional: true
+            - name: SKILLPORT_MAIL_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: skillport-secrets
+                  key: mail-port
+                  optional: true
+            - name: SKILLPORT_MAIL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: skillport-secrets
+                  key: mail-username
+                  optional: true
+            - name: SKILLPORT_MAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: skillport-secrets
+                  key: mail-password
+                  optional: true
+            - name: SKILLPORT_MAIL_FROM
+              valueFrom:
+                secretKeyRef:
+                  name: skillport-secrets
+                  key: mail-from
+                  optional: true
+            - name: SKILLPORT_MAIL_SSL
+              value: "true"
+            - name: SKILLPORT_MAIL_STARTTLS
+              value: "false"
             - name: MYSQL_POOL_SIZE
               value: "10"
             - name: SKILLPORT_NETTY_WORKERS

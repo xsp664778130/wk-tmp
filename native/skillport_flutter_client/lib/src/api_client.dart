@@ -34,7 +34,7 @@ class SkillPortApi {
     'accept': 'application/json',
     'content-type': 'application/json; charset=utf-8',
     if (token != null) 'cookie': 'skillport_session=$token',
-    'user-agent': 'SkillPort-Flutter/1.0.35',
+    'user-agent': 'SkillPort-Flutter/1.0.36',
   };
 
   Map<String, String> get sessionHeaders => <String, String>{
@@ -86,6 +86,54 @@ class SkillPortApi {
       headers: _jsonHeaders,
     );
     return SkillPortUser.fromJson(_object(_decodeObject(response)['user']));
+  }
+
+  Future<SkillPortUser> profile() async {
+    final response = await _http.get(uri('/api/auth/profile'), headers: _jsonHeaders);
+    return SkillPortUser.fromJson(_decodeObject(response));
+  }
+
+  Future<SkillPortUser> updateProfile(String displayName) async {
+    final response = await _http.patch(
+      uri('/api/auth/profile'),
+      headers: _jsonHeaders,
+      body: jsonEncode(<String, String>{'displayName': displayName.trim()}),
+    );
+    return SkillPortUser.fromJson(_decodeObject(response));
+  }
+
+  Future<void> changePassword(String currentPassword, String newPassword) async {
+    final response = await _http.post(
+      uri('/api/auth/password/change'),
+      headers: _jsonHeaders,
+      body: jsonEncode(<String, String>{
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      }),
+    );
+    _ensureSuccess(response);
+  }
+
+  Future<void> requestPasswordResetCode(String email) async {
+    final response = await _http.post(
+      uri('/api/auth/password/reset-code'),
+      headers: _jsonHeaders,
+      body: jsonEncode(<String, String>{'email': email.trim()}),
+    );
+    _ensureSuccess(response);
+  }
+
+  Future<void> resetPassword({required String email, required String code, required String newPassword}) async {
+    final response = await _http.post(
+      uri('/api/auth/password/reset'),
+      headers: _jsonHeaders,
+      body: jsonEncode(<String, String>{
+        'email': email.trim(),
+        'code': code.trim(),
+        'newPassword': newPassword,
+      }),
+    );
+    _ensureSuccess(response);
   }
 
   Future<void> logout() async {
@@ -256,7 +304,7 @@ class SkillPortApi {
       headers: <String, String>{
         ...sessionHeaders,
         'accept': 'application/octet-stream',
-        'user-agent': 'SkillPort-Flutter/1.0.35',
+        'user-agent': 'SkillPort-Flutter/1.0.36',
       },
     );
     _ensureSuccess(response);

@@ -16,16 +16,19 @@ class SkillPortUser {
     required this.id,
     required this.email,
     required this.displayName,
+    this.passwordEnabled = true,
   });
 
   final String id;
   final String email;
   final String displayName;
+  final bool passwordEnabled;
 
   factory SkillPortUser.fromJson(Map<String, dynamic> json) => SkillPortUser(
     id: json['id']?.toString() ?? '',
     email: json['email']?.toString() ?? '',
     displayName: json['displayName']?.toString() ?? '',
+    passwordEnabled: json['passwordEnabled'] != false,
   );
 }
 

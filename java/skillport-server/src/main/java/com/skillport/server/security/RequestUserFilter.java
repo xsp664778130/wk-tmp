@@ -73,13 +73,18 @@ public class RequestUserFilter extends OncePerRequestFilter {
     }
 
     private static boolean isPublicAuthPath(String path) {
-        return path.equals("/api/v1/auth/register") || path.equals("/api/v1/auth/login");
+        return path.equals("/api/v1/auth/register")
+                || path.equals("/api/v1/auth/login")
+                || path.equals("/api/v1/auth/password/reset-code")
+                || path.equals("/api/v1/auth/password/reset");
     }
 
     private static boolean isPublicBrowserAuthPath(String path) {
         return path.equals("/api/auth/register")
                 || path.equals("/api/auth/login")
                 || path.equals("/api/auth/logout")
+                || path.equals("/api/auth/password/reset-code")
+                || path.equals("/api/auth/password/reset")
                 || path.equals("/api/auth/wecom")
                 || path.equals("/api/auth/wecom/callback");
     }

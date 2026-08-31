@@ -38,6 +38,7 @@ class BridgeArtifactControllerTest {
                 new SkillPortProperties.ClientRelease("1.0.18", "2026-08-25", "Skill 详情操作区焕新",
                         List.of("检查新版本"), "https://www.jmuyuer.com"),
                 new SkillPortProperties.WeCom(false, "", "", "", ""),
+                null,
                 new SkillPortProperties.Netty(9091, 2));
     }
 }

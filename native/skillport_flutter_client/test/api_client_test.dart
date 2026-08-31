@@ -96,6 +96,39 @@ void main() {
     expect(skill.note, '分享时也要带上');
   });
 
+  test('updates the account profile and sends password recovery requests', () async {
+    var requestNumber = 0;
+    final client = MockClient((request) async {
+      requestNumber += 1;
+      if (requestNumber == 1) {
+        expect(request.method, 'PATCH');
+        expect(request.url.path, '/api/auth/profile');
+        expect(request.headers['cookie'], 'skillport_session=token-123');
+        expect(jsonDecode(request.body), <String, String>{'displayName': 'New Name'});
+        return http.Response(
+          jsonEncode(<String, dynamic>{
+            'id': 'u1',
+            'email': 'user@example.com',
+            'displayName': 'New Name',
+            'passwordEnabled': true,
+          }),
+          200,
+          headers: const <String, String>{'content-type': 'application/json'},
+        );
+      }
+      expect(request.method, 'POST');
+      expect(request.url.path, '/api/auth/password/reset-code');
+      expect(jsonDecode(request.body), <String, String>{'email': 'user@example.com'});
+      return http.Response('', 202);
+    });
+    final api = SkillPortApi(httpClient: client)..token = 'token-123';
+
+    final profile = await api.updateProfile('New Name');
+    expect(profile.displayName, 'New Name');
+    expect(profile.passwordEnabled, isTrue);
+    await api.requestPasswordResetCode('user@example.com');
+  });
+
   test('updates a private Skill category through the synchronized API', () async {
     final client = MockClient((request) async {
       expect(request.method, 'PATCH');

@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.36",
+    date: "2026-08-31",
+    title: "个人资料与密码找回",
+    changes: [
+      "右上角账户新增个人资料，可修改显示名称和当前登录密码。",
+      "登录页新增忘记密码流程，通过注册邮箱接收 6 位验证码后设置新密码。",
+      "验证码仅保存安全哈希、10 分钟有效且限制尝试次数；密码变化后旧会话自动失效。",
+    ],
+  },
+  {
     version: "1.0.35",
     date: "2026-08-28",
     title: "Skill 压缩包独立替换",
@@ -549,11 +559,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.35",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.36",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.35",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.36",
   },
 };
 
@@ -644,6 +654,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const [clientPlatform, setClientPlatform] = useState<ClientPlatform | null>(null);
   const [clientDownloadOpen, setClientDownloadOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -1036,7 +1047,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     return () => window.clearTimeout(timer);
   }, [devices, refreshLocalTools, scanningDeviceId, selectedDeviceId]);
 
-  async function logout() {
+  async function logout(message = "已安全退出 SkillPort") {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     setUser(null);
     setPrivateSkills([]);
@@ -1049,7 +1060,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     setSelected(null);
     setInstaller(null);
     setUninstaller(null);
-    setToast("已安全退出 SkillPort");
+    setToast(message);
   }
 
   function onFile(file?: File) {
@@ -1408,7 +1419,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             )}
           </div>
           {user ? (
-            <div className="account"><span className="avatar">{displayName.slice(0, 1).toUpperCase()}</span><span className="account-copy"><b>{displayName}</b><small>数据库账户</small></span><button className="logout-button" onClick={logout} aria-label="退出登录">退出</button></div>
+            <div className="account"><button className="account-profile-button" onClick={() => setProfileOpen(true)} aria-label="打开个人资料"><span className="avatar">{displayName.slice(0, 1).toUpperCase()}</span><span className="account-copy"><b>{displayName}</b><small>个人资料</small></span></button><button className="logout-button" onClick={() => void logout()} aria-label="退出登录">退出</button></div>
           ) : (
             <button className="login-button" onClick={() => setAuthOpen(true)}>登录 / 注册 <span>→</span></button>
           )}
@@ -1589,6 +1600,12 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         onClose={() => setFeedbackOpen(false)}
         onRequireSignIn={() => { setFeedbackOpen(false); setAuthOpen(true); }}
         onSubmitted={() => setToast("意见已公开送达，感谢你的反馈")}
+      />}
+      {profileOpen && user && <ProfileModal
+        user={user}
+        onClose={() => setProfileOpen(false)}
+        onProfileUpdated={(profile) => { setUser(profile); setToast("个人资料已保存"); }}
+        onPasswordChanged={() => { setProfileOpen(false); void logout("密码已修改，请使用新密码重新登录"); }}
       />}
       {authOpen && <AuthModal
         onClose={() => setAuthOpen(false)}
@@ -2282,14 +2299,122 @@ function UninstallModal({ skill, onlineDevice, onConnectBridge, onClose, onDone 
   );
 }
 
+function ProfileModal({ user, onClose, onProfileUpdated, onPasswordChanged }: {
+  user: Exclude<User, null>;
+  onClose: () => void;
+  onProfileUpdated: (user: Exclude<User, null>) => void;
+  onPasswordChanged: () => void;
+}) {
+  const [displayName, setDisplayName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [passwordEnabled, setPasswordEnabled] = useState(true);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/auth/profile", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(String(data?.error || "个人资料加载失败"));
+        setDisplayName(String(data.displayName || user.name));
+        setEmail(String(data.email || user.email));
+        setPasswordEnabled(data.passwordEnabled !== false);
+      })
+      .catch((loadError) => {
+        if ((loadError as Error).name !== "AbortError") setError(loadError instanceof Error ? loadError.message : "个人资料加载失败");
+      });
+    return () => controller.abort();
+  }, [user.email, user.name]);
+
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/auth/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ displayName: displayName.trim() }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.error || "个人资料保存失败"));
+      onProfileUpdated({ id: String(data.id || user.id), email: String(data.email || email), name: String(data.displayName || displayName) });
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "个人资料保存失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    if (newPassword !== confirmPassword) {
+      setError("两次输入的新密码不一致。");
+      return;
+    }
+    setBusy(true);
+    try {
+      const response = await fetch("/api/auth/password/change", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.error || "密码修改失败"));
+      onPasswordChanged();
+    } catch (changeError) {
+      setError(changeError instanceof Error ? changeError.message : "密码修改失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop auth-backdrop" onMouseDown={onClose}>
+      <div className="modal profile-modal" role="dialog" aria-modal="true" aria-label="个人资料" onMouseDown={(event) => event.stopPropagation()}>
+        <button className="close-button" onClick={onClose}>×</button>
+        <span className="step-label">ACCOUNT PROFILE</span>
+        <h2>个人资料</h2>
+        <p className="profile-lead">管理你的显示名称和登录安全设置。</p>
+        <form className="profile-section auth-form" onSubmit={saveProfile}>
+          <div className="profile-section-title"><span>01</span><div><b>基本资料</b><small>邮箱用于登录和接收密码重置验证码</small></div></div>
+          <label><span>邮箱</span><input type="email" value={email} disabled aria-label="账户邮箱"/></label>
+          <label><span>显示名称</span><input required maxLength={120} value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="name"/></label>
+          <button className="profile-save-button" disabled={busy || !displayName.trim()}>保存个人资料</button>
+        </form>
+        <form className="profile-section auth-form" onSubmit={changePassword}>
+          <div className="profile-section-title"><span>02</span><div><b>修改密码</b><small>{passwordEnabled ? "修改后所有设备需要重新登录" : "企业微信账户通过企业身份授权登录"}</small></div></div>
+          {passwordEnabled ? <>
+            <label><span>当前密码</span><input required type="password" minLength={8} maxLength={72} autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)}/></label>
+            <div className="profile-password-grid">
+              <label><span>新密码</span><input required type="password" minLength={8} maxLength={72} autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)}/></label>
+              <label><span>确认新密码</span><input required type="password" minLength={8} maxLength={72} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)}/></label>
+            </div>
+            <button className="profile-password-button" disabled={busy || newPassword.length < 8 || newPassword !== confirmPassword}>修改密码并退出登录</button>
+          </> : <div className="profile-wecom-note"><span>企</span><p><b>企业微信授权账户</b><small>该账户不保存独立密码，无需在 SkillPort 修改密码。</small></p></div>}
+        </form>
+        {error && <div className="auth-error" role="alert">{error}</div>}
+      </div>
+    </div>
+  );
+}
+
 function AuthModal({ onClose, onAuthenticated }: { onClose: () => void; onAuthenticated: (user: Exclude<User, null>) => void }) {
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resetCodeSent, setResetCodeSent] = useState(false);
+  const [resetCode, setResetCode] = useState("");
+  const [success, setSuccess] = useState("");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2318,11 +2443,64 @@ function AuthModal({ onClose, onAuthenticated }: { onClose: () => void; onAuthen
     }
   }
 
-  function switchMode(nextMode: "login" | "register") {
+  async function requestResetCode() {
+    setBusy(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/auth/password/reset-code", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.error || "验证码发送失败"));
+      setResetCodeSent(true);
+      setSuccess("如果该邮箱已注册，验证码会在几分钟内发送，请检查收件箱和垃圾邮件。");
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : "验证码发送失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    if (password !== confirmPassword) {
+      setError("两次输入的新密码不一致。");
+      return;
+    }
+    setBusy(true);
+    try {
+      const response = await fetch("/api/auth/password/reset", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, code: resetCode, newPassword: password }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.error || "密码重置失败"));
+      setMode("login");
+      setResetCodeSent(false);
+      setResetCode("");
+      setPassword("");
+      setConfirmPassword("");
+      setSuccess("密码已重置，请使用新密码登录。");
+    } catch (resetError) {
+      setError(resetError instanceof Error ? resetError.message : "密码重置失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function switchMode(nextMode: "login" | "register" | "forgot") {
     setMode(nextMode);
     setError("");
     setPassword("");
     setConfirmPassword("");
+    setResetCode("");
+    setResetCodeSent(false);
+    setSuccess("");
   }
 
   return (
@@ -2332,18 +2510,31 @@ function AuthModal({ onClose, onAuthenticated }: { onClose: () => void; onAuthen
         <div className="auth-brand"><span className="brand-mark">S</span><div><b>欢迎来到 SkillPort</b><small>企业微信或邮箱账户均可登录</small></div></div>
         <form className="wecom-auth-form" method="get" action="/api/auth/wecom"><input type="hidden" name="mode" value="qr"/><button className="wecom-auth-button" type="submit"><span>企</span><p><b>企业微信登录 / 注册</b><small>首次授权自动注册，企业微信内打开自动登录</small></p><em>→</em></button></form>
         <div className="auth-divider"><span>或使用邮箱</span></div>
-        <div className="auth-tabs" role="tablist">
+        {mode !== "forgot" && <div className="auth-tabs" role="tablist">
           <button className={mode === "login" ? "active" : ""} onClick={() => switchMode("login")}>登录</button>
           <button className={mode === "register" ? "active" : ""} onClick={() => switchMode("register")}>注册新账户</button>
-        </div>
-        <form className="auth-form" onSubmit={submit}>
+        </div>}
+        {mode !== "forgot" ? <form className="auth-form" onSubmit={submit}>
           {mode === "register" && <label><span>显示名称</span><input required maxLength={120} autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="例如：Asher"/></label>}
           <label><span>邮箱</span><input required type="email" maxLength={254} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com"/></label>
           <label><span>密码</span><input required type="password" minLength={8} maxLength={72} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="至少 8 位字符"/></label>
           {mode === "register" && <label><span>确认密码</span><input required type="password" minLength={8} maxLength={72} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="再次输入密码"/></label>}
           {error && <div className="auth-error" role="alert">{error}</div>}
+          {success && <div className="auth-success" role="status">{success}</div>}
           <button className="full-primary auth-submit" disabled={busy}>{busy ? "正在安全验证…" : mode === "login" ? "登录 SkillPort" : "创建私人账户"} <span>→</span></button>
-        </form>
+          {mode === "login" && <button className="forgot-password-link" type="button" onClick={() => switchMode("forgot")}>忘记密码？使用邮箱验证码重置</button>}
+        </form> : <form className="auth-form password-reset-form" onSubmit={resetPassword}>
+          <div className="password-reset-heading"><button type="button" onClick={() => switchMode("login")}>←</button><div><b>重置登录密码</b><small>验证码将在 10 分钟后失效</small></div></div>
+          <label><span>注册邮箱</span><div className="reset-code-row"><input required type="email" maxLength={254} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com"/><button type="button" disabled={busy || !email.includes("@")} onClick={() => void requestResetCode()}>{resetCodeSent ? "重新发送" : "发送验证码"}</button></div></label>
+          {resetCodeSent && <>
+            <label><span>邮箱验证码</span><input required inputMode="numeric" pattern="[0-9]{6}" minLength={6} maxLength={6} autoComplete="one-time-code" value={resetCode} onChange={(event) => setResetCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6 位验证码"/></label>
+            <label><span>新密码</span><input required type="password" minLength={8} maxLength={72} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="至少 8 位字符"/></label>
+            <label><span>确认新密码</span><input required type="password" minLength={8} maxLength={72} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="再次输入新密码"/></label>
+          </>}
+          {error && <div className="auth-error" role="alert">{error}</div>}
+          {success && <div className="auth-success" role="status">{success}</div>}
+          {resetCodeSent && <button className="full-primary auth-submit" disabled={busy || resetCode.length !== 6}>{busy ? "正在重置…" : "确认重置密码"} <span>→</span></button>}
+        </form>}
         <div className="auth-security"><span>✓</span><p><b>密码不会明文保存</b><small>服务端使用 BCrypt 哈希，会话保存在 HttpOnly 安全 Cookie 中。</small></p></div>
       </div>
     </div>

@@ -17,6 +17,9 @@ K3s 版本包含以下工作负载：
 
 首次部署由 `deploy/k3s/namespace.yaml`、`mysql.yaml`、`skillport.yaml`、
 `jenkins.yaml`、`headlamp.yaml` 完成。生产密钥只创建在 K3s Secret 中，不写入仓库。
+密码重置邮件需要在 `skillport-secrets` 中配置 `mail-host`、`mail-port`、
+`mail-username`、`mail-password` 和 `mail-from`；其中 `mail-password` 应为邮件服务商
+生成的 SMTP 应用专用密码或授权码，不应使用邮箱网页登录密码。
 
 Jenkins Pod 使用宿主机只读挂载的 Maven 3.9.11、Node.js 22.21.1 和镜像内 JDK 21，
 无需在 Jenkins 页面手工配置全局工具。Jenkinsfile 使用 Jib 在没有 Docker daemon 的情况下

@@ -16,6 +16,7 @@ import com.skillport.server.service.LocalSkillWorkspaceService;
 import com.skillport.server.service.LocalSkillRemoteAccessService;
 import com.skillport.protocol.LocalSkillActionResult;
 import com.skillport.server.service.PairingService;
+import com.skillport.server.service.PasswordResetService;
 import com.skillport.server.service.PublicSkillService;
 import com.skillport.server.service.SkillService;
 import com.skillport.server.service.WeComAuthService;
@@ -82,6 +83,7 @@ public class BrowserController {
     private final SkillPortProperties properties;
     private final WeComAuthService weComAuthService;
     private final FeedbackMailboxService feedbackMailboxService;
+    private final PasswordResetService passwordResetService;
 
     public BrowserController(AuthService authService, SkillService skillService,
                              PublicSkillService publicSkillService, DeviceService deviceService,
@@ -91,7 +93,8 @@ public class BrowserController {
                              LocalSkillRemoteAccessService localSkillRemoteAccessService,
                              BridgeSessionRegistry sessionRegistry, SkillPortProperties properties,
                              WeComAuthService weComAuthService,
-                             FeedbackMailboxService feedbackMailboxService) {
+                             FeedbackMailboxService feedbackMailboxService,
+                             PasswordResetService passwordResetService) {
         this.authService = authService;
         this.skillService = skillService;
         this.publicSkillService = publicSkillService;
@@ -106,6 +109,7 @@ public class BrowserController {
         this.properties = properties;
         this.weComAuthService = weComAuthService;
         this.feedbackMailboxService = feedbackMailboxService;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/auth/register")
@@ -168,6 +172,39 @@ public class BrowserController {
     public Map<String, AuthController.UserResponse> me(
             @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user) {
         return Map.of("user", new AuthController.UserResponse(user.userId(), user.email(), user.displayName()));
+    }
+
+    @GetMapping("/auth/profile")
+    public AuthController.ProfileResponse profile(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user) {
+        return AuthController.ProfileResponse.from(authService.profile(user.userId()));
+    }
+
+    @PatchMapping("/auth/profile")
+    public AuthController.ProfileResponse updateProfile(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @Valid @RequestBody AuthController.ProfileRequest request) {
+        return AuthController.ProfileResponse.from(authService.updateProfile(user.userId(), request.displayName()));
+    }
+
+    @PostMapping("/auth/password/change")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @Valid @RequestBody AuthController.ChangePasswordRequest request) {
+        authService.changePassword(user.userId(), request.currentPassword(), request.newPassword());
+    }
+
+    @PostMapping("/auth/password/reset-code")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void requestResetCode(@Valid @RequestBody AuthController.ResetCodeRequest request) {
+        passwordResetService.requestCode(request.email());
+    }
+
+    @PostMapping("/auth/password/reset")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@Valid @RequestBody AuthController.ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request.email(), request.code(), request.newPassword());
     }
 
     @PostMapping("/auth/logout")

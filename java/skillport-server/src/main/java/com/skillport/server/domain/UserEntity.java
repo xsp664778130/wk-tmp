@@ -69,4 +69,14 @@ public class UserEntity {
     public String getWeComCorpId() { return weComCorpId; }
     public String getWeComUserId() { return weComUserId; }
     public String getStatus() { return status; }
+
+    public void updateDisplayName(String displayName, Instant now) {
+        this.displayName = displayName;
+        this.updatedAt = now;
+    }
+
+    public void changePassword(String passwordHash, Instant now) {
+        this.passwordHash = passwordHash;
+        this.updatedAt = now;
+    }
 }

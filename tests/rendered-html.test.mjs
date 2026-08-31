@@ -173,6 +173,27 @@ test("provides enterprise WeCom silent authorization and QR login", async () => 
   assert.match(migration, /uk_users_wecom_identity/);
 });
 
+test("provides account profiles and one-time email password recovery", async () => {
+  const [client, profileRoute, resetRoute, migration, resetStore] = await Promise.all([
+    readFile(new URL("../app/skill-workspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/auth/profile/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/auth/password/[action]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../java/skillport-server/src/main/resources/db/migration/V16__add_password_reset_codes.sql", import.meta.url), "utf8"),
+    readFile(new URL("../java/skillport-server/src/main/java/com/skillport/server/service/PasswordResetStore.java", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(client, /打开个人资料/);
+  assert.match(client, /修改密码并退出登录/);
+  assert.match(client, /忘记密码？使用邮箱验证码重置/);
+  assert.match(client, /验证码将在 10 分钟后失效/);
+  assert.match(profileRoute, /api\/v1\/auth\/profile/);
+  assert.match(resetRoute, /reset-code/);
+  assert.match(migration, /CREATE TABLE password_reset_codes/);
+  assert.match(resetStore, /MAX_ATTEMPTS = 5/);
+  assert.match(resetStore, /revokeAllByOwnerId/);
+  assert.doesNotMatch(resetStore, /code\s*=\s*resetCode\.getCodeHash/);
+});
+
 test("ships MySQL accounts, Netty and cross-platform Bridge capabilities", async () => {
   const [hosting, schema, userSchema, publicPoolSchema, avatarSchema, operationSchema, feedbackSchema, publicFeedbackSchema, cursorSchema, detailSchema, instanceSchema, localSkillSchema, client, nettyServer, bridge, scanner, uninstaller, localAccess, localRemoteAccess, toolScanRoute, localSkillRoute, localManifestRoute, localOpenFolderRoute, macInstaller, windowsInstaller, macUpdater, windowsUpdater] = await Promise.all([
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),

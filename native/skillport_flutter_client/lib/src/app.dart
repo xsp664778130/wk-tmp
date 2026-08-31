@@ -281,6 +281,20 @@ class _AuthScreenState extends State<AuthScreen> {
                                   : '登录客户端',
                             ),
                           ),
+                          if (!_register)
+                            TextButton(
+                              onPressed: widget.controller.busy
+                                  ? null
+                                  : () => showDialog<void>(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (_) => ForgotPasswordDialog(
+                                        controller: widget.controller,
+                                        initialEmail: _email.text,
+                                      ),
+                                    ),
+                              child: const Text('忘记密码？使用邮箱验证码重置'),
+                            ),
                           const SizedBox(height: 12),
                           TextButton(
                             onPressed: widget.controller.busy
@@ -332,6 +346,128 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
     );
   }
+}
+
+class ForgotPasswordDialog extends StatefulWidget {
+  const ForgotPasswordDialog({
+    super.key,
+    required this.controller,
+    required this.initialEmail,
+  });
+
+  final AppController controller;
+  final String initialEmail;
+
+  @override
+  State<ForgotPasswordDialog> createState() => _ForgotPasswordDialogState();
+}
+
+class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
+  late final TextEditingController _email = TextEditingController(text: widget.initialEmail);
+  final _code = TextEditingController();
+  final _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
+  bool _sent = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _code.dispose();
+    _password.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendCode() async {
+    if (!_email.text.contains('@')) {
+      setState(() => _error = '请输入正确的注册邮箱。');
+      return;
+    }
+    final success = await widget.controller.requestPasswordResetCode(_email.text);
+    if (!mounted) return;
+    setState(() {
+      _sent = success;
+      _error = success ? null : widget.controller.feedback?.message;
+    });
+  }
+
+  Future<void> _reset() async {
+    if (_code.text.length != 6 || _password.text.length < 8 || _password.text != _confirmPassword.text) {
+      setState(() => _error = '请填写 6 位验证码，且两次新密码保持一致。');
+      return;
+    }
+    final success = await widget.controller.resetPassword(
+      email: _email.text,
+      code: _code.text,
+      newPassword: _password.text,
+    );
+    if (!mounted) return;
+    if (success) {
+      Navigator.pop(context);
+    } else {
+      setState(() => _error = widget.controller.feedback?.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('重置登录密码'),
+    content: SizedBox(
+      width: 430,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            TextField(
+              controller: _email,
+              enabled: !_sent,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: '注册邮箱', prefixIcon: Icon(Icons.mail_outline_rounded)),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: widget.controller.busy ? null : _sendCode,
+                icon: const Icon(Icons.mark_email_read_outlined),
+                label: Text(_sent ? '重新发送验证码' : '发送邮箱验证码'),
+              ),
+            ),
+            if (_sent) ...<Widget>[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _code,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: const InputDecoration(labelText: '6 位验证码', prefixIcon: Icon(Icons.verified_outlined)),
+              ),
+              const SizedBox(height: 4),
+              TextField(
+                controller: _password,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: '新密码', prefixIcon: Icon(Icons.lock_reset_rounded)),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _confirmPassword,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: '确认新密码', prefixIcon: Icon(Icons.lock_outline_rounded)),
+              ),
+            ],
+            if (_error != null) ...<Widget>[
+              const SizedBox(height: 12),
+              Align(alignment: Alignment.centerLeft, child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+            ],
+          ],
+        ),
+      ),
+    ),
+    actions: <Widget>[
+      TextButton(onPressed: widget.controller.busy ? null : () => Navigator.pop(context), child: const Text('关闭')),
+      if (_sent) FilledButton(onPressed: widget.controller.busy ? null : _reset, child: const Text('确认重置')),
+    ],
+  );
 }
 
 class BrandMark extends StatelessWidget {

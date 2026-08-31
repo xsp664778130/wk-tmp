@@ -6,6 +6,7 @@ import com.skillport.server.domain.SkillEntity;
 import com.skillport.server.domain.UserEntity;
 import com.skillport.server.repository.SkillRepository;
 import com.skillport.server.repository.UserRepository;
+import com.skillport.server.service.PasswordResetStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,6 +41,8 @@ class SkillPortServerApplicationTest {
     private SkillRepository skillRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private PasswordResetStore passwordResetStore;
 
     @Test
     void contextLoadsWithMySqlCompatibleSchemaAndNetty() {
@@ -132,6 +135,72 @@ class SkillPortServerApplicationTest {
     }
 
     @Test
+    void updatesProfileAndRevokesSessionsAfterChangingPassword() throws Exception {
+        String email = "profile-" + UUID.randomUUID() + "@example.com";
+        String oldPassword = "StrongPass-2026";
+        String newPassword = "ChangedPass-2026";
+        HttpClient client = HttpClient.newHttpClient();
+        HttpResponse<String> register = client.send(HttpRequest.newBuilder(api("/api/v1/auth/register"))
+                        .header("Content-Type", "application/json")
+                        .header("X-SkillPort-Gateway-Key", GATEWAY_KEY)
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(new Registration(
+                                email, "Before Name", oldPassword))))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        String token = objectMapper.readTree(register.body()).path("token").asText();
+
+        HttpResponse<String> profile = client.send(authenticated(api("/api/v1/auth/profile"), token)
+                        .header("Content-Type", "application/json")
+                        .method("PATCH", HttpRequest.BodyPublishers.ofString("{\"displayName\":\"After Name\"}"))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, profile.statusCode());
+        assertEquals("After Name", objectMapper.readTree(profile.body()).path("displayName").asText());
+        assertTrue(objectMapper.readTree(profile.body()).path("passwordEnabled").asBoolean());
+
+        HttpResponse<String> change = client.send(authenticated(api("/api/v1/auth/password/change"), token)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(
+                                new PasswordChange(oldPassword, newPassword))))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(204, change.statusCode());
+        assertEquals(401, client.send(authenticated(api("/api/v1/auth/me"), token).GET().build(),
+                HttpResponse.BodyHandlers.ofString()).statusCode());
+        assertEquals(200, login(client, email, newPassword).statusCode());
+    }
+
+    @Test
+    void resetsPasswordWithOneTimeEmailCodeAndRevokesExistingSessions() throws Exception {
+        String email = "reset-" + UUID.randomUUID() + "@example.com";
+        HttpClient client = HttpClient.newHttpClient();
+        HttpResponse<String> register = client.send(HttpRequest.newBuilder(api("/api/v1/auth/register"))
+                        .header("Content-Type", "application/json")
+                        .header("X-SkillPort-Gateway-Key", GATEWAY_KEY)
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(new Registration(
+                                email, "Reset Owner", "StrongPass-2026"))))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        String token = objectMapper.readTree(register.body()).path("token").asText();
+        PasswordResetStore.IssuedCode issued = passwordResetStore.issueCode(email);
+
+        HttpResponse<String> reset = client.send(HttpRequest.newBuilder(api("/api/v1/auth/password/reset"))
+                        .header("Content-Type", "application/json")
+                        .header("X-SkillPort-Gateway-Key", GATEWAY_KEY)
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(
+                                new PasswordReset(email, issued.code(), "ResetPass-2026"))))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(204, reset.statusCode());
+        assertEquals(401, client.send(authenticated(api("/api/v1/auth/me"), token).GET().build(),
+                HttpResponse.BodyHandlers.ofString()).statusCode());
+        assertEquals(200, login(client, email, "ResetPass-2026").statusCode());
+
+        HttpResponse<String> reused = client.send(HttpRequest.newBuilder(api("/api/v1/auth/password/reset"))
+                        .header("Content-Type", "application/json")
+                        .header("X-SkillPort-Gateway-Key", GATEWAY_KEY)
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(
+                                new PasswordReset(email, issued.code(), "AnotherPass-2026"))))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(400, reused.statusCode());
+    }
+
+    @Test
     void updatesCategoryAndDetailsThroughTheWebClientPatchRoute() throws Exception {
         String email = "patch-" + UUID.randomUUID() + "@example.com";
         HttpClient client = HttpClient.newHttpClient();
@@ -183,7 +252,25 @@ class SkillPortServerApplicationTest {
                 .header("Authorization", "Bearer " + token);
     }
 
+    private HttpResponse<String> login(HttpClient client, String email, String password) throws Exception {
+        return client.send(HttpRequest.newBuilder(api("/api/v1/auth/login"))
+                        .header("Content-Type", "application/json")
+                        .header("X-SkillPort-Gateway-Key", GATEWAY_KEY)
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(
+                                new Login(email, password))))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+    }
+
     private record Registration(String email, String displayName, String password) {
+    }
+
+    private record Login(String email, String password) {
+    }
+
+    private record PasswordChange(String currentPassword, String newPassword) {
+    }
+
+    private record PasswordReset(String email, String code, String newPassword) {
     }
 
     private record CategoryPatch(String category) {

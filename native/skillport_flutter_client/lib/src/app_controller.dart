@@ -160,6 +160,38 @@ class AppController extends ChangeNotifier {
     });
   }
 
+  Future<SkillPortUser?> loadProfile() async {
+    try {
+      return await _api.profile();
+    } catch (error) {
+      _show(error.toString(), error: true);
+      return null;
+    }
+  }
+
+  Future<bool> updateProfile(String displayName) => _perform('正在保存个人资料…', () async {
+    user = await _api.updateProfile(displayName);
+  }, successMessage: '个人资料已保存');
+
+  Future<bool> changePassword(String currentPassword, String newPassword) => _perform('正在修改密码…', () async {
+    await _api.changePassword(currentPassword, newPassword);
+    await _sessionStore.clearToken();
+    _api.token = null;
+    user = null;
+    privateSkills = const <SkillItem>[];
+    publicSkills = const <SkillItem>[];
+    mode = LibraryMode.publicPool;
+  }, successMessage: '密码已修改，请使用新密码重新登录');
+
+  Future<bool> requestPasswordResetCode(String email) => _perform('正在发送验证码…', () async {
+    await _api.requestPasswordResetCode(email);
+  }, successMessage: '如果邮箱已注册，验证码会在几分钟内送达');
+
+  Future<bool> resetPassword({required String email, required String code, required String newPassword}) =>
+      _perform('正在重置密码…', () async {
+        await _api.resetPassword(email: email, code: code, newPassword: newPassword);
+      }, successMessage: '密码已重置，请使用新密码登录');
+
   Future<void> refresh({bool showBusy = true}) async {
     if (!signedIn) return;
     Future<void> load() async {

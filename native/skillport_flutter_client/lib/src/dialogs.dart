@@ -27,6 +27,144 @@ Future<void> showUploadDialog(
       UploadDialog(controller: controller, initialFile: initialFile),
 );
 
+Future<void> showProfileDialog(BuildContext context, AppController controller) =>
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ProfileDialog(controller: controller),
+    );
+
+class ProfileDialog extends StatefulWidget {
+  const ProfileDialog({super.key, required this.controller});
+
+  final AppController controller;
+
+  @override
+  State<ProfileDialog> createState() => _ProfileDialogState();
+}
+
+class _ProfileDialogState extends State<ProfileDialog> {
+  late final _displayName = TextEditingController(text: widget.controller.user?.displayName ?? '');
+  late final _email = TextEditingController(text: widget.controller.user?.email ?? '');
+  final _currentPassword = TextEditingController();
+  final _newPassword = TextEditingController();
+  final _confirmPassword = TextEditingController();
+  bool _passwordEnabled = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final profile = await widget.controller.loadProfile();
+    if (!mounted || profile == null) return;
+    setState(() {
+      _displayName.text = profile.displayName;
+      _email.text = profile.email;
+      _passwordEnabled = profile.passwordEnabled;
+    });
+  }
+
+  @override
+  void dispose() {
+    _displayName.dispose();
+    _email.dispose();
+    _currentPassword.dispose();
+    _newPassword.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveProfile() async {
+    if (_displayName.text.trim().isEmpty) {
+      setState(() => _error = '显示名称不能为空。');
+      return;
+    }
+    final saved = await widget.controller.updateProfile(_displayName.text);
+    if (!mounted) return;
+    setState(() => _error = saved ? null : widget.controller.feedback?.message);
+  }
+
+  Future<void> _changePassword() async {
+    if (_currentPassword.text.length < 8 || _newPassword.text.length < 8 ||
+        _newPassword.text != _confirmPassword.text) {
+      setState(() => _error = '请填写当前密码，并确保两次新密码一致且至少 8 位。');
+      return;
+    }
+    final changed = await widget.controller.changePassword(_currentPassword.text, _newPassword.text);
+    if (!mounted) return;
+    if (changed) {
+      Navigator.pop(context);
+    } else {
+      setState(() => _error = widget.controller.feedback?.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    constraints: const BoxConstraints(maxWidth: 560),
+    title: const Row(
+      children: <Widget>[
+        Icon(Icons.manage_accounts_outlined),
+        SizedBox(width: 10),
+        Text('个人资料'),
+      ],
+    ),
+    content: SizedBox(
+      width: 520,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            TextField(controller: _email, enabled: false, decoration: const InputDecoration(labelText: '登录邮箱')),
+            const SizedBox(height: 12),
+            TextField(controller: _displayName, maxLength: 120, decoration: const InputDecoration(labelText: '显示名称')),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                onPressed: widget.controller.busy ? null : _saveProfile,
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('保存个人资料'),
+              ),
+            ),
+            const Divider(height: 32),
+            Text('修改密码', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text(
+              _passwordEnabled ? '修改后，网页和其他客户端都需要使用新密码重新登录。' : '企业微信账户没有独立密码。',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+            if (_passwordEnabled) ...<Widget>[
+              const SizedBox(height: 13),
+              TextField(controller: _currentPassword, obscureText: true, decoration: const InputDecoration(labelText: '当前密码')),
+              const SizedBox(height: 12),
+              TextField(controller: _newPassword, obscureText: true, decoration: const InputDecoration(labelText: '新密码')),
+              const SizedBox(height: 12),
+              TextField(controller: _confirmPassword, obscureText: true, decoration: const InputDecoration(labelText: '确认新密码')),
+              const SizedBox(height: 13),
+              FilledButton.icon(
+                onPressed: widget.controller.busy ? null : _changePassword,
+                icon: const Icon(Icons.lock_reset_rounded),
+                label: const Text('修改密码并退出登录'),
+              ),
+            ],
+            if (_error != null) ...<Widget>[
+              const SizedBox(height: 12),
+              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ],
+          ],
+        ),
+      ),
+    ),
+    actions: <Widget>[
+      TextButton(onPressed: widget.controller.busy ? null : () => Navigator.pop(context), child: const Text('关闭')),
+    ],
+  );
+}
+
 final _uploadDraft = _UploadDraft();
 
 class _UploadDraft {

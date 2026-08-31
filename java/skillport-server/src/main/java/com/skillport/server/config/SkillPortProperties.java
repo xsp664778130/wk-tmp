@@ -16,6 +16,7 @@ public record SkillPortProperties(
         String publicNettyBaseUrl,
         ClientRelease clientRelease,
         WeCom wecom,
+        Mail mail,
         Netty netty
 ) {
     public record ClientRelease(
@@ -34,6 +35,17 @@ public record SkillPortProperties(
                     && agentId != null && !agentId.isBlank()
                     && secret != null && !secret.isBlank()
                     && callbackUrl != null && !callbackUrl.isBlank();
+        }
+    }
+
+    public record Mail(boolean enabled, String host, int port, String username, String password,
+                       String from, boolean ssl, boolean starttls) {
+        public boolean configured() {
+            return enabled
+                    && host != null && !host.isBlank()
+                    && username != null && !username.isBlank()
+                    && password != null && !password.isBlank()
+                    && from != null && !from.isBlank();
         }
     }
 

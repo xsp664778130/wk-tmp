@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.35';
-const currentReleaseDate = '2026-08-28';
-const currentReleaseTitle = 'Skill 压缩包独立替换';
+const currentReleaseVersion = '1.0.36';
+const currentReleaseDate = '2026-08-31';
+const currentReleaseTitle = '个人资料与密码找回';
 const currentReleaseChanges = <String>[
-  '我的 Skill 详情新增“仅替换压缩包”，重新执行完整结构与大小校验。',
-  '名称、描述、详细说明、使用步骤、分类、备注和头像全部保持不变。',
-  '已分享 Skill 会同步更新公有池下载文件，其他用户已拉取的副本不受影响。',
+  '新增个人资料入口，可修改显示名称和当前登录密码。',
+  '登录页新增忘记密码，可通过注册邮箱验证码设置新密码。',
+  '验证码 10 分钟有效并限制尝试次数，密码变化后旧会话自动失效。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.35',
+    date: '2026-08-28',
+    title: 'Skill 压缩包独立替换',
+    changes: <String>[
+      '我的 Skill 详情新增“仅替换压缩包”，重新执行完整结构与大小校验。',
+      '名称、描述、详细说明、使用步骤、分类、备注和头像全部保持不变。',
+      '已分享 Skill 会同步更新公有池下载文件，其他用户已拉取的副本不受影响。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.34',

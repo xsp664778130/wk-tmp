@@ -309,6 +309,27 @@ class Sidebar extends StatelessWidget {
           const SizedBox(height: 10),
           if (compact)
             IconButton(
+              onPressed: controller.busy ? null : () => showProfileDialog(context, controller),
+              tooltip: '个人资料',
+              icon: const Icon(Icons.manage_accounts_outlined),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: controller.busy ? null : () => showProfileDialog(context, controller),
+                style: OutlinedButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  side: BorderSide(color: scheme.outlineVariant),
+                  backgroundColor: scheme.surface.withValues(alpha: .72),
+                ),
+                icon: const Icon(Icons.manage_accounts_outlined, size: 18),
+                label: const Text('个人资料', style: TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ),
+          const SizedBox(height: 5),
+          if (compact)
+            IconButton(
               onPressed: controller.busy
                   ? null
                   : () => showFeedbackMailboxDialog(context, controller),

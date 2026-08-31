@@ -119,7 +119,7 @@ java -jar skillport-server/target/skillport-server-1.0.0-SNAPSHOT.jar
 
 打开 <http://localhost:8080>。Flyway 会在首次启动时自动创建数据库表。
 
-如需连接自定义 MySQL、修改文件目录或启用企业微信登录，请参考 [`java/.env.example`](java/.env.example) 配置环境变量。不要提交真实 `.env` 文件。
+如需连接自定义 MySQL、修改文件目录、启用企业微信登录或配置密码重置邮件，请参考 [`java/.env.example`](java/.env.example) 配置环境变量。不要提交真实 `.env` 文件。SMTP 必须使用邮件服务商生成的应用专用密码或授权码，不要填写邮箱登录密码。
 
 ### 4. 单独开发 Web
 

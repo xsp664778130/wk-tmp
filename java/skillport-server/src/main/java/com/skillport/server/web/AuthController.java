@@ -1,6 +1,7 @@
 package com.skillport.server.web;
 
 import com.skillport.server.service.AuthService;
+import com.skillport.server.service.PasswordResetService;
 import com.skillport.server.security.RequestUser;
 import com.skillport.server.security.RequestUserFilter;
 import jakarta.validation.Valid;
@@ -10,6 +11,7 @@ import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -21,9 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, PasswordResetService passwordResetService) {
         this.authService = authService;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/register")
@@ -40,6 +44,38 @@ public class AuthController {
     @GetMapping("/me")
     public UserResponse me(@RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user) {
         return new UserResponse(user.userId(), user.email(), user.displayName());
+    }
+
+    @GetMapping("/profile")
+    public ProfileResponse profile(@RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user) {
+        return ProfileResponse.from(authService.profile(user.userId()));
+    }
+
+    @PatchMapping("/profile")
+    public ProfileResponse updateProfile(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @Valid @RequestBody ProfileRequest request) {
+        return ProfileResponse.from(authService.updateProfile(user.userId(), request.displayName()));
+    }
+
+    @PostMapping("/password/change")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(user.userId(), request.currentPassword(), request.newPassword());
+    }
+
+    @PostMapping("/password/reset-code")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void requestResetCode(@Valid @RequestBody ResetCodeRequest request) {
+        passwordResetService.requestCode(request.email());
+    }
+
+    @PostMapping("/password/reset")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request.email(), request.code(), request.newPassword());
     }
 
     @PostMapping("/logout")
@@ -64,9 +100,32 @@ public class AuthController {
             @NotBlank @Size(min = 8, max = 72) String password) {
     }
 
+    public record ProfileRequest(@NotBlank @Size(max = 120) String displayName) {
+    }
+
+    public record ChangePasswordRequest(
+            @NotBlank @Size(min = 8, max = 72) String currentPassword,
+            @NotBlank @Size(min = 8, max = 72) String newPassword) {
+    }
+
+    public record ResetCodeRequest(@NotBlank @Email @Size(max = 254) String email) {
+    }
+
+    public record ResetPasswordRequest(
+            @NotBlank @Email @Size(max = 254) String email,
+            @NotBlank @Size(min = 6, max = 6) String code,
+            @NotBlank @Size(min = 8, max = 72) String newPassword) {
+    }
+
     public record UserResponse(String id, String email, String displayName) {
         static UserResponse from(AuthService.AuthenticatedUser user) {
             return new UserResponse(user.id(), user.email(), user.displayName());
+        }
+    }
+
+    public record ProfileResponse(String id, String email, String displayName, boolean passwordEnabled) {
+        static ProfileResponse from(AuthService.UserProfile profile) {
+            return new ProfileResponse(profile.id(), profile.email(), profile.displayName(), profile.passwordEnabled());
         }
     }
 

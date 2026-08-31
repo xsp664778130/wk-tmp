@@ -44,13 +44,13 @@ skillport:
   public-api-base-url: ${SKILLPORT_API_PUBLIC_URL:http://localhost:8080}
   public-netty-base-url: ${SKILLPORT_NETTY_PUBLIC_URL:http://localhost:9091}
   client-release:
-    version: 1.0.35
-    date: 2026-08-28
-    title: Skill 压缩包独立替换
+    version: 1.0.36
+    date: 2026-08-31
+    title: 个人资料与密码找回
     changes:
-      - 我的 Skill 详情新增“仅替换压缩包”，重新执行完整结构与大小校验。
-      - 名称、描述、详细说明、使用步骤、分类、备注和头像全部保持不变。
-      - 已分享 Skill 会同步更新公有池下载文件，其他用户已拉取的副本不受影响。
+      - 右上角账户新增个人资料，可修改显示名称和当前登录密码。
+      - 登录页新增忘记密码流程，通过注册邮箱接收 6 位验证码后设置新密码。
+      - 验证码仅保存安全哈希、10 分钟有效且限制尝试次数；密码变化后旧会话自动失效。
     download-base-url: ${SKILLPORT_CLIENT_DOWNLOAD_URL:https://www.jmuyuer.com}
   wecom:
     enabled: ${WECOM_ENABLED:false}
@@ -58,6 +58,15 @@ skillport:
     agent-id: ${WECOM_AGENT_ID:}
     secret: ${WECOM_SECRET:}
     callback-url: ${WECOM_CALLBACK_URL:http://localhost:8080/api/auth/wecom/callback}
+  mail:
+    enabled: ${SKILLPORT_MAIL_ENABLED:false}
+    host: ${SKILLPORT_MAIL_HOST:}
+    port: ${SKILLPORT_MAIL_PORT:465}
+    username: ${SKILLPORT_MAIL_USERNAME:}
+    password: ${SKILLPORT_MAIL_PASSWORD:}
+    from: ${SKILLPORT_MAIL_FROM:}
+    ssl: ${SKILLPORT_MAIL_SSL:true}
+    starttls: ${SKILLPORT_MAIL_STARTTLS:false}
   netty:
     port: ${SKILLPORT_NETTY_PORT:9091}
     worker-threads: ${SKILLPORT_NETTY_WORKERS:4}

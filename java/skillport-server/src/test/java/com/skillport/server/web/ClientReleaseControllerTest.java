@@ -27,6 +27,7 @@ class ClientReleaseControllerTest {
                         "https://www.jmuyuer.com/"
                 ),
                 new SkillPortProperties.WeCom(false, "", "", "", ""),
+                null,
                 new SkillPortProperties.Netty(9091, 2)
         );
 

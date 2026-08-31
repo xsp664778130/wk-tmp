@@ -113,6 +113,42 @@ public class AuthService {
         return requireAuthenticatedUser(rawToken);
     }
 
+    @Transactional(readOnly = true)
+    public UserProfile profile(String ownerId) {
+        UserEntity user = requireActiveUser(ownerId);
+        return profileOf(user);
+    }
+
+    @Transactional
+    public UserProfile updateProfile(String ownerId, String displayName) {
+        String normalizedName = displayName == null ? "" : displayName.trim();
+        if (normalizedName.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "显示名称不能为空");
+        }
+        UserEntity user = requireActiveUser(ownerId);
+        user.updateDisplayName(normalizedName, Instant.now());
+        return profileOf(user);
+    }
+
+    @Transactional
+    public void changePassword(String ownerId, String currentPassword, String newPassword) {
+        validatePasswordBytes(currentPassword);
+        validatePasswordBytes(newPassword);
+        UserEntity user = requireActiveUser(ownerId);
+        if (user.getWeComUserId() != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "企业微信账户没有独立密码");
+        }
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "当前密码不正确");
+        }
+        if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "新密码不能与当前密码相同");
+        }
+        Instant now = Instant.now();
+        user.changePassword(passwordEncoder.encode(newPassword), now);
+        sessionRepository.revokeAllByOwnerId(ownerId, now);
+    }
+
     @Transactional
     public void logout(String rawToken) {
         if (rawToken == null || rawToken.isBlank()) return;
@@ -138,6 +174,17 @@ public class AuthService {
                 .filter(value -> "ACTIVE".equals(value.getStatus()))
                 .orElseThrow(AuthService::unauthorized);
         return new AuthenticatedUser(user.getPublicId(), publicEmail(user), user.getDisplayName());
+    }
+
+    private UserEntity requireActiveUser(String ownerId) {
+        return userRepository.findByPublicId(ownerId)
+                .filter(value -> "ACTIVE".equals(value.getStatus()))
+                .orElseThrow(AuthService::unauthorized);
+    }
+
+    private static UserProfile profileOf(UserEntity user) {
+        return new UserProfile(user.getPublicId(), publicEmail(user), user.getDisplayName(),
+                user.getWeComUserId() == null);
     }
 
     private static String publicEmail(UserEntity user) {
@@ -170,6 +217,9 @@ public class AuthService {
     }
 
     public record AuthenticatedUser(String id, String email, String displayName) {
+    }
+
+    public record UserProfile(String id, String email, String displayName, boolean passwordEnabled) {
     }
 
     public record SessionGrant(String token, Instant expiresAt, AuthenticatedUser user) {
