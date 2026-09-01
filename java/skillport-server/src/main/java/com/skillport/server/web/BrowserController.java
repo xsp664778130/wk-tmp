@@ -18,11 +18,14 @@ import com.skillport.protocol.LocalSkillActionResult;
 import com.skillport.server.service.PairingService;
 import com.skillport.server.service.PasswordResetService;
 import com.skillport.server.service.PublicSkillService;
+import com.skillport.server.service.SkillPackageEnvironmentService;
 import com.skillport.server.service.SkillService;
 import com.skillport.server.service.WeComAuthService;
+import com.skillport.server.storage.FileStorageService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.CacheControl;
@@ -84,6 +87,8 @@ public class BrowserController {
     private final WeComAuthService weComAuthService;
     private final FeedbackMailboxService feedbackMailboxService;
     private final PasswordResetService passwordResetService;
+    private final FileStorageService fileStorageService;
+    private final SkillPackageEnvironmentService environmentService;
 
     public BrowserController(AuthService authService, SkillService skillService,
                              PublicSkillService publicSkillService, DeviceService deviceService,
@@ -94,7 +99,9 @@ public class BrowserController {
                              BridgeSessionRegistry sessionRegistry, SkillPortProperties properties,
                              WeComAuthService weComAuthService,
                              FeedbackMailboxService feedbackMailboxService,
-                             PasswordResetService passwordResetService) {
+                             PasswordResetService passwordResetService,
+                             FileStorageService fileStorageService,
+                             SkillPackageEnvironmentService environmentService) {
         this.authService = authService;
         this.skillService = skillService;
         this.publicSkillService = publicSkillService;
@@ -110,6 +117,8 @@ public class BrowserController {
         this.weComAuthService = weComAuthService;
         this.feedbackMailboxService = feedbackMailboxService;
         this.passwordResetService = passwordResetService;
+        this.fileStorageService = fileStorageService;
+        this.environmentService = environmentService;
     }
 
     @PostMapping("/auth/register")
@@ -386,6 +395,23 @@ public class BrowserController {
         return SkillController.SkillResponse.from(result.skill(), result.publicPoolSynchronized());
     }
 
+    @GetMapping("/skills/{skillId}/environment")
+    public SkillController.SkillEnvironmentResponse skillEnvironment(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String skillId) {
+        return SkillController.SkillEnvironmentResponse.from(
+                skillService.environment(user.userId(), skillId), true);
+    }
+
+    @PatchMapping("/skills/{skillId}/environment")
+    public SkillController.SkillEnvironmentResponse updateSkillEnvironment(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String skillId,
+            @Valid @RequestBody SkillController.EnvironmentUpdateRequest request) {
+        var result = skillService.updateEnvironment(user.userId(), skillId, request.values());
+        return SkillController.SkillEnvironmentResponse.from(result.environment(), true);
+    }
+
     @GetMapping("/skills/{skillId}/avatar")
     public ResponseEntity<InputStreamResource> privateAvatar(
             @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
@@ -415,6 +441,21 @@ public class BrowserController {
     public ResponseEntity<InputStreamResource> publicAvatar(@PathVariable String publicSkillId) throws IOException {
         SkillEntity source = publicSkillService.publicAvatarSource(publicSkillId);
         return SkillController.avatarResponse(source, publicSkillService.publicAvatarFile(publicSkillId));
+    }
+
+    @GetMapping("/public-skills/{publicSkillId}/environment")
+    public SkillController.SkillEnvironmentResponse publicSkillEnvironment(
+            @PathVariable String publicSkillId) {
+        SkillEntity source = publicSkillService.publicSkillSource(publicSkillId);
+        try {
+            return SkillController.SkillEnvironmentResponse.from(
+                    environmentService.read(
+                            fileStorageService.resolve(source.getStoragePath()), source.getFileName()),
+                    false);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage(), exception);
+        }
     }
 
     @GetMapping("/devices")
@@ -484,6 +525,27 @@ public class BrowserController {
             @Valid @RequestBody LocalSkillWorkspaceController.LocalUninstallRequest request) {
         return localSkillRemoteAccessService.readManifest(
                 user.userId(), deviceId, request.tool(), request.slug());
+    }
+
+    @GetMapping("/devices/{deviceId}/local-skills/environment")
+    public LocalSkillActionResult localSkillEnvironment(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String deviceId,
+            @RequestParam String tool,
+            @RequestParam String slug) {
+        return localSkillRemoteAccessService.readEnvironment(
+                user.userId(), deviceId, tool, slug);
+    }
+
+    @PatchMapping("/devices/{deviceId}/local-skills/environment")
+    public LocalSkillActionResult updateLocalSkillEnvironment(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String deviceId,
+            @RequestParam String tool,
+            @RequestParam String slug,
+            @Valid @RequestBody BrowserEnvironmentUpdateRequest request) {
+        return localSkillRemoteAccessService.updateEnvironment(
+                user.userId(), deviceId, tool, slug, request.values());
     }
 
     @GetMapping("/installs")
@@ -589,5 +651,9 @@ public class BrowserController {
         boolean detailsRequested() {
             return name != null || description != null || detail != null || usageSteps != null;
         }
+    }
+
+    public record BrowserEnvironmentUpdateRequest(
+            @NotNull @Size(min = 1, max = 200) Map<String, String> values) {
     }
 }

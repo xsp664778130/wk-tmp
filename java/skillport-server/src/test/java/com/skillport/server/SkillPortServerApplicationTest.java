@@ -7,6 +7,8 @@ import com.skillport.server.domain.UserEntity;
 import com.skillport.server.repository.SkillRepository;
 import com.skillport.server.repository.UserRepository;
 import com.skillport.server.service.PasswordResetStore;
+import com.skillport.server.storage.FileStorageService;
+import com.skillport.server.storage.StoredSkillFile;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,13 +16,19 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -43,6 +51,8 @@ class SkillPortServerApplicationTest {
     private PasswordEncoder passwordEncoder;
     @Autowired
     private PasswordResetStore passwordResetStore;
+    @Autowired
+    private FileStorageService fileStorageService;
 
     @Test
     void contextLoadsWithMySqlCompatibleSchemaAndNetty() {
@@ -240,6 +250,78 @@ class SkillPortServerApplicationTest {
         assertEquals("After", updated.path("name").asText());
         assertEquals("Full detail", updated.path("detail").asText());
         assertEquals("第一步", updated.path("usageSteps").get(0).asText());
+    }
+
+    @Test
+    void readsAndUpdatesEnvironmentThroughStaticBrowserRoutes() throws Exception {
+        String email = "environment-" + UUID.randomUUID() + "@example.com";
+        HttpClient client = HttpClient.newHttpClient();
+        HttpResponse<String> register = client.send(HttpRequest.newBuilder(api("/api/auth/register"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(new Registration(
+                                email, "Environment Owner", "StrongPass-2026"))))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(201, register.statusCode());
+
+        JsonNode registered = objectMapper.readTree(register.body());
+        String ownerId = registered.path("user").path("id").asText();
+        String cookie = register.headers().firstValue("set-cookie").orElseThrow().split(";", 2)[0];
+        String skillId = UUID.randomUUID().toString();
+        StoredSkillFile stored = fileStorageService.store(
+                ownerId, skillId, "sample.zip", new ByteArrayInputStream(skillArchive(Map.of(
+                        "sample/SKILL.md", "---\nname: Sample\ndescription: Sample skill\n---\n",
+                        "sample/env.properties", "API_URL=https://example.test\nTOKEN=before\n"))));
+        skillRepository.save(new SkillEntity(
+                skillId, ownerId, "Sample", "Sample skill", "测试技能", "sample.zip",
+                stored.path().toString(), "application/zip", stored.sizeBytes(), stored.sha256(), Instant.now()));
+
+        HttpResponse<String> environment = client.send(HttpRequest.newBuilder(
+                        api("/api/skills/" + skillId + "/environment"))
+                        .header("Cookie", cookie)
+                        .GET().build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, environment.statusCode());
+        JsonNode initial = objectMapper.readTree(environment.body());
+        assertTrue(initial.path("exists").asBoolean());
+        assertEquals("before", initial.path("values").path("TOKEN").asText());
+
+        HttpResponse<String> update = client.send(HttpRequest.newBuilder(
+                        api("/api/skills/" + skillId + "/environment"))
+                        .header("Cookie", cookie)
+                        .header("Content-Type", "application/json")
+                        .method("PATCH", HttpRequest.BodyPublishers.ofString(
+                                "{\"values\":{\"TOKEN\":\"after\"}}"))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, update.statusCode());
+        assertEquals("after", objectMapper.readTree(update.body()).path("values").path("TOKEN").asText());
+
+        HttpResponse<String> share = client.send(HttpRequest.newBuilder(api("/api/public-skills"))
+                        .header("Cookie", cookie)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"skillId\":\"" + skillId + "\"}"))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(201, share.statusCode());
+        String publicSkillId = objectMapper.readTree(share.body()).path("id").asText();
+
+        HttpResponse<String> publicEnvironment = client.send(HttpRequest.newBuilder(
+                        api("/api/public-skills/" + publicSkillId + "/environment"))
+                        .header("Cookie", cookie)
+                        .GET().build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, publicEnvironment.statusCode());
+        JsonNode publicView = objectMapper.readTree(publicEnvironment.body());
+        assertEquals("after", publicView.path("values").path("TOKEN").asText());
+        assertEquals(false, publicView.path("editable").asBoolean());
+    }
+
+    private static byte[] skillArchive(Map<String, String> entries) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {
+            for (Map.Entry<String, String> entry : entries.entrySet()) {
+                zip.putNextEntry(new ZipEntry(entry.getKey()));
+                zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+        }
+        return bytes.toByteArray();
     }
 
     private URI api(String path) {
