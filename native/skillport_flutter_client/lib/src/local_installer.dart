@@ -333,7 +333,7 @@ class LocalInstaller {
       );
       final updated = document.update(values);
       await environment.writeAsString(updated, flush: true);
-      return readLocalSkillEnvironment(skill);
+      return await readLocalSkillEnvironment(skill);
     } on LocalInstallException {
       rethrow;
     } catch (error) {

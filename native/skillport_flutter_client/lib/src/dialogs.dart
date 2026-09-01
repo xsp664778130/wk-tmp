@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'app_controller.dart';
+import 'app_theme.dart';
 import 'local_installer.dart';
 import 'models.dart';
 
