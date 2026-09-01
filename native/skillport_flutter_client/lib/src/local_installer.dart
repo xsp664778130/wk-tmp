@@ -289,6 +289,74 @@ class LocalInstaller {
     }
   }
 
+  Future<EnvironmentPropertiesView> readLocalSkillEnvironment(
+    LocalSkillItem skill,
+  ) async {
+    final directory = _validatedLocalSkillDirectory(skill);
+    final environment = _environmentFile(Directory(directory));
+    if (environment == null) return EnvironmentPropertiesView.missing;
+    try {
+      if (await environment.length() > 128 * 1024) {
+        throw const LocalInstallException('env.properties 超过 128KB，无法查看');
+      }
+      final document = _EnvironmentDocument.parse(
+        await environment.readAsString(),
+      );
+      return EnvironmentPropertiesView(
+        exists: true,
+        path: path.basename(environment.path),
+        values: document.values,
+        editable: true,
+      );
+    } on LocalInstallException {
+      rethrow;
+    } catch (error) {
+      throw LocalInstallException('无法读取 env.properties：$error');
+    }
+  }
+
+  Future<EnvironmentPropertiesView> updateLocalSkillEnvironment(
+    LocalSkillItem skill,
+    Map<String, String> values,
+  ) async {
+    final directory = _validatedLocalSkillDirectory(skill);
+    final environment = _environmentFile(Directory(directory));
+    if (environment == null) {
+      throw const LocalInstallException('该 Skill 未包含 env.properties');
+    }
+    try {
+      if (await environment.length() > 128 * 1024) {
+        throw const LocalInstallException('env.properties 超过 128KB，无法编辑');
+      }
+      final document = _EnvironmentDocument.parse(
+        await environment.readAsString(),
+      );
+      final updated = document.update(values);
+      await environment.writeAsString(updated, flush: true);
+      return readLocalSkillEnvironment(skill);
+    } on LocalInstallException {
+      rethrow;
+    } catch (error) {
+      throw LocalInstallException('无法保存 env.properties：$error');
+    }
+  }
+
+  File? _environmentFile(Directory skillDirectory) {
+    final manifest = _findSkillFile(skillDirectory, depth: 0);
+    if (manifest == null) {
+      throw const LocalInstallException('本机 Skill 中没有找到 SKILL.md');
+    }
+    for (final entity in manifest.parent.listSync(followLinks: false)) {
+      if (entity is File &&
+          path.basename(entity.path).toLowerCase() == 'env.properties' &&
+          FileSystemEntity.typeSync(entity.path, followLinks: false) ==
+              FileSystemEntityType.file) {
+        return entity;
+      }
+    }
+    return null;
+  }
+
   String _validatedLocalSkillDirectory(LocalSkillItem skill) {
     final root = path.normalize(path.absolute(_toolRoot(skill.toolId)));
     final directory = path.normalize(path.absolute(skill.directory));
@@ -569,4 +637,112 @@ class LocalInstallException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class _EnvironmentDocument {
+  _EnvironmentDocument(this.lines, this.separator, this.properties);
+
+  final List<String> lines;
+  final String separator;
+  final Map<String, _EnvironmentLine> properties;
+
+  static final _keyPattern = RegExp(r'^[A-Za-z_][A-Za-z0-9_.-]{0,127}$');
+
+  factory _EnvironmentDocument.parse(String content) {
+    final separator = content.contains('\r\n') ? '\r\n' : '\n';
+    final lines = content.split(RegExp(r'\r\n|\n|\r'));
+    final properties = <String, _EnvironmentLine>{};
+    for (var index = 0; index < lines.length; index++) {
+      final line = lines[index];
+      final trimmed = line.trim();
+      if (trimmed.isEmpty || trimmed.startsWith('#') || trimmed.startsWith('!')) {
+        continue;
+      }
+      final separatorIndex = _propertySeparator(line);
+      if (separatorIndex < 0) continue;
+      final key = line.substring(0, separatorIndex).trim();
+      _validateEnvironmentKey(key);
+      var valueStart = separatorIndex + 1;
+      while (valueStart < line.length &&
+          (line[valueStart] == ' ' || line[valueStart] == '\t')) {
+        valueStart++;
+      }
+      final value = line.substring(valueStart);
+      _validateEnvironmentValue(value);
+      if (properties.containsKey(key)) {
+        throw LocalInstallException('env.properties 包含重复键：$key');
+      }
+      properties[key] = _EnvironmentLine(
+        index: index,
+        prefix: line.substring(0, valueStart),
+        value: value,
+      );
+      if (properties.length > 200) {
+        throw const LocalInstallException('env.properties 最多支持 200 个键');
+      }
+    }
+    return _EnvironmentDocument(lines, separator, properties);
+  }
+
+  Map<String, String> get values => Map<String, String>.unmodifiable(
+    properties.map((key, value) => MapEntry(key, value.value)),
+  );
+
+  String update(Map<String, String> updates) {
+    if (updates.isEmpty) {
+      throw const LocalInstallException('请至少修改一个 env.properties 值');
+    }
+    final updated = List<String>.of(lines);
+    for (final entry in updates.entries) {
+      _validateEnvironmentKey(entry.key);
+      _validateEnvironmentValue(entry.value);
+      final property = properties[entry.key];
+      if (property == null) {
+        throw LocalInstallException('env.properties 中不存在键：${entry.key}');
+      }
+      updated[property.index] = '${property.prefix}${entry.value}';
+    }
+    return updated.join(separator);
+  }
+}
+
+class _EnvironmentLine {
+  const _EnvironmentLine({
+    required this.index,
+    required this.prefix,
+    required this.value,
+  });
+
+  final int index;
+  final String prefix;
+  final String value;
+}
+
+int _propertySeparator(String line) {
+  var escaped = false;
+  for (var index = 0; index < line.length; index++) {
+    final character = line[index];
+    if (!escaped && (character == '=' || character == ':')) return index;
+    if (character == '\\' && !escaped) {
+      escaped = true;
+    } else {
+      escaped = false;
+    }
+  }
+  return -1;
+}
+
+void _validateEnvironmentKey(String key) {
+  if (!_EnvironmentDocument._keyPattern.hasMatch(key)) {
+    throw const LocalInstallException('env.properties 键格式不正确');
+  }
+}
+
+void _validateEnvironmentValue(String value) {
+  if (value.length > 4096) {
+    throw const LocalInstallException('env.properties 单个值不能超过 4096 个字符');
+  }
+  if (value.contains('\n') || value.contains('\r') || value.contains('\u0000')) {
+    throw const LocalInstallException('env.properties 值不能包含换行符或空字符');
+  }
 }

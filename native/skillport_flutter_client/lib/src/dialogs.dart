@@ -222,6 +222,62 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
   late String _category = widget.skill.category;
   late String _savedCategory = widget.skill.category;
   bool _categorySaving = false;
+  EnvironmentPropertiesView? _environment;
+  Map<String, String> _environmentDraft = <String, String>{};
+  int _environmentFieldRevision = 0;
+  bool _environmentLoading = true;
+  bool _environmentSaving = false;
+  String? _environmentError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEnvironment();
+  }
+
+  Future<void> _loadEnvironment() async {
+    final environment = await widget.controller.readSkillEnvironment(_skill);
+    if (!mounted) return;
+    setState(() {
+      _environmentLoading = false;
+      if (environment == null) {
+        _environmentError = widget.controller.feedback?.message ?? 'env.properties 读取失败';
+      } else {
+        _environment = environment;
+        _environmentDraft = Map<String, String>.of(environment.values);
+        _environmentError = null;
+      }
+    });
+  }
+
+  Map<String, String> get _changedEnvironment => <String, String>{
+    if (_environment != null)
+      for (final entry in _environmentDraft.entries)
+        if (_environment!.values[entry.key] != entry.value) entry.key: entry.value,
+  };
+
+  Future<void> _saveEnvironment() async {
+    if (_environment?.editable != true || _changedEnvironment.isEmpty) return;
+    setState(() {
+      _environmentSaving = true;
+      _environmentError = null;
+    });
+    final updated = await widget.controller.updateSkillEnvironment(
+      _skill,
+      _changedEnvironment,
+    );
+    if (!mounted) return;
+    setState(() {
+      _environmentSaving = false;
+      if (updated == null) {
+        _environmentError = widget.controller.feedback?.message ?? 'env.properties 保存失败';
+      } else {
+        _environment = updated;
+        _environmentDraft = Map<String, String>.of(updated.values);
+        _environmentFieldRevision += 1;
+      }
+    });
+  }
 
   Future<void> _replacePackage() async {
     final file = await openFile(
@@ -545,6 +601,8 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
                 ),
               ),
               const SizedBox(height: 18),
+              _environmentSection(context, skill),
+              const SizedBox(height: 18),
               Wrap(
                 spacing: 7,
                 children: skill.compatible
@@ -631,6 +689,63 @@ class _SkillDetailDialogState extends State<SkillDetailDialog> {
       actions: skill.isPublic
           ? _publicActions(context, skill)
           : _privateActions(context, skill),
+    );
+  }
+
+  Widget _environmentSection(BuildContext context, SkillItem skill) {
+    final scheme = Theme.of(context).colorScheme;
+    final palette = skillPortPalette(context);
+    final environment = _environment;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        border: Border.all(color: scheme.outlineVariant),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+        Row(children: <Widget>[
+          Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4), decoration: BoxDecoration(color: palette.soft, borderRadius: BorderRadius.circular(6)), child: Text('ENV', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w900, color: scheme.primary))),
+          const SizedBox(width: 9),
+          const Expanded(child: Text('env.properties', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15))),
+          Text(skill.isPublic ? '公有池只读' : skill.shared ? '保存后同步公有池' : '可编辑', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+        ]),
+        const SizedBox(height: 12),
+        if (_environmentLoading)
+          const Center(child: Padding(padding: EdgeInsets.all(14), child: CircularProgressIndicator(strokeWidth: 2)))
+        else if (environment == null)
+          Text(_environmentError ?? 'env.properties 读取失败', style: TextStyle(color: scheme.error))
+        else if (!environment.exists)
+          Container(width: double.infinity, padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: palette.field, borderRadius: BorderRadius.circular(10)), child: const Column(children: <Widget>[Text('该 Skill 未包含 env.properties', style: TextStyle(fontWeight: FontWeight.w800)), SizedBox(height: 4), Text('文件需与 SKILL.md 位于同一个 Skill 根目录。')]))
+        else if (_environmentDraft.isEmpty)
+          Container(width: double.infinity, padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: palette.field, borderRadius: BorderRadius.circular(10)), child: const Text('文件中没有可识别的 KEY=value 键值。', textAlign: TextAlign.center))
+        else ...<Widget>[
+          Text(environment.path, style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: scheme.onSurfaceVariant)),
+          const SizedBox(height: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 360),
+            child: SingleChildScrollView(
+              child: Column(children: _environmentDraft.entries.map((entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: Row(children: <Widget>[
+                  SizedBox(width: 170, child: Text(entry.key, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w800, color: scheme.primary))),
+                  const SizedBox(width: 9),
+                  Expanded(child: TextFormField(key: ValueKey<String>('${entry.key}:$_environmentFieldRevision'), initialValue: entry.value, readOnly: !environment.editable, enabled: !_environmentSaving, maxLength: 4096, buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null, style: const TextStyle(fontFamily: 'monospace'), onChanged: (value) => setState(() { _environmentDraft[entry.key] = value; _environmentError = null; }))),
+                ]),
+              )).toList()),
+            ),
+          ),
+          if (_environmentError != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_environmentError!, style: TextStyle(color: scheme.error))),
+          if (environment.editable) Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(spacing: 8, children: <Widget>[
+              OutlinedButton(onPressed: _environmentSaving || _changedEnvironment.isEmpty ? null : () => setState(() { _environmentDraft = Map<String, String>.of(environment.values); _environmentFieldRevision += 1; }), child: const Text('撤销修改')),
+              FilledButton.icon(onPressed: _environmentSaving || _changedEnvironment.isEmpty ? null : _saveEnvironment, icon: const Icon(Icons.save_outlined, size: 16), label: Text(_environmentSaving ? '保存中…' : '保存 env.properties')),
+            ]),
+          ),
+        ],
+      ]),
     );
   }
 

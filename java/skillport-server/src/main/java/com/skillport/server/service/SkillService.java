@@ -33,13 +33,16 @@ public class SkillService {
     private final PublicSkillRepository publicSkillRepository;
     private final FileStorageService fileStorageService;
     private final SkillPackageValidator packageValidator;
+    private final SkillPackageEnvironmentService environmentService;
 
     public SkillService(SkillRepository skillRepository, PublicSkillRepository publicSkillRepository,
-                        FileStorageService fileStorageService, SkillPackageValidator packageValidator) {
+                        FileStorageService fileStorageService, SkillPackageValidator packageValidator,
+                        SkillPackageEnvironmentService environmentService) {
         this.skillRepository = skillRepository;
         this.publicSkillRepository = publicSkillRepository;
         this.fileStorageService = fileStorageService;
         this.packageValidator = packageValidator;
+        this.environmentService = environmentService;
     }
 
     @Transactional(readOnly = true)
@@ -219,6 +222,59 @@ public class SkillService {
     @Transactional(readOnly = true)
     public Path ownedFile(String ownerId, String publicId) {
         return fileStorageService.resolve(ownedSkill(ownerId, publicId).getStoragePath());
+    }
+
+    @Transactional(readOnly = true)
+    public SkillPackageEnvironmentService.EnvironmentView environment(String ownerId, String publicId) {
+        SkillEntity skill = ownedSkill(ownerId, publicId);
+        try {
+            return environmentService.read(fileStorageService.resolve(skill.getStoragePath()), skill.getFileName());
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage(), exception);
+        }
+    }
+
+    @Transactional
+    public EnvironmentUpdateResult updateEnvironment(String ownerId, String publicId,
+                                                     java.util.Map<String, String> values) {
+        SkillEntity skill = ownedSkill(ownerId, publicId);
+        String previousStoragePath = skill.getStoragePath();
+        Path rewritten = null;
+        try {
+            rewritten = environmentService.rewrite(fileStorageService.resolve(previousStoragePath),
+                    skill.getFileName(), values);
+            StoredSkillFile stored;
+            try (var input = java.nio.file.Files.newInputStream(rewritten)) {
+                stored = fileStorageService.store(ownerId, publicId,
+                        "__skillport_package_" + UUID.randomUUID() + "_" + skill.getFileName(), input);
+            }
+            Instant now = Instant.now();
+            skill.replacePackage(skill.getFileName(), stored.path().toString(), skill.getContentType(),
+                    stored.sizeBytes(), stored.sha256(), now);
+            boolean publicPoolSynchronized = publicSkillRepository
+                    .findBySourceSkillPublicIdAndPublisherOwnerId(publicId, ownerId)
+                    .map(publication -> {
+                        publication.replacePackage(skill.getFileName(), skill.getContentType(),
+                                stored.sizeBytes(), stored.sha256(), now);
+                        return true;
+                    })
+                    .orElse(false);
+            cleanUpReplacedFileAfterTransaction(previousStoragePath, stored.path().toString());
+            return new EnvironmentUpdateResult(skill,
+                    environmentService.read(stored.path(), skill.getFileName()), publicPoolSynchronized);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+        } catch (IOException exception) {
+            throw new IllegalStateException("无法保存 env.properties", exception);
+        } finally {
+            if (rewritten != null) {
+                try {
+                    java.nio.file.Files.deleteIfExists(rewritten);
+                } catch (IOException ignored) {
+                    // 临时文件将在系统临时目录清理；不影响已保存的 Skill 包。
+                }
+            }
+        }
     }
 
     @Transactional(readOnly = true)
@@ -463,5 +519,10 @@ public class SkillService {
     }
 
     public record PackageUpdateResult(SkillEntity skill, boolean publicPoolSynchronized) {
+    }
+
+    public record EnvironmentUpdateResult(SkillEntity skill,
+                                          SkillPackageEnvironmentService.EnvironmentView environment,
+                                          boolean publicPoolSynchronized) {
     }
 }

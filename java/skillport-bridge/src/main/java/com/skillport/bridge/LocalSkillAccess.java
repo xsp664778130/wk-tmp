@@ -1,14 +1,21 @@
 package com.skillport.bridge;
 
+import com.skillport.protocol.EnvironmentPropertiesDocument;
+import com.skillport.protocol.LocalSkillEnvironment;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Map;
 import java.util.Locale;
 
 public final class LocalSkillAccess {
     private static final int MAX_MANIFEST_BYTES = 512 * 1024;
+    private static final int MAX_ENVIRONMENT_BYTES = 128 * 1024;
 
     private final Path home;
     private final DirectoryOpener directoryOpener;
@@ -36,6 +43,48 @@ public final class LocalSkillAccess {
         }
         if (bytes.length > MAX_MANIFEST_BYTES) throw new IOException("SKILL.md 超过 512KB，无法预览");
         return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    public LocalSkillEnvironment readEnvironment(String tool, String slug) throws IOException {
+        Path environment = environmentFile(resolveSkillDirectory(tool, slug));
+        if (environment == null) return LocalSkillEnvironment.missing();
+        String content = readLimited(environment, MAX_ENVIRONMENT_BYTES,
+                "env.properties 超过 128KB，无法查看");
+        try {
+            EnvironmentPropertiesDocument document = EnvironmentPropertiesDocument.parse(content);
+            return new LocalSkillEnvironment(true, environment.getFileName().toString(), document.values());
+        } catch (IllegalArgumentException exception) {
+            throw new IOException(exception.getMessage(), exception);
+        }
+    }
+
+    public LocalSkillEnvironment updateEnvironment(String tool, String slug,
+                                                    Map<String, String> values) throws IOException {
+        Path skillDirectory = resolveSkillDirectory(tool, slug);
+        Path environment = environmentFile(skillDirectory);
+        if (environment == null) throw new IOException("该 Skill 未包含 env.properties");
+        String content = readLimited(environment, MAX_ENVIRONMENT_BYTES,
+                "env.properties 超过 128KB，无法编辑");
+        String updated;
+        try {
+            EnvironmentPropertiesDocument.validateUpdates(values);
+            updated = EnvironmentPropertiesDocument.parse(content).updateValues(values);
+        } catch (IllegalArgumentException exception) {
+            throw new IOException(exception.getMessage(), exception);
+        }
+        Path temporary = Files.createTempFile(skillDirectory, ".skillport-env-", ".tmp");
+        try {
+            Files.writeString(temporary, updated, StandardCharsets.UTF_8);
+            try {
+                Files.move(temporary, environment, StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException exception) {
+                Files.move(temporary, environment, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
+        return readEnvironment(tool, slug);
     }
 
     private Path resolveSkillDirectory(String tool, String slug) throws IOException {
@@ -66,6 +115,28 @@ public final class LocalSkillAccess {
                         && path.getFileName().toString().equalsIgnoreCase("SKILL.md"))) {
             return paths.findFirst().orElse(null);
         }
+    }
+
+    private static Path environmentFile(Path skillDirectory) throws IOException {
+        Path manifest = findManifest(skillDirectory);
+        if (manifest == null) throw new IOException("本机 Skill 中没有找到 SKILL.md");
+        Path root = manifest.getParent();
+        try (var children = Files.list(root)) {
+            return children
+                    .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+                    .filter(path -> path.getFileName().toString().equalsIgnoreCase("env.properties"))
+                    .findFirst()
+                    .orElse(null);
+        }
+    }
+
+    private static String readLimited(Path file, int maximumBytes, String errorMessage) throws IOException {
+        byte[] bytes;
+        try (var input = Files.newInputStream(file)) {
+            bytes = input.readNBytes(maximumBytes + 1);
+        }
+        if (bytes.length > maximumBytes) throw new IOException(errorMessage);
+        return new String(bytes, StandardCharsets.UTF_8);
     }
 
     private static String normalizeTool(String tool) {

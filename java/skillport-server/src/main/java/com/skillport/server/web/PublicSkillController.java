@@ -25,17 +25,22 @@ import java.nio.file.Path;
 import com.skillport.server.domain.SkillEntity;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import com.skillport.server.storage.FileStorageService;
+import com.skillport.server.service.SkillPackageEnvironmentService;
 
 @RestController
 @RequestMapping("/api/v1/public-skills")
 public class PublicSkillController {
     private final PublicSkillService publicSkillService;
     private final FileStorageService fileStorageService;
+    private final SkillPackageEnvironmentService environmentService;
 
-    public PublicSkillController(PublicSkillService publicSkillService, FileStorageService fileStorageService) {
+    public PublicSkillController(PublicSkillService publicSkillService, FileStorageService fileStorageService,
+                                 SkillPackageEnvironmentService environmentService) {
         this.publicSkillService = publicSkillService;
         this.fileStorageService = fileStorageService;
+        this.environmentService = environmentService;
     }
 
     @GetMapping
@@ -84,6 +89,18 @@ public class PublicSkillController {
         SkillEntity source = publicSkillService.publicAvatarSource(publicSkillId);
         Path file = fileStorageService.resolve(source.getAvatarStoragePath());
         return SkillController.avatarResponse(source, file);
+    }
+
+    @GetMapping("/{publicSkillId}/environment")
+    public SkillController.SkillEnvironmentResponse environment(@PathVariable String publicSkillId) {
+        SkillEntity source = publicSkillService.publicSkillSource(publicSkillId);
+        try {
+            return SkillController.SkillEnvironmentResponse.from(
+                    environmentService.read(fileStorageService.resolve(source.getStoragePath()), source.getFileName()),
+                    false);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage(), exception);
+        }
     }
 
     public record ShareRequest(@NotBlank String skillId) {

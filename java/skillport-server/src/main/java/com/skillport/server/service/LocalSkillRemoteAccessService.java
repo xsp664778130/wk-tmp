@@ -3,6 +3,8 @@ package com.skillport.server.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skillport.protocol.LocalSkillActionCommand;
 import com.skillport.protocol.LocalSkillActionResult;
+import com.skillport.protocol.LocalSkillEnvironmentUpdateCommand;
+import com.skillport.protocol.EnvironmentPropertiesDocument;
 import com.skillport.protocol.MessageType;
 import com.skillport.protocol.ProtocolCodec;
 import com.skillport.server.domain.DeviceLocalSkillEntity;
@@ -13,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.util.UUID;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -46,6 +49,23 @@ public class LocalSkillRemoteAccessService {
         return request(ownerId, deviceId, tool, slug, "READ_MANIFEST", MessageType.READ_LOCAL_SKILL_MANIFEST);
     }
 
+    public LocalSkillActionResult readEnvironment(String ownerId, String deviceId, String tool, String slug) {
+        return request(ownerId, deviceId, tool, slug, "READ_ENVIRONMENT",
+                MessageType.READ_LOCAL_SKILL_ENVIRONMENT);
+    }
+
+    public LocalSkillActionResult updateEnvironment(String ownerId, String deviceId, String tool, String slug,
+                                                    Map<String, String> values) {
+        try {
+            EnvironmentPropertiesDocument.validateUpdates(values);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+        }
+        return request(ownerId, deviceId, tool, slug, "UPDATE_ENVIRONMENT",
+                MessageType.UPDATE_LOCAL_SKILL_ENVIRONMENT,
+                new LocalSkillEnvironmentUpdateCommand(tool, slug, values));
+    }
+
     public void complete(String deviceId, String requestId, LocalSkillActionResult result) {
         PendingRequest pending = pendingRequests.get(requestId);
         if (pending == null || result == null || !pending.deviceId().equals(deviceId)
@@ -58,6 +78,11 @@ public class LocalSkillRemoteAccessService {
 
     private LocalSkillActionResult request(String ownerId, String deviceId, String tool, String slug,
                                            String action, MessageType messageType) {
+        return request(ownerId, deviceId, tool, slug, action, messageType, null);
+    }
+
+    private LocalSkillActionResult request(String ownerId, String deviceId, String tool, String slug,
+                                           String action, MessageType messageType, Object requestedPayload) {
         if (pendingRequests.size() >= MAX_PENDING_REQUESTS) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "本机操作请求较多，请稍后重试");
         }
@@ -67,8 +92,11 @@ public class LocalSkillRemoteAccessService {
         pendingRequests.put(requestId, new PendingRequest(
                 deviceId, localSkill.getTool(), localSkill.getSlug(), action, future));
         try {
-            String message = protocolCodec.encode(messageType, requestId,
-                    new LocalSkillActionCommand(localSkill.getTool(), localSkill.getSlug()));
+            Object payload = requestedPayload instanceof LocalSkillEnvironmentUpdateCommand updateCommand
+                    ? new LocalSkillEnvironmentUpdateCommand(
+                            localSkill.getTool(), localSkill.getSlug(), updateCommand.values())
+                    : new LocalSkillActionCommand(localSkill.getTool(), localSkill.getSlug());
+            String message = protocolCodec.encode(messageType, requestId, payload);
             if (!sessionRegistry.send(deviceId, message)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "本机 Bridge 不在线，请重新连接后再试");
             }

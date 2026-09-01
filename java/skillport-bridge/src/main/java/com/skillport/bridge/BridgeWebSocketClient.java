@@ -207,6 +207,36 @@ public class BridgeWebSocketClient {
         });
     }
 
+    private void accessLocalSkillEnvironment(Channel channel, BridgeEnvelope envelope, boolean update) {
+        LocalSkillEnvironmentUpdateCommand updateCommand = update
+                ? protocolCodec.payload(envelope, LocalSkillEnvironmentUpdateCommand.class)
+                : null;
+        LocalSkillActionCommand readCommand = update
+                ? null
+                : protocolCodec.payload(envelope, LocalSkillActionCommand.class);
+        String tool = update ? updateCommand.tool() : readCommand.tool();
+        String slug = update ? updateCommand.slug() : readCommand.slug();
+        String action = update ? "UPDATE_ENVIRONMENT" : "READ_ENVIRONMENT";
+        localAccessExecutor.execute(() -> {
+            LocalSkillActionResult result;
+            try {
+                LocalSkillEnvironment environment = update
+                        ? localSkillAccess.updateEnvironment(tool, slug, updateCommand.values())
+                        : localSkillAccess.readEnvironment(tool, slug);
+                result = LocalSkillActionResult.environment(tool, slug, action, environment);
+            } catch (Exception exception) {
+                String message = exception.getMessage() == null ? "env.properties 操作失败" : exception.getMessage();
+                log.warn("Local Skill environment failed action={} tool={} slug={} error={}",
+                        action, tool, slug, message);
+                result = LocalSkillActionResult.failed(tool, slug, action, message);
+            }
+            if (channel.isActive()) {
+                channel.writeAndFlush(new TextWebSocketFrame(
+                        protocolCodec.encode(MessageType.LOCAL_SKILL_ACTION_RESULT, envelope.requestId(), result)));
+            }
+        });
+    }
+
     private static void sleep(Duration duration) {
         try {
             Thread.sleep(duration);
@@ -260,6 +290,10 @@ public class BridgeWebSocketClient {
                     accessLocalSkill(context.channel(), envelope, true);
                 } else if (envelope.type() == MessageType.READ_LOCAL_SKILL_MANIFEST) {
                     accessLocalSkill(context.channel(), envelope, false);
+                } else if (envelope.type() == MessageType.READ_LOCAL_SKILL_ENVIRONMENT) {
+                    accessLocalSkillEnvironment(context.channel(), envelope, false);
+                } else if (envelope.type() == MessageType.UPDATE_LOCAL_SKILL_ENVIRONMENT) {
+                    accessLocalSkillEnvironment(context.channel(), envelope, true);
                 }
             } else if (message instanceof PingWebSocketFrame frame) {
                 context.writeAndFlush(new PongWebSocketFrame(frame.content().retain()));

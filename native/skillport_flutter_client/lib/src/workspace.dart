@@ -714,6 +714,7 @@ class LocalSkillCard extends StatelessWidget {
               tooltip: '更多操作',
               onSelected: (value) {
                 if (value == 'manifest') _showManifest(context);
+                if (value == 'environment') _showEnvironment(context);
               },
               itemBuilder: (context) => const <PopupMenuEntry<String>>[
                 PopupMenuItem<String>(
@@ -722,6 +723,14 @@ class LocalSkillCard extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.description_outlined),
                     title: Text('查看 SKILL.md'),
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'environment',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.tune_rounded),
+                    title: Text('查看 / 编辑 env.properties'),
                   ),
                 ),
               ],
@@ -790,6 +799,20 @@ class LocalSkillCard extends StatelessWidget {
     );
   }
 
+  Future<void> _showEnvironment(BuildContext context) async {
+    final environment = await controller.readLocalSkillEnvironment(skill);
+    if (environment == null || !context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _LocalEnvironmentDialog(
+        controller: controller,
+        skill: skill,
+        initial: environment,
+      ),
+    );
+  }
+
   Future<void> _removeLocalSkill(BuildContext context, bool fromMySkills, String toolName) async {
     if (fromMySkills) {
       await controller.uninstallLocalSkill(skill);
@@ -808,6 +831,94 @@ class LocalSkillCard extends StatelessWidget {
       ),
     );
     if (confirmed == true) await controller.uninstallLocalSkill(skill);
+  }
+}
+
+class _LocalEnvironmentDialog extends StatefulWidget {
+  const _LocalEnvironmentDialog({
+    required this.controller,
+    required this.skill,
+    required this.initial,
+  });
+
+  final AppController controller;
+  final LocalSkillItem skill;
+  final EnvironmentPropertiesView initial;
+
+  @override
+  State<_LocalEnvironmentDialog> createState() => _LocalEnvironmentDialogState();
+}
+
+class _LocalEnvironmentDialogState extends State<_LocalEnvironmentDialog> {
+  late EnvironmentPropertiesView _environment = widget.initial;
+  late Map<String, String> _draft = Map<String, String>.of(widget.initial.values);
+  int _fieldRevision = 0;
+  bool _saving = false;
+  String? _error;
+
+  Map<String, String> get _changed => <String, String>{
+    for (final entry in _draft.entries)
+      if (_environment.values[entry.key] != entry.value) entry.key: entry.value,
+  };
+
+  Future<void> _save() async {
+    if (_changed.isEmpty) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final updated = await widget.controller.updateLocalSkillEnvironment(
+      widget.skill,
+      _changed,
+    );
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      if (updated == null) {
+        _error = widget.controller.feedback?.message ?? '保存失败';
+      } else {
+        _environment = updated;
+        _draft = Map<String, String>.of(updated.values);
+        _fieldRevision += 1;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AlertDialog(
+      constraints: const BoxConstraints(maxWidth: 720),
+      title: Row(children: <Widget>[
+        const Icon(Icons.tune_rounded),
+        const SizedBox(width: 10),
+        Expanded(child: Text('${widget.skill.name} · env.properties', maxLines: 1, overflow: TextOverflow.ellipsis)),
+        IconButton(onPressed: _saving ? null : () => Navigator.pop(context), tooltip: '关闭', icon: const Icon(Icons.close_rounded)),
+      ]),
+      content: SizedBox(
+        width: 680,
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+          Text('${widget.skill.directory}/${_environment.path}', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: scheme.onSurfaceVariant)),
+          const SizedBox(height: 12),
+          if (!_environment.exists)
+            Container(width: double.infinity, padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: skillPortPalette(context).field, borderRadius: BorderRadius.circular(12)), child: const Column(children: <Widget>[Icon(Icons.info_outline_rounded), SizedBox(height: 8), Text('该 Skill 未包含 env.properties', style: TextStyle(fontWeight: FontWeight.w800)), SizedBox(height: 4), Text('请在与 SKILL.md 同级的目录中创建该文件。')]))
+          else if (_draft.isEmpty)
+            Container(width: double.infinity, padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: skillPortPalette(context).field, borderRadius: BorderRadius.circular(12)), child: const Text('文件中没有可识别的 KEY=value 键值。', textAlign: TextAlign.center))
+          else
+            ConstrainedBox(constraints: const BoxConstraints(maxHeight: 460), child: SingleChildScrollView(child: Column(children: _draft.entries.map((entry) => Padding(padding: const EdgeInsets.only(bottom: 10), child: Row(children: <Widget>[
+              SizedBox(width: 190, child: Text(entry.key, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w800, color: scheme.primary))),
+              const SizedBox(width: 10),
+              Expanded(child: TextFormField(key: ValueKey<String>('${entry.key}:$_fieldRevision'), initialValue: entry.value, maxLength: 4096, enabled: !_saving, buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null, style: const TextStyle(fontFamily: 'monospace'), onChanged: (value) => setState(() { _draft[entry.key] = value; _error = null; }))),
+            ]))).toList()))),
+          if (_error != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_error!, style: TextStyle(color: scheme.error))),
+        ]),
+      ),
+      actions: <Widget>[
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: const Text('关闭')),
+        if (_environment.editable && _draft.isNotEmpty) OutlinedButton(onPressed: _saving || _changed.isEmpty ? null : () => setState(() { _draft = Map<String, String>.of(_environment.values); _fieldRevision += 1; }), child: const Text('撤销修改')),
+        if (_environment.editable && _draft.isNotEmpty) FilledButton(onPressed: _saving || _changed.isEmpty ? null : _save, child: Text(_saving ? '保存中…' : '保存 env.properties')),
+      ],
+    );
   }
 }
 
@@ -903,9 +1014,20 @@ class SkillCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
                   SkillAvatar(controller: controller, skill: skill),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () => showSkillDetail(context, controller, skill),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(0, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    icon: const Icon(Icons.tune_rounded, size: 14),
+                    label: const Text('ENV', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w900)),
+                  ),
+                  const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,

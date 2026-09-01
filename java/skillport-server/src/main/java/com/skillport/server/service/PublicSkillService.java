@@ -151,6 +151,14 @@ public class PublicSkillService {
         return fileStorageService.resolve(publicAvatarSource(publicSkillId).getAvatarStoragePath());
     }
 
+    @Transactional(readOnly = true)
+    public SkillEntity publicSkillSource(String publicSkillId) {
+        PublicSkillEntity publication = publicSkillRepository.findByPublicId(publicSkillId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "公有池 Skill 不存在"));
+        return skillRepository.findByPublicId(publication.getSourceSkillPublicId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE, "来源 Skill 已不可用"));
+    }
+
     private static String safeDisplayName(String value) {
         String normalized = value == null || value.isBlank() ? "SkillPort 用户" : value.trim();
         return normalized.substring(0, Math.min(120, normalized.length()));

@@ -18,7 +18,7 @@ void main() {
   test('loads the public latest-client manifest', () async {
     final client = MockClient((request) async {
       expect(request.url.path, '/bridge/client/latest.json');
-      expect(request.headers['user-agent'], 'SkillPort-Flutter/1.0.36');
+      expect(request.headers['user-agent'], 'SkillPort-Flutter/1.0.37');
       return http.Response(
         jsonEncode(<String, dynamic>{
           'version': '1.0.18',
@@ -74,7 +74,7 @@ void main() {
         request.url.toString(),
         'https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.18',
       );
-      expect(request.headers['user-agent'], 'SkillPort-Flutter-Updater/1.0.36');
+      expect(request.headers['user-agent'], 'SkillPort-Flutter-Updater/1.0.37');
       return http.Response.bytes(
         payload,
         200,

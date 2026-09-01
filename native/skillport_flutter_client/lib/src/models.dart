@@ -179,6 +179,49 @@ class LocalSkillItem {
   final String? originSkillId;
 }
 
+class EnvironmentPropertiesView {
+  const EnvironmentPropertiesView({
+    required this.exists,
+    required this.path,
+    required this.values,
+    required this.editable,
+  });
+
+  final bool exists;
+  final String path;
+  final Map<String, String> values;
+  final bool editable;
+
+  factory EnvironmentPropertiesView.fromJson(
+    Map<String, dynamic> json, {
+    required bool editable,
+  }) {
+    final source = json['values'];
+    final values = <String, String>{};
+    if (source is Map) {
+      for (final entry in source.entries) {
+        if (entry.key != null && entry.value is String) {
+          values[entry.key.toString()] = entry.value as String;
+        }
+      }
+    }
+    final exists = json['exists'] == true;
+    return EnvironmentPropertiesView(
+      exists: exists,
+      path: json['path']?.toString() ?? 'env.properties',
+      values: Map<String, String>.unmodifiable(values),
+      editable: exists && editable && json['editable'] != false,
+    );
+  }
+
+  static const missing = EnvironmentPropertiesView(
+    exists: false,
+    path: 'env.properties',
+    values: <String, String>{},
+    editable: false,
+  );
+}
+
 class LocalActivity {
   const LocalActivity({
     required this.skillName,

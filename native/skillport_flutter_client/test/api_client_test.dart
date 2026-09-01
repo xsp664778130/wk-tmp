@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:skillport_client/src/api_client.dart';
+import 'package:skillport_client/src/models.dart';
 
 void main() {
   test('logs in through the native cookie-session API', () async {
@@ -157,6 +158,65 @@ void main() {
 
     expect(skill.category, '日志技能');
     expect(skill.shared, isTrue);
+  });
+
+  test('reads public env.properties as read-only and updates private values', () async {
+    var requestNumber = 0;
+    final client = MockClient((request) async {
+      requestNumber += 1;
+      if (requestNumber == 1) {
+        expect(request.method, 'GET');
+        expect(request.url.path, '/api/public-skills/public-1/environment');
+        return http.Response(
+          jsonEncode(<String, dynamic>{
+            'exists': true,
+            'path': 'demo/env.properties',
+            'values': <String, String>{'API_URL': 'https://example.com'},
+            'editable': false,
+          }),
+          200,
+          headers: const <String, String>{'content-type': 'application/json'},
+        );
+      }
+      expect(request.method, 'PATCH');
+      expect(request.url.path, '/api/skills/private-1/environment');
+      expect(jsonDecode(request.body), <String, dynamic>{
+        'values': <String, String>{'API_URL': 'https://new.example.com'},
+      });
+      return http.Response(
+        jsonEncode(<String, dynamic>{
+          'exists': true,
+          'path': 'demo/env.properties',
+          'values': <String, String>{'API_URL': 'https://new.example.com'},
+          'editable': true,
+        }),
+        200,
+        headers: const <String, String>{'content-type': 'application/json'},
+      );
+    });
+    final api = SkillPortApi(httpClient: client)..token = 'token-123';
+    const publicSkill = SkillItem(
+      id: 'public-1',
+      name: 'Public',
+      description: 'public',
+      category: '编程技能',
+      fileName: 'public.zip',
+      sizeBytes: 1,
+      sha256: 'abc',
+      compatible: <String>['codex'],
+      isPublic: true,
+    );
+
+    final publicEnvironment = await api.skillEnvironment(publicSkill);
+    final privateEnvironment = await api.updateSkillEnvironment(
+      'private-1',
+      const <String, String>{'API_URL': 'https://new.example.com'},
+    );
+
+    expect(publicEnvironment.editable, isFalse);
+    expect(publicEnvironment.values['API_URL'], 'https://example.com');
+    expect(privateEnvironment.editable, isTrue);
+    expect(privateEnvironment.values['API_URL'], 'https://new.example.com');
   });
 
   test('updates Skill details and usage steps through the synchronized API', () async {

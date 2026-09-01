@@ -34,7 +34,7 @@ class SkillPortApi {
     'accept': 'application/json',
     'content-type': 'application/json; charset=utf-8',
     if (token != null) 'cookie': 'skillport_session=$token',
-    'user-agent': 'SkillPort-Flutter/1.0.36',
+    'user-agent': 'SkillPort-Flutter/1.0.37',
   };
 
   Map<String, String> get sessionHeaders => <String, String>{
@@ -238,6 +238,33 @@ class SkillPortApi {
     return SkillItem.fromPrivateJson(_decodeObject(response));
   }
 
+  Future<EnvironmentPropertiesView> skillEnvironment(SkillItem skill) async {
+    final prefix = skill.isPublic ? '/api/public-skills' : '/api/skills';
+    final response = await _http.get(
+      uri('$prefix/${Uri.encodeComponent(skill.id)}/environment'),
+      headers: _jsonHeaders,
+    );
+    return EnvironmentPropertiesView.fromJson(
+      _decodeObject(response),
+      editable: !skill.isPublic,
+    );
+  }
+
+  Future<EnvironmentPropertiesView> updateSkillEnvironment(
+    String skillId,
+    Map<String, String> values,
+  ) async {
+    final response = await _http.patch(
+      uri('/api/skills/${Uri.encodeComponent(skillId)}/environment'),
+      headers: _jsonHeaders,
+      body: jsonEncode(<String, dynamic>{'values': values}),
+    );
+    return EnvironmentPropertiesView.fromJson(
+      _decodeObject(response),
+      editable: true,
+    );
+  }
+
   Future<void> shareSkill(String skillId) async {
     final response = await _http.post(
       uri('/api/public-skills'),
@@ -304,7 +331,7 @@ class SkillPortApi {
       headers: <String, String>{
         ...sessionHeaders,
         'accept': 'application/octet-stream',
-        'user-agent': 'SkillPort-Flutter/1.0.36',
+        'user-agent': 'SkillPort-Flutter/1.0.37',
       },
     );
     _ensureSuccess(response);

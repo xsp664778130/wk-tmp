@@ -40,6 +40,28 @@ test("keeps every local workspace action row vertically aligned", async () => {
   assert.match(desktop, /height: 27,[\s\S]*child: fromMySkills[\s\S]*\? Container/);
 });
 
+test("shows and safely edits env.properties across cloud and local Skill cards", async () => {
+  const [client, cloudRoute, publicRoute, localRoute, bridge, desktop] = await Promise.all([
+    readFile(new URL("../app/skill-workspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/skills/[id]/environment/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/public-skills/[id]/environment/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/devices/[id]/local-skills/environment/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../java/skillport-bridge/src/main/java/com/skillport/bridge/LocalSkillAccess.java", import.meta.url), "utf8"),
+    readFile(new URL("../native/skillport_flutter_client/lib/src/workspace.dart", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(client, /<span>ENV<\/span>查看配置/);
+  assert.match(client, /公有池只读/);
+  assert.match(client, /保存后同步公有池文件/);
+  assert.match(client, /查看 \/ 编辑 env\.properties/);
+  assert.match(cloudRoute, /export async function PATCH/);
+  assert.doesNotMatch(publicRoute, /export async function PATCH/);
+  assert.match(localRoute, /local-skills\/environment/);
+  assert.match(bridge, /ATOMIC_MOVE/);
+  assert.match(bridge, /NOFOLLOW_LINKS/);
+  assert.match(desktop, /保存 env\.properties/);
+});
+
 test("defines the SkillPort workspace and product metadata", async () => {
   const [page, layout, client, packageRoute] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
@@ -52,11 +74,10 @@ test("defines the SkillPort workspace and product metadata", async () => {
   assert.match(page, /getSkillPortUser/);
   assert.match(client, /把好用的 Skill，装进每个 AI/);
   assert.match(client, /注册新账户/);
-  assert.match(client, /企业微信登录 \/ 注册/);
-  assert.match(client, /首次授权自动注册/);
-  assert.match(client, /wxwork/);
-  assert.match(client, /skillport\.wecom-auto-attempted/);
-  assert.match(client, /\/api\/auth\/wecom\?mode=auto/);
+  assert.match(client, /使用邮箱账户登录或注册/);
+  assert.doesNotMatch(client, /企业微信登录 \/ 注册/);
+  assert.doesNotMatch(client, /skillport\.wecom-auto-attempted/);
+  assert.doesNotMatch(client, /\/api\/auth\/wecom\?mode=auto/);
   assert.match(client, /快速导入/);
   assert.match(client, /本机工具/);
   assert.match(client, /Cursor/);

@@ -504,6 +504,56 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<EnvironmentPropertiesView?> readLocalSkillEnvironment(
+    LocalSkillItem skill,
+  ) async {
+    try {
+      return await _installer.readLocalSkillEnvironment(skill);
+    } catch (error) {
+      _show(error.toString(), error: true);
+      return null;
+    }
+  }
+
+  Future<EnvironmentPropertiesView?> updateLocalSkillEnvironment(
+    LocalSkillItem skill,
+    Map<String, String> values,
+  ) async {
+    try {
+      final updated = await _installer.updateLocalSkillEnvironment(skill, values);
+      _show('${skill.name} 的 env.properties 已保存到本机');
+      return updated;
+    } catch (error) {
+      _show(error.toString(), error: true);
+      return null;
+    }
+  }
+
+  Future<EnvironmentPropertiesView?> readSkillEnvironment(SkillItem skill) async {
+    try {
+      return await _api.skillEnvironment(skill);
+    } catch (error) {
+      _show(error.toString(), error: true);
+      return null;
+    }
+  }
+
+  Future<EnvironmentPropertiesView?> updateSkillEnvironment(
+    SkillItem skill,
+    Map<String, String> values,
+  ) async {
+    try {
+      final updated = await _api.updateSkillEnvironment(skill.id, values);
+      _show(skill.shared
+          ? 'env.properties 已保存，并同步到 Skill 公有池'
+          : 'env.properties 已保存');
+      return updated;
+    } catch (error) {
+      _show(error.toString(), error: true);
+      return null;
+    }
+  }
+
   Future<void> _refreshLocalWorkspace({bool notify = true}) async {
     tools = _installer.detectTools();
     final detectedIds = tools.where((tool) => tool.detected).map((tool) => tool.id);

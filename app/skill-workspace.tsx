@@ -16,6 +16,16 @@ const skillCategories = ["编程技能", "测试技能", "排查技能", "日志
 
 const releaseNotes = [
   {
+    version: "1.0.37",
+    date: "2026-09-01",
+    title: "Skill 环境配置管理",
+    changes: [
+      "所有 Skill 卡片新增 env.properties 配置入口，公有池支持只读查看键值。",
+      "我的 Skill 可直接修改现有配置值，并同步更新已分享公有池的下载文件。",
+      "个人工作区可通过 Bridge 查看和编辑本机 env.properties，配置内容不会上传云端。",
+    ],
+  },
+  {
     version: "1.0.36",
     date: "2026-08-31",
     title: "个人资料与密码找回",
@@ -416,6 +426,30 @@ type LocalWorkspace = {
   skills: LocalWorkspaceSkill[];
 };
 
+type EnvironmentPropertiesView = {
+  exists: boolean;
+  path: string;
+  values: Record<string, string>;
+  editable: boolean;
+};
+
+function environmentViewFromApi(value: unknown, editable: boolean): EnvironmentPropertiesView {
+  const data = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const sourceValues = data.values && typeof data.values === "object"
+    ? data.values as Record<string, unknown>
+    : {};
+  const values = Object.fromEntries(Object.entries(sourceValues)
+    .filter(([key, entryValue]) => Boolean(key) && typeof entryValue === "string")
+    .map(([key, entryValue]) => [key, String(entryValue)]));
+  const exists = data.exists === true;
+  return {
+    exists,
+    path: String(data.path || "env.properties"),
+    values,
+    editable: exists && editable && data.editable !== false,
+  };
+}
+
 function browserDeviceStorageKey(userId: string) {
   return `skillport.browser-device.${userId}`;
 }
@@ -559,11 +593,11 @@ type ClientPlatform = "macos" | "windows";
 const clientDownloads: Record<ClientPlatform, { label: string; url: string }> = {
   macos: {
     label: "macOS 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.36",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Bridge.pkg?v=1.0.37",
   },
   windows: {
     label: "Windows 客户端",
-    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.36",
+    url: "https://www.jmuyuer.com/bridge/client/SkillPort-Setup.exe?v=1.0.37",
   },
 };
 
@@ -641,6 +675,10 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
   const [localUninstallBusyKey, setLocalUninstallBusyKey] = useState<string | null>(null);
   const [localActionBusyKey, setLocalActionBusyKey] = useState<string | null>(null);
   const [localManifestPreview, setLocalManifestPreview] = useState<{ skill: LocalWorkspaceSkill; content: string } | null>(null);
+  const [localEnvironmentEditor, setLocalEnvironmentEditor] = useState<{
+    skill: LocalWorkspaceSkill;
+    environment: EnvironmentPropertiesView;
+  } | null>(null);
   const [selected, setSelected] = useState<Skill | null>(null);
   const [installer, setInstaller] = useState<Skill | null>(null);
   const [uninstaller, setUninstaller] = useState<Skill | null>(null);
@@ -771,18 +809,6 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
     const timer = window.setTimeout(() => setClientPlatform(detectClientPlatform(navigator.userAgent)), 0);
     return () => window.clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    if (user || !/wxwork/i.test(navigator.userAgent)) return;
-    const attemptKey = "skillport.wecom-auto-attempted";
-    try {
-      if (window.sessionStorage.getItem(attemptKey)) return;
-      window.sessionStorage.setItem(attemptKey, "1");
-    } catch {
-      // Continue with one automatic authorization attempt when sessionStorage is unavailable.
-    }
-    window.location.assign("/api/auth/wecom?mode=auto");
-  }, [user]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -1030,6 +1056,47 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
       setToast(error instanceof Error ? error.message : "本机操作失败");
     } finally {
       setLocalActionBusyKey(null);
+    }
+  }
+
+  async function viewLocalEnvironment(skill: LocalWorkspaceSkill) {
+    if (!onlineDevice || localActionBusyKey) return;
+    const key = `environment:${skill.tool}:${skill.slug}`;
+    setLocalActionBusyKey(key);
+    try {
+      const query = new URLSearchParams({ tool: skill.tool, slug: skill.slug });
+      const response = await fetch(`/api/devices/${encodeURIComponent(onlineDevice.id)}/local-skills/environment?${query}`, {
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.detail || data?.error || "env.properties 读取失败"));
+      const environment = environmentViewFromApi(data?.environment, true);
+      setLocalEnvironmentEditor({ skill, environment });
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "env.properties 读取失败");
+    } finally {
+      setLocalActionBusyKey(null);
+    }
+  }
+
+  async function saveLocalEnvironment(skill: LocalWorkspaceSkill, values: Record<string, string>) {
+    if (!onlineDevice) return false;
+    try {
+      const query = new URLSearchParams({ tool: skill.tool, slug: skill.slug });
+      const response = await fetch(`/api/devices/${encodeURIComponent(onlineDevice.id)}/local-skills/environment?${query}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ values }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.detail || data?.error || "env.properties 保存失败"));
+      const environment = environmentViewFromApi(data?.environment, true);
+      setLocalEnvironmentEditor({ skill, environment });
+      setToast(`${skill.name} 的 env.properties 已保存到本机`);
+      return true;
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "env.properties 保存失败");
+      return false;
     }
   }
 
@@ -1473,6 +1540,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
                     <p>{skill.detail || skill.description}</p>
                   </div>
                   <div className="skill-step-summary"><span>☷</span>{skill.usageSteps.length ? `${skill.usageSteps.length} 个使用步骤` : "查看完整使用说明"}</div>
+                  <button className="env-card-button" onClick={(event) => { event.stopPropagation(); setSelected(skill); }}><span>ENV</span>查看配置</button>
                   {skill.note && <p className="note-preview"><span>✎</span>{skill.note}</p>}
                   <div className="card-footer">
                     <span className="author-avatar">{skill.author.slice(0, 1)}</span><span className="author-name">{skill.author}</span>
@@ -1506,6 +1574,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
             onRefresh={() => onlineDevice && void refreshLocalTools(onlineDevice)}
             onOpenFolder={(skill) => void runLocalWorkspaceAction(skill, "open-folder")}
             onViewManifest={(skill) => void runLocalWorkspaceAction(skill, "manifest")}
+            onViewEnvironment={(skill) => void viewLocalEnvironment(skill)}
             onUninstall={(skill) => skill.fromMySkills
               ? void uninstallLocalWorkspaceSkill(skill)
               : setLocalUninstallCandidate(skill)}
@@ -1558,7 +1627,7 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         </section>
       </aside>
 
-      {selected && <DetailModal skill={selected} pulling={pullingId === selected.id} onClose={() => setSelected(null)} onInstall={() => { setInstaller(selected); setSelected(null); }} onUninstall={() => { setUninstaller(selected); setSelected(null); }} onPull={() => void pullSkill(selected)} onShare={() => setShareCandidate(selected)} onDelete={() => setActionCandidate({ skill: selected, action: "delete" })} onUnpublish={() => setActionCandidate({ skill: selected, action: "unpublish" })} onSaveCategory={(category) => updateSkillCategory(selected, category)} onSaveDetails={(values) => updateSkillDetails(selected, values)} onSaveAvatar={(avatar) => updateSkillAvatar(selected, avatar)} onReplacePackage={(file) => replaceSkillPackage(selected, file)} onSaveNote={(note) => {
+      {selected && <DetailModal key={selected.id} skill={selected} pulling={pullingId === selected.id} onClose={() => setSelected(null)} onInstall={() => { setInstaller(selected); setSelected(null); }} onUninstall={() => { setUninstaller(selected); setSelected(null); }} onPull={() => void pullSkill(selected)} onShare={() => setShareCandidate(selected)} onDelete={() => setActionCandidate({ skill: selected, action: "delete" })} onUnpublish={() => setActionCandidate({ skill: selected, action: "unpublish" })} onSaveCategory={(category) => updateSkillCategory(selected, category)} onSaveDetails={(values) => updateSkillDetails(selected, values)} onSaveAvatar={(avatar) => updateSkillAvatar(selected, avatar)} onReplacePackage={(file) => replaceSkillPackage(selected, file)} onSaveNote={(note) => {
         setPrivateSkills((current) => current.map((skill) => skill.id === selected.id ? { ...skill, note } : skill));
         setSelected((current) => current ? { ...current, note } : current);
         if (selected.uploaded && user) fetch("/api/skills", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: selected.id, note }) }).catch(() => undefined);
@@ -1582,6 +1651,13 @@ export function SkillWorkspace({ initialUser }: { initialUser: User }) {
         skill={localManifestPreview.skill}
         content={localManifestPreview.content}
         onClose={() => setLocalManifestPreview(null)}
+      />}
+      {localEnvironmentEditor && <LocalEnvironmentModal
+        key={`${localEnvironmentEditor.skill.tool}:${localEnvironmentEditor.skill.slug}`}
+        skill={localEnvironmentEditor.skill}
+        environment={localEnvironmentEditor.environment}
+        onClose={() => setLocalEnvironmentEditor(null)}
+        onSave={(values) => saveLocalEnvironment(localEnvironmentEditor.skill, values)}
       />}
       {installer && (
         <InstallModal skill={installer} signedIn={Boolean(user)} onRequireSignIn={() => { setInstaller(null); setAuthOpen(true); }} onConnectBridge={() => { setInstaller(null); setPairOpen(true); }} onlineDevice={onlineDevice ?? null} onClose={() => setInstaller(null)} onDone={(message) => { setInstaller(null); setToast(message); void refreshStatistics(); void refreshInstallTasks(); }}/>
@@ -1802,6 +1878,7 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
   onReplacePackage: (file: File) => Promise<boolean>;
   onSaveNote: (note: string) => void;
 }) {
+  const isPublic = skill.scope === "public";
   const [note, setNote] = useState(skill.note || "");
   const [category, setCategory] = useState<SkillCategory>(skill.category);
   const [savedCategory, setSavedCategory] = useState<SkillCategory>(skill.category);
@@ -1821,11 +1898,39 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
   const [packageFile, setPackageFile] = useState<File | null>(null);
   const [packageSaving, setPackageSaving] = useState(false);
   const [packageError, setPackageError] = useState("");
-  const isPublic = skill.scope === "public";
+  const [environment, setEnvironment] = useState<EnvironmentPropertiesView | null>(null);
+  const [environmentDraft, setEnvironmentDraft] = useState<Record<string, string>>({});
+  const [environmentLoading, setEnvironmentLoading] = useState(true);
+  const [environmentSaving, setEnvironmentSaving] = useState(false);
+  const [environmentError, setEnvironmentError] = useState("");
 
   useEffect(() => () => {
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
   }, [avatarPreview]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const path = isPublic
+      ? `/api/public-skills/${encodeURIComponent(skill.id)}/environment`
+      : `/api/skills/${encodeURIComponent(skill.id)}/environment`;
+    fetch(path, { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(String(data?.detail || data?.error || "env.properties 读取失败"));
+        return environmentViewFromApi(data, !isPublic);
+      })
+      .then((value) => {
+        setEnvironment(value);
+        setEnvironmentDraft(value.values);
+      })
+      .catch((error) => {
+        if ((error as Error).name !== "AbortError") {
+          setEnvironmentError(error instanceof Error ? error.message : "env.properties 读取失败");
+        }
+      })
+      .finally(() => { if (!controller.signal.aborted) setEnvironmentLoading(false); });
+    return () => controller.abort();
+  }, [isPublic, skill.id]);
 
   function chooseAvatar(file?: File) {
     if (!file) return;
@@ -1872,6 +1977,31 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
     const saved = await onReplacePackage(packageFile);
     setPackageSaving(false);
     if (saved) setPackageFile(null);
+  }
+
+  async function saveEnvironment() {
+    if (!environment?.editable || isPublic) return;
+    const changed = Object.fromEntries(Object.entries(environmentDraft)
+      .filter(([key, value]) => environment.values[key] !== value));
+    if (!Object.keys(changed).length) return;
+    setEnvironmentSaving(true);
+    setEnvironmentError("");
+    try {
+      const response = await fetch(`/api/skills/${encodeURIComponent(skill.id)}/environment`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ values: changed }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(data?.detail || data?.error || "env.properties 保存失败"));
+      const updated = environmentViewFromApi(data, true);
+      setEnvironment(updated);
+      setEnvironmentDraft(updated.values);
+    } catch (error) {
+      setEnvironmentError(error instanceof Error ? error.message : "env.properties 保存失败");
+    } finally {
+      setEnvironmentSaving(false);
+    }
   }
 
   async function saveCategory(nextCategory: SkillCategory) {
@@ -1950,6 +2080,18 @@ function DetailModal({ skill, pulling, onClose, onInstall, onUninstall, onPull, 
             <div className="usage-steps-view"><h3>使用步骤 <span>{skill.usageSteps.length}</span></h3>{skill.usageSteps.length ? <ol>{skill.usageSteps.map((step, index) => <li key={`${index}-${step}`}><b>{index + 1}</b><span>{step}</span></li>)}</ol> : <p className="empty-usage-steps">发布者尚未补充具体步骤。</p>}</div>
           </section>
         )}
+        <section className="skill-environment-panel" aria-label="env.properties 配置">
+          <div className="detail-section-heading"><div><span>ENVIRONMENT</span><h3>env.properties</h3></div><small>{isPublic ? "公有池只读" : skill.shared ? "保存后同步公有池文件" : "修改 Skill 包中的值"}</small></div>
+          {environmentLoading ? <div className="environment-state">正在读取配置…</div> : environmentError && !environment ? <div className="environment-state error">{environmentError}</div> : !environment?.exists ? <div className="environment-empty compact"><b>该 Skill 未包含 env.properties</b><p>文件需与 SKILL.md 位于同一个 Skill 根目录。</p></div> : <>
+            <div className="environment-path"><span>ENV</span><code>{environment.path}</code><em>{Object.keys(environment.values).length} 个键</em></div>
+            <div className="environment-fields">
+              {Object.entries(environmentDraft).map(([key, value]) => <label key={key}><code>{key}</code><input value={value} maxLength={4096} readOnly={isPublic || !environment.editable} disabled={environmentSaving} spellCheck={false} onChange={(event) => { setEnvironmentDraft((current) => ({ ...current, [key]: event.target.value })); setEnvironmentError(""); }}/></label>)}
+              {!Object.keys(environmentDraft).length && <div className="environment-state">文件中没有可识别的 KEY=value 键值。</div>}
+            </div>
+            {environmentError && <p className="detail-editor-error" role="alert">{environmentError}</p>}
+            {!isPublic && environment.editable && Boolean(Object.keys(environmentDraft).length) && <div className="environment-actions"><button className="secondary-button" disabled={environmentSaving || Object.entries(environmentDraft).every(([key, value]) => environment.values[key] === value)} onClick={() => setEnvironmentDraft(environment.values)}>撤销修改</button><button className="primary-button" disabled={environmentSaving || Object.entries(environmentDraft).every(([key, value]) => environment.values[key] === value)} onClick={() => void saveEnvironment()}>{environmentSaving ? "保存中…" : "保存 env.properties"}</button></div>}
+          </>}
+        </section>
         <div className="compatibility"><b>兼容工具</b><div>{skill.compatible.map((id) => <span key={id}>{toolMeta[id as keyof typeof toolMeta]?.name}</span>)}</div></div>
         {isPublic ? (
           <>
@@ -2007,7 +2149,7 @@ function SkillActionConfirmModal({ skill, action, busy, onClose, onConfirm }: {
   );
 }
 
-function LocalWorkspaceSection({ workspace, loading, device, selectedTool, query, busyKey, actionBusyKey, onRefresh, onOpenFolder, onViewManifest, onUninstall }: {
+function LocalWorkspaceSection({ workspace, loading, device, selectedTool, query, busyKey, actionBusyKey, onRefresh, onOpenFolder, onViewManifest, onViewEnvironment, onUninstall }: {
   workspace: LocalWorkspace | null;
   loading: boolean;
   device: Device | null;
@@ -2018,6 +2160,7 @@ function LocalWorkspaceSection({ workspace, loading, device, selectedTool, query
   onRefresh: () => void;
   onOpenFolder: (skill: LocalWorkspaceSkill) => void;
   onViewManifest: (skill: LocalWorkspaceSkill) => void;
+  onViewEnvironment: (skill: LocalWorkspaceSkill) => void;
   onUninstall: (skill: LocalWorkspaceSkill) => void;
 }) {
   const [openMenuKey, setOpenMenuKey] = useState<string | null>(null);
@@ -2061,6 +2204,7 @@ function LocalWorkspaceSection({ workspace, loading, device, selectedTool, query
                   const busy = busyKey === actionKey;
                   const opening = actionBusyKey === `open-folder:${actionKey}`;
                   const reading = actionBusyKey === `manifest:${actionKey}`;
+                  const readingEnvironment = actionBusyKey === `environment:${actionKey}`;
                   return (
                     <article className="local-skill-card" key={actionKey}>
                       <div className="local-skill-card-head">
@@ -2068,7 +2212,7 @@ function LocalWorkspaceSection({ workspace, loading, device, selectedTool, query
                         <div className="local-skill-title"><h4>{skill.name}</h4><p>{skill.slug}</p></div>
                         <div className="local-skill-menu">
                           <button aria-label={`${skill.name} 更多操作`} aria-expanded={openMenuKey === actionKey} aria-haspopup="menu" onClick={() => setOpenMenuKey((current) => current === actionKey ? null : actionKey)}>•••</button>
-                          {openMenuKey === actionKey && <div role="menu"><button role="menuitem" disabled={!online || reading} onClick={() => { setOpenMenuKey(null); onViewManifest(skill); }}>{reading ? "正在读取…" : "查看 SKILL.md"}</button></div>}
+                          {openMenuKey === actionKey && <div role="menu"><button role="menuitem" disabled={!online || reading} onClick={() => { setOpenMenuKey(null); onViewManifest(skill); }}>{reading ? "正在读取…" : "查看 SKILL.md"}</button><button role="menuitem" disabled={!online || readingEnvironment} onClick={() => { setOpenMenuKey(null); onViewEnvironment(skill); }}>{readingEnvironment ? "正在读取…" : "查看 / 编辑 env.properties"}</button></div>}
                         </div>
                       </div>
                       <p className="local-skill-description">{skill.description || "本机 Skill"}</p>
@@ -2104,6 +2248,51 @@ function LocalSkillManifestModal({ skill, content, onClose }: {
         <div className="local-manifest-path"><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><code>{skill.relativePath}/SKILL.md</code></div>
         <pre>{content || "SKILL.md 内容为空"}</pre>
         <div className="modal-actions"><button className="secondary-button" onClick={onClose}>关闭</button></div>
+      </div>
+    </div>
+  );
+}
+
+function LocalEnvironmentModal({ skill, environment, onClose, onSave }: {
+  skill: LocalWorkspaceSkill;
+  environment: EnvironmentPropertiesView;
+  onClose: () => void;
+  onSave: (values: Record<string, string>) => Promise<boolean>;
+}) {
+  const [draft, setDraft] = useState<Record<string, string>>(environment.values);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const tool = toolMeta[skill.tool];
+  const changed = Object.fromEntries(Object.entries(draft)
+    .filter(([key, value]) => environment.values[key] !== value));
+
+  async function save() {
+    if (!Object.keys(changed).length) return;
+    setSaving(true);
+    setError("");
+    const saved = await onSave(changed);
+    setSaving(false);
+    if (!saved) setError("保存没有完成，请检查本机 Bridge 是否在线。");
+  }
+
+  return (
+    <div className="modal-backdrop share-backdrop">
+      <div className="modal local-environment-modal" role="dialog" aria-modal="true" aria-labelledby="local-environment-title">
+        <button className="close-button" disabled={saving} onClick={onClose} aria-label="关闭 env.properties">×</button>
+        <span className="step-label">LOCAL ENVIRONMENT</span>
+        <h2 id="local-environment-title">{skill.name} · env.properties</h2>
+        <p className="install-lead">直接读取并保存到 {tool.name} 的本机 Skill 目录，内容不会上传到云端。</p>
+        <div className="local-manifest-path"><span className={`tool-logo ${tool.color}`}>{tool.mark}</span><code>{skill.relativePath}/{environment.path}</code></div>
+        {!environment.exists ? (
+          <div className="environment-empty"><span>ENV</span><b>该 Skill 未包含 env.properties</b><p>请先在 Skill 根目录（与 SKILL.md 同级）创建 env.properties。</p></div>
+        ) : (
+          <div className="environment-fields">
+            {Object.entries(draft).map(([key, value]) => <label key={key}><code>{key}</code><input value={value} maxLength={4096} disabled={saving} spellCheck={false} onChange={(event) => { setDraft((current) => ({ ...current, [key]: event.target.value })); setError(""); }}/></label>)}
+            {!Object.keys(draft).length && <div className="environment-empty compact"><b>文件中没有可编辑的键值</b><p>支持 KEY=value 或 KEY: value 格式。</p></div>}
+          </div>
+        )}
+        {error && <p className="detail-editor-error" role="alert">{error}</p>}
+        <div className="modal-actions"><button className="secondary-button" disabled={saving} onClick={onClose}>关闭</button>{environment.editable && Boolean(Object.keys(draft).length) && <button className="primary-button" disabled={saving || !Object.keys(changed).length} onClick={() => void save()}>{saving ? "正在保存…" : Object.keys(changed).length ? `保存 ${Object.keys(changed).length} 项修改` : "没有修改"}</button>}</div>
       </div>
     </div>
   );
@@ -2507,9 +2696,7 @@ function AuthModal({ onClose, onAuthenticated }: { onClose: () => void; onAuthen
     <div className="modal-backdrop auth-backdrop" onMouseDown={onClose}>
       <div className="modal auth-modal" role="dialog" aria-modal="true" aria-label="SkillPort 账户登录" onMouseDown={(event) => event.stopPropagation()}>
         <button className="close-button" onClick={onClose}>×</button>
-        <div className="auth-brand"><span className="brand-mark">S</span><div><b>欢迎来到 SkillPort</b><small>企业微信或邮箱账户均可登录</small></div></div>
-        <form className="wecom-auth-form" method="get" action="/api/auth/wecom"><input type="hidden" name="mode" value="qr"/><button className="wecom-auth-button" type="submit"><span>企</span><p><b>企业微信登录 / 注册</b><small>首次授权自动注册，企业微信内打开自动登录</small></p><em>→</em></button></form>
-        <div className="auth-divider"><span>或使用邮箱</span></div>
+        <div className="auth-brand"><span className="brand-mark">S</span><div><b>欢迎来到 SkillPort</b><small>使用邮箱账户登录或注册</small></div></div>
         {mode !== "forgot" && <div className="auth-tabs" role="tablist">
           <button className={mode === "login" ? "active" : ""} onClick={() => switchMode("login")}>登录</button>
           <button className={mode === "register" ? "active" : ""} onClick={() => switchMode("register")}>注册新账户</button>

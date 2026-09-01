@@ -44,13 +44,13 @@ skillport:
   public-api-base-url: ${SKILLPORT_API_PUBLIC_URL:http://localhost:8080}
   public-netty-base-url: ${SKILLPORT_NETTY_PUBLIC_URL:http://localhost:9091}
   client-release:
-    version: 1.0.36
-    date: 2026-08-31
-    title: 个人资料与密码找回
+    version: 1.0.37
+    date: 2026-09-01
+    title: Skill 环境配置管理
     changes:
-      - 右上角账户新增个人资料，可修改显示名称和当前登录密码。
-      - 登录页新增忘记密码流程，通过注册邮箱接收 6 位验证码后设置新密码。
-      - 验证码仅保存安全哈希、10 分钟有效且限制尝试次数；密码变化后旧会话自动失效。
+      - 所有 Skill 卡片新增 env.properties 配置入口，公有池支持只读查看键值。
+      - 我的 Skill 可直接修改现有配置值，并同步更新已分享公有池的下载文件。
+      - 个人工作区可通过 Bridge 查看和编辑本机 env.properties，配置内容不会上传云端。
     download-base-url: ${SKILLPORT_CLIENT_DOWNLOAD_URL:https://www.jmuyuer.com}
   wecom:
     enabled: ${WECOM_ENABLED:false}

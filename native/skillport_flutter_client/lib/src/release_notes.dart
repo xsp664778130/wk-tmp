@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'client_release.dart';
 
-const currentReleaseVersion = '1.0.36';
-const currentReleaseDate = '2026-08-31';
-const currentReleaseTitle = '个人资料与密码找回';
+const currentReleaseVersion = '1.0.37';
+const currentReleaseDate = '2026-09-01';
+const currentReleaseTitle = 'Skill 环境配置管理';
 const currentReleaseChanges = <String>[
-  '新增个人资料入口，可修改显示名称和当前登录密码。',
-  '登录页新增忘记密码，可通过注册邮箱验证码设置新密码。',
-  '验证码 10 分钟有效并限制尝试次数，密码变化后旧会话自动失效。',
+  '所有 Skill 卡片新增 env.properties 配置入口，公有池支持只读查看键值。',
+  '我的 Skill 可直接修改现有配置值，并同步更新已分享公有池的下载文件。',
+  '个人工作区可查看和编辑本机 env.properties，配置内容不会上传云端。',
 ];
 
 class ReleaseNoteData {
@@ -32,6 +32,16 @@ const bundledReleaseNotes = <ReleaseNoteData>[
     date: currentReleaseDate,
     title: currentReleaseTitle,
     changes: currentReleaseChanges,
+  ),
+  ReleaseNoteData(
+    version: '1.0.36',
+    date: '2026-08-31',
+    title: '个人资料与密码找回',
+    changes: <String>[
+      '新增个人资料入口，可修改显示名称和当前登录密码。',
+      '登录页新增忘记密码，可通过注册邮箱验证码设置新密码。',
+      '验证码 10 分钟有效并限制尝试次数，密码变化后旧会话自动失效。',
+    ],
   ),
   ReleaseNoteData(
     version: '1.0.35',

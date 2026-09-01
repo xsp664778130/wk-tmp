@@ -291,6 +291,53 @@ void main() {
       expect(await installer.readLocalSkillManifest(item), content);
     });
 
+    test('reads and updates env.properties without changing comments or other keys', () async {
+      final directory = await Directory(
+        path.join(home.path, '.codex', 'skills', 'configured-skill'),
+      ).create(recursive: true);
+      await File(path.join(directory.path, 'SKILL.md')).writeAsString(
+        '---\nname: Configured Skill\n---\n',
+      );
+      final environmentFile = File(path.join(directory.path, 'env.properties'));
+      await environmentFile.writeAsString(
+        '# service settings\nAPI_URL = https://old.example.com\nTIMEOUT: 30\n',
+      );
+      final item = (await installer.scanLocalSkills(
+        toolIds: const <String>['codex'],
+      )).single;
+
+      final environment = await installer.readLocalSkillEnvironment(item);
+      expect(environment.exists, isTrue);
+      expect(environment.path, 'env.properties');
+      expect(environment.values['API_URL'], 'https://old.example.com');
+
+      final updated = await installer.updateLocalSkillEnvironment(
+        item,
+        const <String, String>{'API_URL': 'https://new.example.com'},
+      );
+      expect(updated.values['API_URL'], 'https://new.example.com');
+      expect(updated.values['TIMEOUT'], '30');
+      expect(
+        await environmentFile.readAsString(),
+        '# service settings\nAPI_URL = https://new.example.com\nTIMEOUT: 30\n',
+      );
+    });
+
+    test('reports a missing local env.properties without creating a file', () async {
+      final directory = await Directory(
+        path.join(home.path, '.codex', 'skills', 'plain-skill'),
+      ).create(recursive: true);
+      await File(path.join(directory.path, 'SKILL.md')).writeAsString('# Plain\n');
+      final item = (await installer.scanLocalSkills(
+        toolIds: const <String>['codex'],
+      )).single;
+
+      final environment = await installer.readLocalSkillEnvironment(item);
+
+      expect(environment.exists, isFalse);
+      expect(File(path.join(directory.path, 'env.properties')).existsSync(), isFalse);
+    });
+
     test(
       'rejects an archive traversal path before writing outside destination',
       () async {

@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/skills")
@@ -105,6 +106,22 @@ public class SkillController {
         return SkillResponse.from(result.skill(), result.publicPoolSynchronized());
     }
 
+    @GetMapping("/{skillId}/environment")
+    public SkillEnvironmentResponse environment(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String skillId) {
+        return SkillEnvironmentResponse.from(skillService.environment(user.userId(), skillId), true);
+    }
+
+    @PatchMapping("/{skillId}/environment")
+    public SkillEnvironmentResponse updateEnvironment(
+            @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
+            @PathVariable String skillId,
+            @Valid @RequestBody EnvironmentUpdateRequest request) {
+        var result = skillService.updateEnvironment(user.userId(), skillId, request.values());
+        return SkillEnvironmentResponse.from(result.environment(), true);
+    }
+
     @GetMapping("/{skillId}/avatar")
     public ResponseEntity<InputStreamResource> avatar(
             @RequestAttribute(RequestUserFilter.REQUEST_USER_ATTRIBUTE) RequestUser user,
@@ -163,6 +180,18 @@ public class SkillController {
                                 @NotBlank @Size(max = 2000) String description,
                                 @NotBlank @Size(max = 10000) String detail,
                                 @Size(max = 20) List<@Size(max = 500) String> usageSteps) {
+    }
+    public record EnvironmentUpdateRequest(@jakarta.validation.constraints.NotNull
+                                           @jakarta.validation.constraints.Size(min = 1, max = 200)
+                                           Map<String, String> values) {
+    }
+    public record SkillEnvironmentResponse(boolean exists, String path, Map<String, String> values,
+                                           boolean editable) {
+        static SkillEnvironmentResponse from(
+                com.skillport.server.service.SkillPackageEnvironmentService.EnvironmentView view,
+                boolean editable) {
+            return new SkillEnvironmentResponse(view.exists(), view.path(), view.values(), editable && view.exists());
+        }
     }
     public record SkillListResponse(List<SkillResponse> skills) {
     }
